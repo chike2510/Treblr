@@ -2,19 +2,19 @@ import { create } from 'zustand';
 import api from '../lib/api';
 
 const useStore = create((set, get) => ({
-  token:       localStorage.getItem('treblr_token') || null,
-  user:        null,
-  isLoading:   true,
-  songs:       [],
-  draftSongs:  [],
+  token:        localStorage.getItem('treblr_token') || null,
+  user:         null,
+  isLoading:    true,
+  songs:        [],
+  draftSongs:   [],
   recordedSongs:[],
-  events:      [],
-  chart:       null,
-  leaderboard: [],
-  toast:       null,
-  panel:       'dashboard',
-  isAdvancing: false,
-  lastResult:  null,
+  events:       [],
+  chart:        null,
+  leaderboard:  [],
+  toast:        null,
+  panel:        'dashboard',
+  isAdvancing:  false,
+  lastResult:   null,
 
   // ── AUTH ──────────────────────────────────────────────────────────────────
   login: async (email, password) => {
@@ -36,13 +36,22 @@ const useStore = create((set, get) => ({
     set({ token: null, user: null, songs: [], events: [], isLoading: false });
   },
 
-  // ── GAME STATE ────────────────────────────────────────────────────────────
+  // ── GAME STATE — never touches isLoading ──────────────────────────────────
   loadState: async () => {
     try {
-      set({ isLoading: true });
       const { data } = await api.get('/game/state');
-      set({ user: data.user, songs: data.songs||[], draftSongs: data.draftSongs||[], recordedSongs: data.recordedSongs||[], events: data.events||[], isLoading: false });
-    } catch { set({ isLoading: false }); }
+      set({
+        user:          data.user,
+        songs:         data.songs         || [],
+        draftSongs:    data.draftSongs    || [],
+        recordedSongs: data.recordedSongs || [],
+        events:        data.events        || [],
+        isLoading:     false
+      });
+    } catch (err) {
+      console.error('loadState error:', err);
+      set({ isLoading: false });
+    }
   },
 
   // ── ACTIONS ───────────────────────────────────────────────────────────────
@@ -51,10 +60,21 @@ const useStore = create((set, get) => ({
       const { data } = await api.post('/game/action', { action, params });
       if (data.success) {
         set(s => ({
-          user: s.user ? { ...s.user, career: data.career||s.user.career, attributes: data.attributes||s.user.attributes, social: data.social||s.user.social, gameState: { ...s.user.gameState, actionsThisWeek: s.user.gameState.maxActionsPerWeek - (data.actionsRemaining ?? 0) } } : null,
+          user: s.user ? {
+            ...s.user,
+            career:     data.career     || s.user.career,
+            attributes: data.attributes || s.user.attributes,
+            social:     data.social     || s.user.social,
+            gameState: {
+              ...s.user.gameState,
+              actionsThisWeek: s.user.gameState.maxActionsPerWeek - (data.actionsRemaining ?? 0)
+            }
+          } : null,
           lastResult: data
         }));
-        if (['writeSong','recordSong','releaseSingle'].includes(action)) await get().loadState();
+        if (['writeSong','recordSong','releaseSingle'].includes(action)) {
+          await get().loadState();
+        }
         get().toast2(data.message, 'success');
       } else {
         get().toast2(data.message, 'error');
@@ -80,7 +100,10 @@ const useStore = create((set, get) => ({
       get().toast2(`📅 Week ${data.newWeek}, Year ${data.newYear}`, 'info');
       set({ isAdvancing: false });
       return data;
-    } catch (err) { set({ isAdvancing: false }); throw err; }
+    } catch (err) {
+      set({ isAdvancing: false });
+      throw err;
+    }
   },
 
   // ── EVENT CHOICE ──────────────────────────────────────────────────────────
@@ -89,22 +112,31 @@ const useStore = create((set, get) => ({
     if (data.success) {
       get().toast2(data.message, 'success');
       await get().loadState();
-      set(s => ({ events: s.events.map(e => e._id === eventId ? { ...e, choiceMade: choiceId } : e) }));
+      set(s => ({
+        events: s.events.map(e => e._id === eventId ? { ...e, choiceMade: choiceId } : e)
+      }));
     }
     return data;
   },
 
   // ── CHART / LEADERBOARD ───────────────────────────────────────────────────
   loadChart: async () => {
-    try { const { data } = await api.get('/charts/global'); set({ chart: data.chart }); } catch {}
+    try {
+      const { data } = await api.get('/charts/global');
+      set({ chart: data.chart });
+    } catch {}
   },
 
   loadLeaderboard: async () => {
-    try { const { data } = await api.get('/artists/leaderboard'); set({ leaderboard: data.leaderboard||[] }); } catch {}
+    try {
+      const { data } = await api.get('/artists/leaderboard');
+      set({ leaderboard: data.leaderboard || [] });
+    } catch {}
   },
 
   // ── UI ────────────────────────────────────────────────────────────────────
   setPanel: (p) => set({ panel: p }),
+
   toast2: (message, type = 'info') => {
     set({ toast: { message, type, id: Date.now() } });
     setTimeout(() => set({ toast: null }), 4000);

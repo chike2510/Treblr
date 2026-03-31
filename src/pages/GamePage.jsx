@@ -3,14 +3,17 @@ import useStore from '../store/gameStore';
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
 import Dashboard from '../components/panels/Dashboard';
-import ActionsPanel from '../components/panels/ActionsPanel';
-import StudioPanel from '../components/panels/StudioPanel';
-import ChartsPanel from '../components/panels/ChartsPanel';
-import SocialPanel from '../components/panels/SocialPanel';
-import EventsPanel from '../components/panels/EventsPanel';
-import LeaderboardPanel from '../components/panels/LeaderboardPanel';
+import { ActionsPanel, StudioPanel, ChartsPanel, SocialPanel, EventsPanel, LeaderboardPanel } from '../components/panels/allPanels.jsx';
 
-const PANELS = { dashboard: Dashboard, actions: ActionsPanel, studio: StudioPanel, charts: ChartsPanel, social: SocialPanel, events: EventsPanel, leaderboard: LeaderboardPanel };
+const PANELS = {
+  dashboard:   Dashboard,
+  actions:     ActionsPanel,
+  studio:      StudioPanel,
+  charts:      ChartsPanel,
+  social:      SocialPanel,
+  events:      EventsPanel,
+  leaderboard: LeaderboardPanel
+};
 
 export default function GamePage() {
   const { panel, loadState, loadChart, loadLeaderboard } = useStore();

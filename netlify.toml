@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Only auto-deploy on main branch — dev/feature branches don't burn credits
+[context.production]
+  command = "npm run build"
+
+[context.branch-deploy]
+  command = "echo 'Branch deploy skipped to save build minutes'"
+
+# Cache node_modules between builds
+[[plugins]]
+  package = "@netlify/plugin-caching"
+
+[dev]
+  command = "npm run dev"
+  port = 5173

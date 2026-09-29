@@ -4,10 +4,10 @@ import { NPC_ARTISTS, NPC_TIERS } from '../data/artists';
 import { calcSongQuality } from '../engine/qualityCalc';
 import { clamp, fmt, fmtN as formatCurrency, uid } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
-import { canSpendActionPoint, getActionPoints, spendActionPoints } from '../engine/actionPoints';
+import { canSpendActionPoint, spendActionPoints } from '../engine/actionPoints';
 import { getCollaborationPrice, getProducerPrice, hasPremiumProducerAccess } from '../engine/careerPerks';
 import { optimizeArtwork } from '../engine/coverArt';
-import { Aurora, Magnetic, SectionLabel, SubNav, ResourcePill } from '../components/Living';
+import { Magnetic, SectionLabel, SubNav, ResourcePill } from '../components/Living';
 
 const RELEASE_COOLDOWN = { single: 2, ep: 6, album: 12 };
 
@@ -84,7 +84,6 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
     if (route && route !== section) setSection(route);
   }, [gs.appRoutes?.music, section]);
   const genreData = GENRES.find(g => g.id === gs.genre);
-  const actionPoints = getActionPoints(gs);
   const canAct = canSpendActionPoint(gs);
   const changeSection = (id) => {
     setSection(id);
@@ -439,19 +438,13 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   };
 
   return (
-    <div className="tab-content li-scene">
-      <Aurora c1="#1DB954" c2="#7C6CFF" c3="#ffffff" />
+    <div className={`tab-content li-scene music-screen music-screen-${section}`}>
       <div className="li-scene-content">
       <div className="editorial-page-head" style={{ padding:'0 0 12px' }}>
         <div className="page-kicker">MUSIC & STUDIO</div>
         <h1>{SUB_NAV.find(item => item.id === section)?.label || 'Catalog'}</h1>
       </div>
       <SubNav items={SUB_NAV} active={section} onChange={changeSection} />
-      <div className="li-glass" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 13px',marginBottom:14}}>
-        <div><div style={{fontSize:10,letterSpacing:1.2,textTransform:'uppercase',color:'var(--text-muted)'}}>Weekly Actions</div><div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>Social posts use Social Energy instead.</div></div>
-        <div style={{fontFamily:'var(--font-mono)',fontSize:18,fontWeight:700,color:actionPoints?'var(--li-accent-lt)':'var(--accent-orange)'}}>{actionPoints}<span style={{fontSize:11,color:'var(--text-muted)'}}> / 3</span></div>
-      </div>
-
       {gs.inPrison && (
         <div className="li-glass" style={{ borderColor:'rgba(220,38,38,0.3)', background:'rgba(220,38,38,0.08)', padding:'12px 14px', marginBottom:16, textAlign:'center' }}>
           <div style={{ fontSize:14, fontWeight:700, color:'var(--accent-red)', letterSpacing:2 }}>BEHIND BARS</div>

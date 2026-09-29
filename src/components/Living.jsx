@@ -68,10 +68,9 @@ export const SectionLabel = ({ children, action, onAction }) => (
 );
 
 export const SubNav = ({ items, active, onChange }) => (
-  <div className="soc-scroll-x li-glass" role="tablist" aria-label="Section navigation" style={{ gap:4, padding:4, marginBottom:18, borderRadius:14 }}>
+  <div className="section-nav" role="tablist" aria-label="Section navigation" data-count={items.length}>
     {items.map((item) => (
-      <button key={item.id} type="button" role="tab" aria-selected={active===item.id} onClick={() => onChange(item.id)} className="soc-pill"
-        style={{ flexShrink:0, padding:'8px 16px', background:active===item.id?'var(--li-accent)':'transparent', color:active===item.id?'#fff':'var(--text-muted)', fontSize:12.5 }}>
+      <button key={item.id} type="button" role="tab" aria-selected={active===item.id} onClick={() => onChange(item.id)} className="section-tab">
         {item.label}
       </button>
     ))}

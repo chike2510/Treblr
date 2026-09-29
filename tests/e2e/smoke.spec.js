@@ -14,22 +14,56 @@ async function startCareer(page, stageName = 'Smoke Artist', currency = 'NGN') {
   await page.getByRole('button', { name:'NEXT →' }).click();
   await page.getByRole('radio', { name:/Social Media Star/ }).click();
   await page.getByRole('button', { name:'BEGIN CAREER →' }).click();
-  await expect(page.getByText('Next Objective')).toBeVisible();
+  await expect(page.getByRole('heading', { name:'The week in your career' })).toBeVisible();
   await expect(page.getByLabel('3 of 3 weekly action points remaining')).toBeVisible();
 }
 
-test('mobile glass navigation stays readable and every primary destination remains reachable', async ({ page }) => {
+async function dismissTestEventPrompt(page) {
+  const overlay = page.locator('.overlay');
+  if (!await overlay.isVisible().catch(() => false)) return;
+  const acknowledgement = overlay.getByRole('button', { name:'GOT IT', exact:true });
+  if (await acknowledgement.isVisible().catch(() => false)) {
+    await acknowledgement.click();
+  } else {
+    // A choice prompt belongs only to this isolated test career; take its first modeled option.
+    await overlay.getByRole('button').first().click();
+  }
+}
+
+test('mobile task navigation stays readable and every primary destination remains reachable', async ({ page }, testInfo) => {
   await page.setViewportSize({ width:430, height:900 });
   await startCareer(page, 'Glass Nav Artist');
+  const capture = async (name) => {
+    if (process.env.CAPTURE_ARTIFACTS === '1') {
+      await page.waitForTimeout(750);
+      await page.screenshot({ path:testInfo.outputPath(`redesign-${name}.png`), fullPage:true });
+    }
+  };
+  await capture('home');
   const nav = page.locator('.tab-bar');
   await expect(nav).toBeVisible();
   await expect(nav.getByRole('button')).toHaveCount(5);
-  for (const name of ['Home', 'Music', 'Career', 'News', 'Profile']) {
+  for (const [name, screenshot] of [['Music','music-catalog'], ['Career','career-overview'], ['News','news-wire'], ['Profile','profile-dossier']]) {
     const button = nav.getByRole('button', { name, exact:true });
     await expect(button).toBeVisible();
     await button.click();
+    if (name !== 'Home') await capture(screenshot);
   }
   expect(await nav.evaluate(element => getComputedStyle(element).backdropFilter)).toContain('blur(16px)');
+});
+
+test('390px phone task indexes expose every nested route without horizontal scrolling', async ({ page }) => {
+  await page.setViewportSize({ width:390, height:844 });
+  await startCareer(page, 'Narrow Phone Artist');
+  for (const [primary, count] of [['Music', 6], ['Career', 6], ['News', 4], ['Profile', 4]]) {
+    await page.getByRole('button', { name:primary, exact:true }).click();
+    const index = page.locator('.section-nav');
+    await expect(index).toBeVisible();
+    await expect(index.getByRole('tab')).toHaveCount(count);
+    for (const tab of await index.getByRole('tab').all()) await expect(tab).toBeVisible();
+    expect(await index.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  }
 });
 
 test('chosen display currency persists without converting the simulation balance', async ({ page }) => {
@@ -117,6 +151,21 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await expect(page.getByText('Listeners by country or city', { exact:false })).toBeVisible();
   await expect(page.locator('.toast')).toBeHidden({ timeout:5_000 });
 
+  await page.getByRole('button', { name:'Home', exact:true }).click();
+  await page.getByRole('button', { name:'END WEEK', exact:true }).click();
+  await expect(page.getByRole('dialog', { name:'Week 1' })).toBeVisible();
+  await dismissTestEventPrompt(page);
+  await page.getByRole('button', { name:/CONTINUE/ }).click();
+  if (process.env.CAPTURE_ARTIFACTS === '1') {
+    await page.locator('.home-scroll').evaluate(element => { element.scrollTop = 0; });
+    await page.waitForTimeout(750);
+    await page.screenshot({ path:testInfo.outputPath('redesign-home-week-2.png'), fullPage:true });
+  }
+  await page.getByRole('button', { name:'Music', exact:true }).click();
+  await page.getByRole('tab', { name:'Performance', exact:true }).click();
+  await expect(page.getByRole('img', { name:/1 closed weeks/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name:title })).toBeVisible();
+
   if (process.env.CAPTURE_ARTIFACTS === '1') {
     await page.screenshot({ path:testInfo.outputPath('treblr-mobile-performance.png'), fullPage:true });
   }
@@ -167,7 +216,7 @@ test('1440px desktop exposes the requested left navigation and career routes', a
   await expect(page.getByRole('heading', { name:'Release' })).toBeVisible();
   await page.locator('.desktop-sidebar').getByRole('button', { name:'News', exact:true }).click();
   await page.locator('.desktop-sidebar').getByRole('button', { name:'Inbox', exact:true }).click();
-  await expect(page.getByText('CAREER INBOX', { exact:true })).toBeVisible();
+  await expect(page.getByText('ACTIVITY LEDGER', { exact:true })).toBeVisible();
   await page.locator('.desktop-sidebar').getByRole('button', { name:'Settings', exact:true }).click();
   await expect(page.getByRole('heading', { name:'Settings' })).toBeVisible();
 

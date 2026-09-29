@@ -1,333 +1,186 @@
-import { useState } from 'react';
-import { ERAS } from '../data/constants';
-import { fmt, fmtN as formatCurrency, getEra } from '../engine/utils';
-import { NPC_ARTISTS } from '../data/artists';
-import { CITIES } from '../data/constants';
-import { getNextObjective } from '../engine/objectives';
-import { getCityDemand, getCityScene } from '../engine/cityScene';
-import { getActionPoints, WEEKLY_ACTION_POINTS } from '../engine/actionPoints';
-import { Aurora, Magnetic, StatNumber, SectionLabel, ResourcePill } from '../components/Living';
+import { ERAS, CITIES, GENRES } from '../data/constants';
+import { fmt, fmtN as formatCurrency, getEra, getTimeLabel } from '../engine/utils';
+import { getActionPoints } from '../engine/actionPoints';
+import { PlayerAvatar } from '../components/Living';
 
-const ERA_ORDER = [...ERAS];
-
-// Safe news bolding — no dangerouslySetInnerHTML
-const BoldedNews = ({ text }) => {
-  const parts = text.split(/("(?:[^"]+)")/g);
-  return (
-    <span>
-      {parts.map((part, i) =>
-        part.startsWith('"') && part.endsWith('"')
-          ? <strong key={i} style={{ color:'var(--text-primary)' }}>{part}</strong>
-          : <span key={i}>{part}</span>
-      )}
-    </span>
-  );
+const TYPE_LABELS = {
+  pos: 'CAREER UPDATE',
+  neg: 'RISK / FINANCE',
+  milestone: 'MILESTONE',
+  npc: 'INDUSTRY',
+  '': 'JOURNAL',
 };
 
-const NPC_AVATARS = {
-  taylor:'av_01_01.png', drake:'av_01_02.png', kendrick:'av_01_03.png',
-  billie:'av_01_04.png', weeknd:'av_01_05.png', burna:'av_01_06.png',
-  tyla:'av_01_07.png',   sza:'av_01_08.png',   wizkid:'av_02_05.png',
+const TYPE_COLORS = {
+  pos: 'var(--accent-green)',
+  neg: 'var(--accent-red)',
+  milestone: 'var(--accent-gold-lt)',
+  npc: 'var(--text-secondary)',
+  '': 'var(--text-muted)',
 };
 
-const NpcAvatar = ({ npc, size=32 }) => {
-  const [err, setErr] = useState(false);
-  const file = NPC_AVATARS[npc?.id];
-  return (
-    <div style={{ width:size, height:size, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:(npc?.color||'#444')+'30' }}>
-      {file&&!err
-        ? <img src={`/assets/avatars/${file}`} style={{width:'100%',height:'100%',objectFit:'cover'}} onError={()=>setErr(true)}/>
-        : <div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:size*0.38,color:npc?.color||'#aaa'}}>{(npc?.name||'?')[0]}</div>
-      }
-    </div>
-  );
+const MOVE_ROUTES = {
+  record: ['create', 'record'],
+  release: ['create', 'release'],
+  catalog: ['create', 'catalog'],
+  performance: ['create', 'performance'],
+  training: ['create', 'train'],
+  jobs: ['create', 'jobs'],
+  tour: ['business', 'tour'],
+  money: ['business', 'money'],
+  career: ['business', 'overview'],
 };
 
-const COVER_POOL = Array.from({length:27},(_,i)=>{
-  const row=Math.floor(i/9)+1, col=(i%9)+1;
-  return `cov_${String(row).padStart(2,'0')}_${String(col).padStart(2,'0')}.png`;
-});
-
-export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndingWeek }) {
+export default function HomeTab({ gs, patch, endWeek, isEndingWeek }) {
   const fmtN = (amount) => formatCurrency(amount, gs.currency);
-  const era     = getEra(gs.fans);
-  const eraIdx  = ERA_ORDER.findIndex(e => e.label===era.label);
-  const nextEra = ERA_ORDER[eraIdx+1];
-  const progress = nextEra ? Math.min(100, Math.round(((gs.fans-era.minFans)/(nextEra.minFans-era.minFans))*100)) : 100;
-
-  const topChartEntry = (gs.charts?.streams||[]).find(e=>e.isPlayer);
-  const releasedTracks = (gs.catalog||[]).filter(t=>t.released);
-  const latestTrack = releasedTracks[releasedTracks.length-1];
-  const newsItems = (gs.news||[]).slice(0,8);
-  const topNpcs = NPC_ARTISTS.filter(n=>n.tier==='S'||n.tier==='A').slice(0,5);
-  const chartTop5 = (gs.charts?.streams||[]).slice(0,5);
-  const objective = getNextObjective(gs);
-  const objectiveRoute = ({
-    CREATE:['create','record'], RECORD:['create','record'], RELEASE:['create','release'],
-    COLLAB:['business','network'], PROJECT:['create','catalog'], TOUR:['business','tour'],
-    CAMPAIGN:['business','industry'], CONTRACT:['business','industry'], GROW:['social','community'], LEGACY:['profile','career'],
-  })[objective.action] || ['create','record'];
-  const objectiveTab = objectiveRoute[0];
-  const goTo = (tab, route) => {
-    const routeKey = { create:'music', business:'career', social:'news', profile:'profile' }[tab];
-    patch(routeKey && route ? { tab, appRoutes:{ ...(gs.appRoutes || {}), [routeKey]:route } } : { tab });
-  };
+  const era = getEra(gs.fans);
+  const nextEra = ERAS.find(item => item.minFans > Number(gs.fans || 0));
+  const progress = nextEra
+    ? Math.max(0, Math.min(100, Math.round((Number(gs.fans || 0) - era.minFans) / Math.max(1, nextEra.minFans - era.minFans) * 100)))
+    : 100;
   const city = CITIES.find(item => item.id === gs.city) || CITIES[0];
-  const scene = getCityScene(city.id);
-  const localDemand = getCityDemand(city.id, gs.genre);
+  const genre = GENRES.find(item => item.id === gs.genre)?.label || gs.genre || 'Music';
+  const released = (gs.catalog || []).filter(track => track.released);
+  const unreleased = (gs.catalog || []).filter(track => !track.released);
+  const latest = released.reduce((best, track) => !best || Number(track.releaseWeek || 0) > Number(best.releaseWeek || 0) ? track : best, null);
+  const latestSample = latest?.weeklyHistory?.at(-1) || null;
+  const report = gs.lastWeekReport || null;
+  const entries = (gs.news || []).slice(0, 3);
+  const actions = getActionPoints(gs);
+  const weeksUntilRelease = Math.max(0, Number(gs.lastReleaseWeek ?? -99) + 2 - Number(gs.totalWeeks || 0));
+  const routeKey = { create: 'music', business: 'career', social: 'news', profile: 'profile' };
 
-  const newsColor = {
-    pos:'var(--accent-green)', neg:'var(--accent-red)',
-    milestone:'var(--accent-gold)', npc:'var(--li-accent-lt)', '':'var(--text-muted)',
+  const goTo = (destination) => {
+    const [tab, route] = MOVE_ROUTES[destination] || ['business', 'overview'];
+    const key = routeKey[tab];
+    patch({ tab, appRoutes: { ...(gs.appRoutes || {}), ...(key ? { [key]: route } : {}) } });
   };
+
+  const moves = [];
+  if (gs.inPrison) {
+    moves.push({ id: 'rest', destination: 'training', label: 'Rest and recover', note: `${gs.prisonWeeksLeft || 0} week${gs.prisonWeeksLeft === 1 ? '' : 's'} remaining · only rest is available`, cost: '+40 energy · 1 AP' });
+  } else {
+    if (unreleased.length) {
+      moves.push({ id: 'release', destination: 'release', label: `Plan a release${unreleased.length > 1 ? ` · ${unreleased.length} in the vault` : ''}`, note: weeksUntilRelease ? `Release cooldown · ${weeksUntilRelease} week${weeksUntilRelease === 1 ? '' : 's'} remaining` : 'Choose the campaign tier and review its actual effects', cost: '1 AP' });
+    } else if (!released.length) {
+      moves.push({ id: 'record', destination: 'record', label: 'Record the first track', note: 'Choose a producer and optional feature in the Studio', cost: '1 AP · 25 energy · fee varies' });
+    } else {
+      moves.push({ id: 'performance', destination: 'performance', label: 'Review release performance', note: latest ? `Latest: ${latest.title} · ${latestSample ? `Week ${latestSample.week} streams` : 'first result arrives at week close'}` : 'Open the live release ledger', cost: 'No AP' });
+    }
+    if (gs.activeJob) {
+      moves.push({ id: 'job', destination: 'jobs', label: 'Check active work', note: `${gs.activeJob.label} · ${gs.activeJob.weeksLeft} week${gs.activeJob.weeksLeft === 1 ? '' : 's'} left`, cost: `${fmtN(gs.activeJob.weeklyPay || 0)}/week` });
+    } else {
+      moves.push({ id: 'job', destination: 'jobs', label: 'Compare available work', note: 'Weekly pay, duration, requirements and risk are shown before you accept', cost: '1 AP to take a job' });
+    }
+    if (Number(gs.energy || 0) < 85) {
+      moves.push({ id: 'train', destination: 'training', label: 'Train or take a rest day', note: 'Skill training is +3; genre mastery is +2', cost: '1 AP · 15 energy to train' });
+    } else {
+      moves.push({ id: 'money', destination: 'money', label: 'Review the weekly cash ledger', note: report ? `Last settled · Week ${report.week}` : 'Your first statement arrives when a week closes', cost: 'No AP' });
+    }
+  }
 
   return (
-    <div className="tab-content li-scene" style={{ padding:0 }}>
-      <Aurora c1="#C8922A" c2="#E8B048" c3="#ffffff" />
-      <div className="li-scene-content">
-
-      {/* ── HERO SECTION ─────────────────────────────────────────────── */}
-      <div style={{ position:'relative', minHeight:200, overflow:'hidden' }}>
-        {latestTrack?.coverArt && (
-          <img src={latestTrack.coverArt} style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', opacity:0.15, filter:'blur(20px)', transform:'scale(1.1)' }} />
-        )}
-        {!latestTrack?.coverArt && (
-          <img src={`/assets/covers/${COVER_POOL[(gs.totalWeeks||0)%COVER_POOL.length]}`} style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', opacity:0.08, filter:'blur(24px)', transform:'scale(1.1)' }} onError={e=>e.target.style.display='none'} />
-        )}
-        <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg,rgba(5,5,9,0.2) 0%,rgba(5,5,9,0.9) 100%)' }}/>
-
-        <div style={{ position:'relative', padding:'20px 16px 16px' }}>
-          <div style={{ display:'flex', alignItems:'flex-end', gap:14, marginBottom:16 }}>
-            <div style={{ width:72, height:72, borderRadius:'50%', overflow:'hidden', border:'2px solid rgba(200,146,42,.55)', boxShadow:'0 0 0 4px rgba(200,146,42,.12)', flexShrink:0, background:'var(--surface-2)' }}>
-              {gs.avatarUrl
-                ? <img src={gs.avatarUrl} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                : <div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--li-font-display)',fontSize:28,color:'var(--text-muted)'}}>{(gs.stageName||'?')[0]}</div>
-              }
-            </div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontFamily:'var(--li-font-display)', fontSize:26, fontWeight:700, letterSpacing:-0.5, lineHeight:1.05, marginBottom:5 }}>{gs.stageName?.toUpperCase()}</div>
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <div style={{ fontSize:11, color:'var(--li-accent-lt)', fontWeight:700, textTransform:'uppercase', letterSpacing:1 }}>{era.label}</div>
-                {(gs.awards||[]).length>0 && (
-                  <div style={{ display:'flex', alignItems:'center', gap:3, background:'rgba(255,215,0,0.12)', borderRadius:20, padding:'2px 8px' }}>
-                    <svg viewBox="0 0 24 24" style={{width:10,height:10,fill:'#FFD700'}}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    <span style={{fontSize:9,color:'#FFD700',fontWeight:700}}>{gs.awards.length}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div style={{ textAlign:'right', flexShrink:0 }}>
-              <StatNumber value={gs.money} format={fmtN} className="li-count" style={{ fontSize:18, fontWeight:700, color:'var(--accent-green)', display:'block' }} />
-              <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:1 }}>net worth</div>
-            </div>
-          </div>
-
-          {/* Era progress bar */}
-          <div style={{ marginBottom:16 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-              <span style={{ fontSize:11, color:'var(--text-muted)' }}>{fmt(gs.fans)} fans</span>
-              {nextEra && <span style={{ fontSize:11, color:'var(--li-accent-lt)' }}>→ {fmt(nextEra.minFans)} · {nextEra.label}</span>}
-            </div>
-            <div style={{ height:4, background:'rgba(255,255,255,0.08)', borderRadius:4, overflow:'hidden' }}>
-              <div style={{ height:'100%', width:`${progress}%`, background:'var(--li-accent)', borderRadius:4, transition:'width 600ms var(--li-ease-smooth)' }}/>
-            </div>
-          </div>
-
-          {/* END WEEK button */}
-          <Magnetic strength={4} onClick={isEndingWeek ? undefined : endWeek} disabled={isEndingWeek}
-            className={`home-end-week-action${isEndingWeek ? ' is-ending' : ''}`}
-            style={{ width:'100%', padding:'14px 0', borderRadius:8, fontFamily:'var(--font-display)', fontSize:15, fontWeight:700, letterSpacing:1, display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
-            {isEndingWeek ? 'PROCESSING...' : 'END WEEK'}
-            {!isEndingWeek && <svg viewBox="0 0 24 24" style={{width:18,height:18,fill:'none',stroke:'currentColor',strokeWidth:2.5}}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>}
-          </Magnetic>
+    <div className="tab-content home-content">
+      <div className="home-scroll">
+      <header className="home-edition">
+        <div className="home-edition-meta">
+          <span>CAREER BRIEFING</span>
+          <span>{getTimeLabel(gs.totalWeeks || 0, gs.startYear)}</span>
         </div>
-      </div>
+        <h1>The week in your career</h1>
+        <p>Week {Number(gs.totalWeeks || 0) + 1} · {city.label} · {genre}</p>
+      </header>
 
-      {/* ── SNAPSHOT — packaged glass strip, not a stat grid ─────────────── */}
-      <div style={{ padding:'0 16px' }}>
-        <div className="li-glass li-stagger" style={{ '--i':0, display:'flex', padding:'14px 0', marginBottom:20 }}>
-          {[
-            { l:'Clout', v:gs.clout, c:'var(--li-accent-lt)' },
-            { l:'Income', v:fmtN(gs.weeklyStreamIncome||0), c:'var(--accent-green)' },
-            { l:'Chart', v:topChartEntry?`#${topChartEntry.position}`:'—', c:'var(--accent-gold-lt)' },
-            { l:'Rep', v:`${gs.reputation||50}`, c:gs.reputation>=60?'var(--accent-green)':gs.reputation>=40?'var(--accent-gold)':'var(--accent-red)' },
-          ].map(({l,v,c},i)=>(
-            <div key={l} style={{ flex:1, textAlign:'center', borderLeft:i>0?'1px solid var(--li-glass-border)':'none' }}>
-              <div style={{ fontSize:9, color:'var(--text-muted)', letterSpacing:1.5, textTransform:'uppercase', marginBottom:5 }}>{l}</div>
-              <div style={{ fontFamily:'var(--font-mono)', fontSize:14, fontWeight:700, color:c }}>{v}</div>
-            </div>
-          ))}
+      <section className="home-dossier" aria-label="Career identity and progression">
+        <PlayerAvatar gs={gs} size={58} ring="var(--accent-gold)" />
+        <div className="home-dossier-copy">
+          <span className="home-dossier-kicker">CURRENT CHAPTER</span>
+          <strong>{era.label}</strong>
+          <span>{genre} · {city.label}</span>
         </div>
-
-        <div className="li-glass li-stagger" style={{ '--i':1, display:'grid', gridTemplateColumns:'1fr auto', gap:12, alignItems:'center', padding:14, marginBottom:20 }}>
-          <div style={{ minWidth:0 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, marginBottom:5 }}>
-              <div style={{ fontSize:9, color:'var(--accent-gold-lt)', letterSpacing:1.5, textTransform:'uppercase' }}>Next Objective</div>
-              <div style={{ fontSize:10, color:'var(--text-muted)' }}>{Math.round((objective.progress || 0) * 100)}% progress</div>
-            </div>
-            <div style={{ fontFamily:'var(--li-font-display)', fontWeight:700, fontSize:15 }}>{objective.title}</div>
-            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:3, lineHeight:1.4 }}>{objective.detail}</div>
-            <div style={{ height:3, background:'var(--li-glass-border)', borderRadius:2, overflow:'hidden', marginTop:8 }}>
-              <div style={{ width:`${Math.max(0,Math.min(100,(objective.progress || 0) * 100))}%`, height:'100%', background:'var(--accent-gold)', borderRadius:2 }} />
-            </div>
-          </div>
-          <Magnetic strength={4} onClick={() => goTo(objectiveTab, objectiveRoute[1])} className="soc-glass-btn" style={{ padding:'9px 11px', whiteSpace:'nowrap', fontSize:10, fontWeight:700 }}>
-            {objectiveTab.toUpperCase()} →
-          </Magnetic>
-          <div style={{ gridColumn:'1 / -1', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--li-glass-border)', paddingTop:9 }}>
-            <span style={{ fontSize:10, color:'var(--text-muted)' }}>{city.label} · {city.scene}</span>
-            <span style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--accent-cyan)' }}>{localDemand.toFixed(2)}× local demand · {scene.venueCapacity.toLocaleString()} venue</span>
-          </div>
-          <div style={{ gridColumn:'1 / -1' }}>
-            <ResourcePill label="Actions" value={getActionPoints(gs)} max={WEEKLY_ACTION_POINTS} color="var(--accent-gold-lt)" suffix=" AP" />
-          </div>
+        <div className="home-dossier-fans">
+          <strong>{fmt(gs.fans || 0)}</strong>
+          <span>fans</span>
         </div>
+      </section>
 
-        {/* ── ACTIVE STATUS BANNERS ─────────────────────────────────── */}
-        {gs.inPrison && (
-          <div className="li-glass li-stagger" style={{ '--i':1, padding:'12px 14px', borderColor:'rgba(214,53,72,0.3)', background:'rgba(214,53,72,0.08)', marginBottom:14, display:'flex', gap:10, alignItems:'center' }}>
-            <svg viewBox="0 0 24 24" style={{width:20,height:20,fill:'none',stroke:'var(--accent-red)',strokeWidth:2,flexShrink:0}}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <section className="home-milestone" aria-label="Career milestone progress">
+        <div className="home-section-heading">
+          <span>THE NEXT MILESTONE</span>
+          <span>{nextEra ? `${progress}%` : 'REACHED'}</span>
+        </div>
+        <div className="home-milestone-title">
+          <strong>{nextEra ? nextEra.label : 'Highest fan tier'}</strong>
+          <span>{nextEra ? `${fmt(Math.max(0, nextEra.minFans - Number(gs.fans || 0)))} fans to go` : 'Your fan-based progression is complete.'}</span>
+        </div>
+        {nextEra && <div className="home-progress-track" role="progressbar" aria-label={`Progress to ${nextEra.label}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>}
+      </section>
+
+      <section className="home-signal" aria-labelledby="home-signal-title">
+        <div className="home-section-heading"><span>CAREER SIGNAL</span><span>{latest ? `RELEASE · WEEK ${latest.releaseWeek ?? '—'}` : 'THE NEXT RECORD'}</span></div>
+        {latest ? (
+          <button type="button" className="home-release-lead" onClick={() => goTo('performance')}>
+            <span className="home-release-art">{latest.coverArt ? <img src={latest.coverArt} alt={`${latest.title} cover`} /> : <span>{latest.title?.slice(0, 1) || 'T'}</span>}</span>
+            <span className="home-release-copy">
+              <strong id="home-signal-title">{latest.title}</strong>
+              <span>{GENRES.find(item => item.id === latest.genre)?.label || latest.genre || genre} · Quality {latest.quality}</span>
+              <span className="home-release-stat">{fmt(latest.lifetimeStreams || latest.streams || 0)} lifetime streams · {latestSample ? `Week ${latestSample.week}: ${fmt(latestSample.streams)} streams` : 'First weekly result arrives when the week closes'}</span>
+            </span>
+            <span className="home-arrow" aria-hidden="true">↗</span>
+          </button>
+        ) : (
+          <div className="home-release-empty">
             <div>
-              <div style={{fontWeight:700,fontSize:13,color:'var(--accent-red)'}}>In Prison · {gs.prisonWeeksLeft} weeks left</div>
-              <div style={{fontSize:11,color:'var(--text-muted)'}}>Can't record, tour, or post while inside.</div>
+              <strong id="home-signal-title">Nothing released yet.</strong>
+              <span>{unreleased.length ? `${unreleased.length} recorded track${unreleased.length === 1 ? '' : 's'} waiting in the vault.` : 'Start with a recording session to put a track in the vault.'}</span>
             </div>
+            <button type="button" onClick={() => goTo(unreleased.length ? 'release' : 'record')}>{unreleased.length ? 'PLAN RELEASE' : 'OPEN STUDIO'} <span aria-hidden="true">→</span></button>
           </div>
         )}
+      </section>
 
-        {gs.tourActive && gs.tourData && (
-          <div className="li-glass li-stagger" style={{ '--i':1, padding:'12px 14px', borderColor:'rgba(224,112,32,0.3)', background:'rgba(224,112,32,0.08)', marginBottom:14 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
-              <div>
-                <div style={{fontSize:9,color:'var(--accent-orange)',letterSpacing:2,textTransform:'uppercase',marginBottom:2}}>On Tour</div>
-                <div style={{fontFamily:'var(--li-font-display)',fontSize:17,fontWeight:700}}>{gs.tourData.label}</div>
-              </div>
-              <div style={{textAlign:'right'}}>
-                <div style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700,color:'var(--accent-orange)'}}>{fmtN(Math.round((gs.tourData.revenue||0)/(gs.tourData.weeks||6)))}</div>
-                <div style={{fontSize:9,color:'var(--text-muted)'}}>per week</div>
-              </div>
-            </div>
-            <div style={{height:3,background:'rgba(255,255,255,0.08)',borderRadius:3,overflow:'hidden'}}>
-              <div style={{height:'100%',width:`${Math.round((((gs.tourData.weeks||6)-gs.tourWeeksLeft)/(gs.tourData.weeks||6))*100)}%`,background:'var(--accent-orange)',borderRadius:3,transition:'width 400ms var(--li-ease-smooth)'}}/>
-            </div>
-            <div style={{fontSize:10,color:'rgba(224,112,32,0.6)',marginTop:5}}>Week {(gs.tourData.weeks||6)-gs.tourWeeksLeft} of {gs.tourData.weeks||6} · Energy drains faster on the road</div>
+      <section className="home-weekly-record" aria-labelledby="home-weekly-title">
+        <div className="home-section-heading"><span id="home-weekly-title">THIS WEEK</span><span>{report ? `LAST SETTLED · WEEK ${report.week}` : 'JOURNAL'}</span></div>
+        {report && (
+          <div className="home-settled-row">
+            <span>Last settled week</span>
+            <span>{fmt(report.fansDelta || 0)} fans · {fmt(report.streamCount || 0)} streams</span>
+            <strong>{fmtN(report.revenue || 0)} income</strong>
           </div>
         )}
+        {(gs.tourActive && gs.tourData) && <div className="home-obligation"><span className="home-obligation-type">TOUR</span><span>{gs.tourData.label} · {gs.tourWeeksLeft} week{gs.tourWeeksLeft === 1 ? '' : 's'} left</span></div>}
+        {gs.activeJob && <div className="home-obligation"><span className="home-obligation-type">WORK</span><span>{gs.activeJob.label} · {fmtN(gs.activeJob.weeklyPay || 0)}/week</span></div>}
+        {gs.labelId && gs.labelId !== 'independent' && <div className="home-obligation"><span className="home-obligation-type">CONTRACT</span><span>{gs.contractWeeksLeft || 0} weeks remaining · {gs.contractObligations?.postsDue || 0} posts due this week</span></div>}
+        {entries.length ? (
+          <ol className="home-journal-list">
+            {entries.map((item, index) => <li key={`${item.week ?? 0}-${index}-${item.msg}`}>
+              <span className="home-journal-mark" style={{ background: TYPE_COLORS[item.type] || TYPE_COLORS[''] }} />
+              <span className="home-journal-copy"><strong>{TYPE_LABELS[item.type] || 'JOURNAL'} · WEEK {item.week ?? '—'}</strong><span>{item.msg}</span></span>
+            </li>)}
+          </ol>
+        ) : <p className="home-empty-copy">Your career log will record in-game events as they happen.</p>}
+        <button type="button" className="home-text-link" onClick={() => patch({ tab: 'social', appRoutes: { ...(gs.appRoutes || {}), news: 'wire' } })}>READ THE WIRE <span aria-hidden="true">→</span></button>
+      </section>
 
-        {/* ── LATEST RELEASE ────────────────────────────────────────── */}
-        {latestTrack && (
-          <>
-            <SectionLabel action={topChartEntry ? `#${topChartEntry.position} · PERFORMANCE →` : 'Performance →'} onAction={() => goTo('create','performance')}>Latest Drop</SectionLabel>
-            <div className="li-glass li-stagger" style={{ '--i':2, display:'flex', gap:14, padding:14, marginBottom:20 }}>
-              <div style={{ width:60, height:60, borderRadius:12, overflow:'hidden', background:'var(--surface-2)', flexShrink:0 }}>
-                {latestTrack.coverArt
-                  ? <img src={latestTrack.coverArt} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                  : <img src={`/assets/covers/${COVER_POOL[(gs.totalWeeks||0)%COVER_POOL.length]}`} style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
-                }
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontWeight:700, fontSize:15, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{latestTrack.title}</div>
-                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:2 }}>{gs.genre} · Q{latestTrack.quality}</div>
-                <div style={{ display:'flex', gap:12, marginTop:8 }}>
-                  <div style={{ fontSize:11 }}><span style={{ color:'var(--accent-green)', fontWeight:700 }}>{fmt(latestTrack.streams||0)}</span> <span style={{ color:'var(--text-muted)' }}>streams</span></div>
-                  <div style={{ fontSize:11 }}><span style={{ color:'var(--li-accent-lt)', fontWeight:700 }}>Wk {latestTrack.releaseWeek}</span></div>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {!latestTrack && (
-          <div className="li-glass li-stagger" style={{ '--i':2, padding:'20px', textAlign:'center', marginBottom:20 }}>
-            <svg viewBox="0 0 24 24" style={{width:32,height:32,fill:'none',stroke:'var(--text-muted)',strokeWidth:1.5,margin:'0 auto 10px',display:'block'}}><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-            <div style={{ fontSize:13, color:'var(--text-muted)' }}>No tracks released yet</div>
-            <div style={{ fontSize:11, color:'var(--text-disabled)', marginTop:4 }}>Start in the recording room; choose a producer and make the first track.</div>
-            <button type="button" className="text-link-button" style={{ marginTop:10 }} onClick={() => goTo('create','record')}>OPEN THE STUDIO →</button>
-          </div>
-        )}
-
-        {/* ── CHART PREVIEW ────────────────────────────────────────── */}
-        {chartTop5.length > 0 && (
-          <>
-            <SectionLabel action="See All →" onAction={()=>goTo('profile','charts')}>Chart Top 5</SectionLabel>
-            <div className="li-glass li-stagger" style={{ '--i':3, overflow:'hidden', marginBottom:20 }}>
-              {chartTop5.map((entry, i) => (
-                <div key={entry.id||i} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderBottom:i<4?'1px solid var(--li-glass-border)':'none', background:entry.isPlayer?'var(--li-accent-soft)':'transparent' }}>
-                  <div style={{ width:20, textAlign:'center', fontFamily:'var(--font-mono)', fontSize:13, fontWeight:700, color:i<3?'var(--accent-gold-lt)':'var(--text-muted)', flexShrink:0 }}>{i+1}</div>
-                  <div style={{ width:36, height:36, borderRadius:8, overflow:'hidden', background:'var(--surface-2)', flexShrink:0 }}>
-                    <img src={`/assets/covers/${COVER_POOL[(i+(gs.totalWeeks||0))%COVER_POOL.length]}`} style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:entry.isPlayer?700:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:entry.isPlayer?'var(--li-accent-lt)':'var(--text-primary)' }}>{entry.title}</div>
-                    <div style={{ fontSize:11, color:'var(--text-muted)' }}>{entry.artist||entry.npcId}</div>
-                  </div>
-                  <div style={{ fontSize:11, color:'var(--text-muted)', fontFamily:'var(--font-mono)', flexShrink:0 }}>{fmt(entry.streams||0)}</div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* ── AWARDS SHELF ─────────────────────────────────────────── */}
-        {(gs.awards||[]).length > 0 && (
-          <>
-            <SectionLabel>Awards</SectionLabel>
-            <div className="soc-scroll-x" style={{ gap:10, paddingBottom:8, marginBottom:20 }}>
-              {gs.awards.map((award,i) => (
-                <div key={i} className="li-glass" style={{ flexShrink:0, background:'rgba(255,215,0,0.06)', borderColor:'rgba(255,215,0,0.2)', padding:'12px 16px', minWidth:130, textAlign:'center' }}>
-                  <svg viewBox="0 0 24 24" style={{width:22,height:22,fill:'#FFD700',margin:'0 auto 6px',display:'block'}}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                  <div style={{fontSize:11,fontWeight:700,color:'#FFD700'}}>{award.title}</div>
-                  <div style={{fontSize:9,color:'var(--text-muted)',marginTop:2}}>Week {award.week}</div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* ── WHO'S BUZZING (NPC feed) ──────────────────────────────── */}
-        <SectionLabel action="Chirp →" onAction={()=>goTo('social','community')}>Who's Buzzing</SectionLabel>
-        <div className="soc-scroll-x" style={{ gap:8, paddingBottom:8, marginBottom:20 }}>
-          {topNpcs.map(npc => {
-            const song = (gs.npcCatalog||[]).find(s=>s.npcId===npc.id);
-            return (
-              <div key={npc.id} className="li-glass" style={{ flexShrink:0, width:110, overflow:'hidden' }}>
-                <div style={{ height:60, overflow:'hidden', position:'relative' }}>
-                  <img src={`/assets/covers/${COVER_POOL[(npc.id?.length||3+gs.totalWeeks)%COVER_POOL.length]}`} style={{width:'100%',height:'100%',objectFit:'cover',opacity:0.6}} onError={e=>e.target.style.display='none'}/>
-                  <div style={{position:'absolute',inset:0,background:`linear-gradient(180deg,transparent,${npc.color}44)`}}/>
-                  <div style={{position:'absolute',bottom:6,left:6}}>
-                    <NpcAvatar npc={npc} size={28}/>
-                  </div>
-                </div>
-                <div style={{ padding:'8px 8px 10px' }}>
-                  <div style={{ fontSize:11, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{npc.name}</div>
-                  {song && <div style={{ fontSize:9, color:'var(--text-muted)', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>"{song.title}"</div>}
-                  <div style={{ fontSize:8, color:npc.color, textTransform:'uppercase', letterSpacing:0.5, marginTop:2 }}>{npc.tier} tier</div>
-                </div>
-              </div>
-            );
-          })}
+      <section className="home-next-moves" aria-labelledby="home-moves-title">
+        <div className="home-section-heading"><span id="home-moves-title">NEXT MOVE</span><span>{actions} ACTION{actions === 1 ? '' : 'S'} LEFT</span></div>
+        <div className="home-move-list">
+          {moves.slice(0, 3).map((move, index) => <button type="button" className="home-move" key={move.id} onClick={() => goTo(move.destination)}>
+            <span className="home-move-number">0{index + 1}</span>
+            <span className="home-move-copy"><strong>{move.label}</strong><small>{move.note}</small></span>
+            <span className="home-move-cost">{move.cost}</span>
+            <span className="home-arrow" aria-hidden="true">→</span>
+          </button>)}
         </div>
-
-        {/* ── INDUSTRY NEWS ─────────────────────────────────────────── */}
-        <SectionLabel action="All updates →" onAction={()=>goTo('social','wire')}>Industry News</SectionLabel>
-        <div className="li-glass" style={{ overflow:'hidden', marginBottom:24 }}>
-          {newsItems.length===0 ? (
-            <div style={{ padding:'24px 16px', textAlign:'center', color:'var(--text-muted)', fontSize:13 }}>
-              News will appear as your career develops.
-            </div>
-          ) : (
-            newsItems.map((item,i) => (
-              <div key={i} style={{ display:'flex', gap:12, padding:'12px 14px', borderBottom:i<newsItems.length-1?'1px solid var(--li-glass-border)':'none', alignItems:'flex-start' }}>
-                <div style={{ width:6, height:6, borderRadius:'50%', background:newsColor[item.type]||'var(--text-muted)', flexShrink:0, marginTop:5 }}/>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, lineHeight:1.4 }}><BoldedNews text={item.msg}/></div>
-                  <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:3 }}>Week {item.week}</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
+      </section>
       </div>
+
+      <div className="home-close-week">
+        <button type="button" className="home-end-week" onClick={endWeek} disabled={isEndingWeek}>
+          <span>{isEndingWeek ? 'SETTLING THE WEEK…' : 'END WEEK'}</span>
+          {!isEndingWeek && <span aria-hidden="true">→</span>}
+        </button>
+        <p>Weekly releases, work, touring and finances settle when the week closes.</p>
       </div>
     </div>
   );

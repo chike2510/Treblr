@@ -6,7 +6,7 @@ import { deleteSave, exportSaveText, getSaveSlots, importSaveText, saveGame } fr
 import { getAwardCategories } from '../engine/awards';
 import { optimizeArtwork } from '../engine/coverArt';
 import { canSpendActionPoint, spendActionPoints } from '../engine/actionPoints';
-import { Aurora, Magnetic, StatNumber, SectionLabel, SubNav, ResourcePill, PlayerAvatar } from '../components/Living';
+import { Magnetic, StatNumber, SectionLabel, SubNav, ResourcePill, PlayerAvatar } from '../components/Living';
 
 const SKILL_COLORS = {
   sw: 'var(--accent-purple)', vc: 'var(--accent-cyan)',
@@ -35,8 +35,7 @@ export default function ProfileTab({ gs, setGs, patch, patchFn, showToast }) {
   };
 
   return (
-    <div className="tab-content li-scene">
-      <Aurora c1="#7C6CFF" c2="#3FD3C6" c3="#FF6FA5" />
+    <div className={`tab-content li-scene profile-screen profile-screen-${section}`}>
       <div className="li-scene-content">
       <div className="editorial-page-head" style={{ padding:'0 0 12px' }}><div className="page-kicker">ARTIST DOSSIER</div><h1>{SUB_NAV.find(item => item.id === section)?.label || 'Stats'}</h1></div>
       <SubNav items={SUB_NAV} active={section} onChange={changeSection} />
@@ -121,13 +120,11 @@ function StatsView({ gs, patchFn }) {
       </div>
 
       {/* Career stats */}
-      <SectionLabel>Career Stats</SectionLabel>
-      <div className="li-glass" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', marginBottom:16, overflow:'hidden' }}>
+      <SectionLabel>Recorded career</SectionLabel>
+      <div className="li-glass profile-ledger" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', marginBottom:16, overflow:'hidden' }}>
           {[
           { label:'Available Cash',     val: fmtN(gs.money), c:'var(--accent-green)' },
           { label:'Lifetime Streams',   val: fmt(gs.totalLifetimeStreams || 0), c:'var(--text-primary)' },
-          { label:'Fans',               val: fmt(gs.fans || 0), c:'var(--accent-gold-lt)' },
-          { label:'Platform Followers', val: fmt(totalSocial), c:'var(--text-primary)' },
           { label:'Tracks Released',    val: releasedTracks.length, c:'var(--text-primary)' },
           { label:'Shows Played',       val: showsPlayed, c:'var(--accent-orange)' },
           { label:'Peak Chart Pos',     val: peakChart ? `#${peakChart}` : '—', c:'var(--accent-gold-lt)' },
@@ -167,7 +164,7 @@ function StatsView({ gs, patchFn }) {
 
       {/* Attributes */}
       <SectionLabel>Attributes</SectionLabel>
-      <div className="li-glass" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', marginBottom:16, overflow:'hidden' }}>
+      <div className="li-glass profile-ledger" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', marginBottom:16, overflow:'hidden' }}>
         {otherStats.map((s,i) => (
           <div key={s.label} style={{ padding:'12px 14px', borderBottom: i<2?'1px solid var(--li-glass-border)':'none', borderRight: i%2===0?'1px solid var(--li-glass-border)':'none' }}>
             <div style={{ fontSize:10, color:'var(--text-muted)', marginBottom:4 }}>{s.label}</div>
@@ -269,24 +266,18 @@ function ChartsView({ gs }) {
 
   return (
     <>
-      <SectionLabel>Official Charts · Updated monthly</SectionLabel>
-
-      <div className="soc-scroll-x" style={{ gap:6, marginBottom:10 }}>
-        {CHART_TABS.map(t => (
-          <button type="button" aria-pressed={chartType===t} key={t} onClick={() => setChartType(t)} className="soc-pill"
-            style={{ appearance:'none', flexShrink:0, padding:'7px 16px', background:chartType===t?'var(--li-accent)':'var(--li-glass-bg)', border:'1px solid '+(chartType===t?'var(--li-accent)':'var(--li-glass-border)'), color:chartType===t?'#fff':'var(--text-muted)', fontSize:12 }}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      <div className="soc-scroll-x" style={{ gap:4, marginBottom:16 }}>
-        {GENRE_TABS.map(g => (
-          <button type="button" aria-pressed={genreFilter===g} key={g} onClick={() => setGenreFilter(g)} className="soc-pill"
-            style={{ appearance:'none', flexShrink:0, padding:'5px 12px', background:genreFilter===g?'rgba(200,146,42,0.15)':'var(--li-glass-bg)', border:'1px solid '+(genreFilter===g?'var(--accent-gold)':'var(--li-glass-border)'), color:genreFilter===g?'var(--accent-gold-lt)':'var(--text-muted)', fontSize:10 }}>
-            {g}
-          </button>
-        ))}
+      <SectionLabel>Treblr charts · simulated rankings</SectionLabel>
+      <div className="chart-controls">
+        <label>CHART TYPE
+          <select className="chart-select" value={chartType} onChange={event => setChartType(event.target.value)}>
+            {CHART_TABS.map(type => <option key={type} value={type}>{type}</option>)}
+          </select>
+        </label>
+        <label>GENRE
+          <select className="chart-select" value={genreFilter} onChange={event => setGenreFilter(event.target.value)}>
+            {GENRE_TABS.map(genre => <option key={genre} value={genre}>{genre}</option>)}
+          </select>
+        </label>
       </div>
 
       {filtered.length === 0 ? (

@@ -3,10 +3,10 @@ import { MERCH_TYPES, LABELS, LABEL_AESTHETICS, TOUR_TIERS, CITIES, GENRES, ERAS
 import { NPC_ARTISTS } from '../data/artists';
 import { clamp, fmt, fmtN as formatCurrency, uid, getEra } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
-import { canSpendActionPoint, getActionPoints, spendActionPoints, WEEKLY_ACTION_POINTS } from '../engine/actionPoints';
+import { canSpendActionPoint, spendActionPoints } from '../engine/actionPoints';
 import { buildTourRoute, getCityDemand, getCityScene, getCityCollaboratorAffinity } from '../engine/cityScene';
 import { getCollaborationPrice } from '../engine/careerPerks';
-import { Aurora, Magnetic, SectionLabel, SubNav, ResourcePill } from '../components/Living';
+import { Magnetic, SectionLabel, SubNav } from '../components/Living';
 
 const MERCH_COOLDOWN = 4;
 const BRAND_COOLDOWN = 8;
@@ -50,25 +50,19 @@ export default function BusinessTab({ gs, patch, patchFn, showToast }) {
     const route = gs.appRoutes?.career;
     if (route && route !== section) setSection(route);
   }, [gs.appRoutes?.career, section]);
-  const actionPoints = getActionPoints(gs);
   const changeSection = (id) => {
     setSection(id);
     patch({ appRoutes:{ ...(gs.appRoutes || {}), career:id } });
   };
 
   return (
-    <div className="tab-content li-scene">
-      <Aurora c1="#FF5500" c2="#7C6CFF" c3="#ffffff" />
+    <div className={`tab-content li-scene career-screen career-screen-${section}`}>
       <div className="li-scene-content">
       <div className="editorial-page-head" style={{ padding:'0 0 12px' }}>
         <div className="page-kicker">CAREER DESK</div>
         <h1>{section === 'overview' ? 'The work behind the music' : SUB_NAV.find(item => item.id === section)?.label}</h1>
       </div>
       <SubNav items={SUB_NAV} active={section} onChange={changeSection} />
-      <div style={{ display:'flex', alignItems:'center', gap:10, margin:'-4px 0 12px' }}>
-        <ResourcePill label="Actions" value={actionPoints} max={WEEKLY_ACTION_POINTS} color="var(--accent-gold-lt)" suffix=" AP" />
-        <span style={{ fontSize:10, color:'var(--text-muted)' }}>Most business moves cost 1 action</span>
-      </div>
       {section === 'overview' && <CareerOverview gs={gs} onSelect={changeSection} />}
       {section === 'money' && <MoneyView gs={gs} />}
       {section === 'tour' && <TourView gs={gs} patchFn={patchFn} showToast={showToast} />}
@@ -88,26 +82,35 @@ export default function BusinessTab({ gs, patch, patchFn, showToast }) {
 function CareerOverview({ gs, onSelect }) {
   const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const era = getEra(gs.fans);
-  const releases = (gs.catalog || []).filter(track => track.released);
   const report = gs.lastWeekReport || gs.weekReport;
   const nextEra = ERAS.find(item => item.minFans > Number(gs.fans || 0));
   const nextGoal = nextEra ? nextEra.minFans - Number(gs.fans || 0) : 0;
+  const progress = nextEra ? Math.max(0, Math.min(100, Math.round(((Number(gs.fans || 0) - era.minFans) / Math.max(1, nextEra.minFans - era.minFans)) * 100))) : 100;
   return <>
-    <div className="career-metrics">
-      <div><label>Career stage</label><strong style={{ color:era.color }}>{era.label.replace(' Era','')}</strong></div>
-      <div><label>Fans</label><strong>{fmt(gs.fans || 0)}</strong></div>
-      <div><label>Releases out</label><strong>{releases.length}</strong></div>
-      <div><label>Career cash</label><strong>{fmtN(gs.money || 0)}</strong></div>
-    </div>
-    <div className="li-glass" style={{ padding:14, marginBottom:14 }}>
-      <SectionLabel action={report ? `Week ${report.week}` : 'No week closed yet'}>Last week at a glance</SectionLabel>
-      {report ? <div className="ledger-row"><span>{fmt(report.fansDelta || 0)} new fans · {fmt(report.streamCount || 0)} streams</span><strong style={{ color:'var(--accent-green)' }}>{fmtN(report.revenue || 0)}</strong></div> : <div className="finance-note">Close your first week to create a proper performance and finance statement.</div>}
-      {gs.tourActive && gs.tourData && <div className="ledger-row"><span>On the road · {gs.tourWeeksLeft} weeks left</span><strong style={{ color:'var(--accent-orange)' }}>{gs.tourData.label}</strong></div>}
-      {gs.activeJob && <div className="ledger-row"><span>Current work · {gs.activeJob.weeksLeft} weeks remaining</span><strong>{fmtN(gs.activeJob.weeklyPay)}/wk</strong></div>}
-      <div className="finance-note">{nextEra ? `${fmt(nextGoal)} more fans to ${nextEra.label}.` : 'You have reached the highest fan-based career era.'}</div>
-    </div>
+    <section className="career-stage">
+      <div className="career-stage-copy">
+        <span>FAN-BASED PROGRESSION</span>
+        <strong style={{ color:'var(--accent-gold-lt)' }}>{era.label.replace(' Era','')}</strong>
+        <small>{nextEra ? `${fmt(nextGoal)} more fans to ${nextEra.label}` : 'Highest fan-based career era reached'}</small>
+      </div>
+      <div className="career-stage-value"><strong>{fmt(gs.fans || 0)}</strong><span>current fans</span></div>
+      {nextEra && <div className="career-stage-track" role="progressbar" aria-label={`Progress to ${nextEra.label}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><span style={{ width:`${progress}%` }} /></div>}
+    </section>
+
+    <section className="career-week-ledger">
+      <SectionLabel action={report ? `WEEK ${report.week}` : 'NO WEEK CLOSED'}>Last settled week</SectionLabel>
+      {report ? <>
+        <div className="ledger-row"><span>Income recorded</span><strong style={{ color:'var(--accent-green)' }}>{fmtN(report.revenue || 0)}</strong></div>
+        <div className="ledger-row"><span>Streams · career-wide</span><strong>{fmt(report.streamCount || 0)}</strong></div>
+        <div className="ledger-row"><span>Fan change</span><strong>{fmt(report.fansDelta || 0)}</strong></div>
+      </> : <div className="finance-note">The first weekly statement appears after you close an in-game week.</div>}
+      {gs.tourActive && gs.tourData && <div className="career-obligation"><span>TOUR</span><strong>{gs.tourData.label} · {gs.tourWeeksLeft} weeks left</strong></div>}
+      {gs.activeJob && <div className="career-obligation"><span>WORK</span><strong>{gs.activeJob.label} · {fmtN(gs.activeJob.weeklyPay)}/week</strong></div>}
+      {gs.labelId !== 'independent' && <div className="career-obligation"><span>CONTRACT</span><strong>{gs.contractWeeksLeft || 0} weeks · {gs.contractObligations?.postsDue || 0} posts due this week</strong></div>}
+    </section>
+
     <SectionLabel>Choose your next move</SectionLabel>
-    <div className="li-glass" style={{ padding:'2px 14px', marginBottom:16 }}>
+    <div className="career-shortcut-list">
       {[
         ['money','Review finances','Actual income, bills and tax liability'],
         ['tour','Plan a tour','Book one of the modeled tour tiers'],

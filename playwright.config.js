@@ -9,7 +9,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4174',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:4174',
     headless: true,
     viewport: { width: 430, height: 900 },
     trace: 'retain-on-failure',
@@ -17,7 +17,7 @@ export default defineConfig({
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
       : {},
   },
-  webServer: {
+  webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
     command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4174 --strictPort',
     url: 'http://127.0.0.1:4174',
     reuseExistingServer: !process.env.CI,

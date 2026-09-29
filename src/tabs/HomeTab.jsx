@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { ERAS } from '../data/constants';
 import { fmt, fmtN, getEra } from '../engine/utils';
 import { NPC_ARTISTS } from '../data/artists';
-import { Aurora, Magnetic, StatNumber, SectionLabel } from '../components/Living';
+import { CITIES } from '../data/constants';
+import { getNextObjective } from '../engine/objectives';
+import { getCityDemand, getCityScene } from '../engine/cityScene';
+import { getActionPoints, WEEKLY_ACTION_POINTS } from '../engine/actionPoints';
+import { Aurora, Magnetic, StatNumber, SectionLabel, ResourcePill } from '../components/Living';
 
 const ERA_ORDER = [...ERAS];
 
@@ -56,6 +60,11 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
   const newsItems = (gs.news||[]).slice(0,8);
   const topNpcs = NPC_ARTISTS.filter(n=>n.tier==='S'||n.tier==='A').slice(0,5);
   const chartTop5 = (gs.charts?.streams||[]).slice(0,5);
+  const objective = getNextObjective(gs);
+  const objectiveTab = ({ CREATE:'create', RECORD:'create', RELEASE:'create', COLLAB:'create', PROJECT:'create', TOUR:'business', CAMPAIGN:'business', CONTRACT:'business', GROW:'social', LEGACY:'profile' })[objective.action] || 'create';
+  const city = CITIES.find(item => item.id === gs.city) || CITIES[0];
+  const scene = getCityScene(city.id);
+  const localDemand = getCityDemand(city.id, gs.genre);
 
   const newsColor = {
     pos:'var(--accent-green)', neg:'var(--accent-red)',
@@ -138,6 +147,30 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
               <div style={{ fontFamily:'var(--font-mono)', fontSize:14, fontWeight:700, color:c }}>{v}</div>
             </div>
           ))}
+        </div>
+
+        <div className="li-glass li-stagger" style={{ '--i':1, display:'grid', gridTemplateColumns:'1fr auto', gap:12, alignItems:'center', padding:14, marginBottom:20 }}>
+          <div style={{ minWidth:0 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, marginBottom:5 }}>
+              <div style={{ fontSize:9, color:'var(--accent-gold-lt)', letterSpacing:1.5, textTransform:'uppercase' }}>Next Objective</div>
+              <div style={{ fontSize:10, color:'var(--text-muted)' }}>{Math.round((objective.progress || 0) * 100)}% progress</div>
+            </div>
+            <div style={{ fontFamily:'var(--li-font-display)', fontWeight:700, fontSize:15 }}>{objective.title}</div>
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:3, lineHeight:1.4 }}>{objective.detail}</div>
+            <div style={{ height:3, background:'var(--li-glass-border)', borderRadius:2, overflow:'hidden', marginTop:8 }}>
+              <div style={{ width:`${Math.max(0,Math.min(100,(objective.progress || 0) * 100))}%`, height:'100%', background:'var(--accent-gold)', borderRadius:2 }} />
+            </div>
+          </div>
+          <Magnetic strength={4} onClick={() => patch({ tab:objectiveTab })} className="soc-glass-btn" style={{ padding:'9px 11px', whiteSpace:'nowrap', fontSize:10, fontWeight:700 }}>
+            {objectiveTab.toUpperCase()} →
+          </Magnetic>
+          <div style={{ gridColumn:'1 / -1', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--li-glass-border)', paddingTop:9 }}>
+            <span style={{ fontSize:10, color:'var(--text-muted)' }}>{city.label} · {city.scene}</span>
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--accent-cyan)' }}>{localDemand.toFixed(2)}× local demand · {scene.venueCapacity.toLocaleString()} venue</span>
+          </div>
+          <div style={{ gridColumn:'1 / -1' }}>
+            <ResourcePill label="Actions" value={getActionPoints(gs)} max={WEEKLY_ACTION_POINTS} color="var(--accent-gold-lt)" suffix=" AP" />
+          </div>
         </div>
 
         {/* ── ACTIVE STATUS BANNERS ─────────────────────────────────── */}

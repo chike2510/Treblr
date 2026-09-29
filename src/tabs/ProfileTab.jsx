@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { GENRES, CITIES, CAREER_TYPES, MILESTONES } from '../data/constants';
 import { fmt, fmtN, getTier, getTalent, getTimeLabel } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
-import { deleteSave, saveGame } from '../engine/gameState';
+import { deleteSave, exportSaveText, getSaveSlots, importSaveText, saveGame } from '../engine/gameState';
+import { getAwardCategories } from '../engine/awards';
+import { optimizeArtwork } from '../engine/coverArt';
+import { canSpendActionPoint, spendActionPoints } from '../engine/actionPoints';
 import { Aurora, Magnetic, StatNumber, SectionLabel, SubNav, ResourcePill, PlayerAvatar } from '../components/Living';
 
 const SKILL_COLORS = {
@@ -20,7 +23,7 @@ const SUB_NAV = [
   { id:'settings', label:'Settings' },
 ];
 
-export default function ProfileTab({ gs, patch, patchFn, showToast }) {
+export default function ProfileTab({ gs, setGs, patch, patchFn, showToast }) {
   const [section, setSection] = useState('stats');
 
   return (
@@ -31,7 +34,7 @@ export default function ProfileTab({ gs, patch, patchFn, showToast }) {
       {section === 'stats'    && <StatsView    gs={gs} patchFn={patchFn} />}
       {section === 'charts'   && <ChartsView   gs={gs} />}
       {section === 'career'   && <CareerView   gs={gs} />}
-      {section === 'settings' && <SettingsView gs={gs} patch={patch} showToast={showToast} />}
+      {section === 'settings' && <SettingsView gs={gs} setGs={setGs} patch={patch} showToast={showToast} />}
       </div>
     </div>
   );
@@ -44,6 +47,8 @@ function StatsView({ gs, patchFn }) {
   const genre   = GENRES.find(g => g.id === gs.genre);
   const city    = CITIES.find(c => c.id === gs.city);
   const totalSocial = Object.values(gs.socialPlatforms || {}).reduce((a, b) => a + (b || 0), 0);
+  const awardCategories = getAwardCategories(gs);
+  const canHireTeam = canSpendActionPoint(gs) && !gs.inPrison;
 
   const releasedTracks = (gs.catalog || []).filter(t => t.released);
   const peakChart = releasedTracks.reduce((best, t) => (t.chartPos && (best === null || t.chartPos < best) ? t.chartPos : best), null);
@@ -165,19 +170,30 @@ function StatsView({ gs, patchFn }) {
         ))}
       </div>
 
-      {/* Awards */}
-      {(gs.awards || []).length > 0 && (
-        <>
-          <SectionLabel>Awards</SectionLabel>
-          <div className="li-glass" style={{ padding:'4px 16px', marginBottom:16 }}>
-            {(gs.awards || []).map((a, i) => (
-              <div key={i} style={{ padding:'8px 0', borderBottom:i<gs.awards.length-1?'1px solid var(--li-glass-border)':'none', fontSize:12 }}>
-                <span style={{ color:'var(--accent-gold-lt)' }}>{a}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      <SectionLabel>Awards · {gs.awardNoms || 0} latest-season nominations</SectionLabel>
+      <div className="li-glass" style={{ padding:'4px 16px', marginBottom:16 }}>
+        {(gs.awards || []).length > 0 && (gs.awards || []).map((award, i) => {
+          const title = typeof award === 'string' ? award : award.title;
+          const work = typeof award === 'object' ? award.work : null;
+          return <div key={award.id || `${title}-${i}`} style={{ padding:'8px 0', borderBottom:'1px solid var(--li-glass-border)', fontSize:12 }}>
+            <span style={{ color:'var(--accent-gold-lt)', fontWeight:700 }}>★ {title}</span>
+            {work && <span style={{ color:'var(--text-muted)' }}> · {work}</span>}
+            {award.week != null && <span style={{ color:'var(--text-muted)', fontSize:10 }}> · Week {award.week}</span>}
+          </div>;
+        })}
+        {awardCategories.map((category) => {
+          const progress = Math.min(100, Math.round((category.score / Math.max(1, category.minimum)) * 100));
+          return <div key={category.id} style={{ padding:'9px 0', borderBottom:'1px solid var(--li-glass-border)' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', gap:8, marginBottom:4, fontSize:11 }}>
+              <span>{category.title}{category.work ? ` · ${category.work}` : ''}</span>
+              <span style={{ color:category.eligible ? 'var(--accent-green)' : 'var(--text-muted)', whiteSpace:'nowrap' }}>{Math.round(category.score)}/{category.minimum}{category.eligible ? ' · eligible' : ''}</span>
+            </div>
+            <div style={{ height:3, background:'var(--li-glass-border)', borderRadius:2, overflow:'hidden' }}>
+              <div style={{ width:`${progress}%`, height:'100%', background:category.eligible ? 'var(--accent-green)' : 'var(--accent-gold)', borderRadius:2 }} />
+            </div>
+          </div>;
+        })}
+      </div>
 
       {/* Team */}
       <SectionLabel>Team</SectionLabel>
@@ -191,23 +207,25 @@ function StatsView({ gs, patchFn }) {
           <span style={{ color: gs.hasLawyer ? 'var(--accent-green)' : 'var(--text-muted)' }}>{gs.hasLawyer ? 'On retainer · -₦100k/wk' : 'None'}</span>
         </div>
         {!gs.hasManager && (
-          <Magnetic strength={4} disabled={gs.money < 1000000} onClick={() => {
-            patchFn(prev => ({
-              hasManager: true, money: prev.money - 1000000,
-              news: addNews(prev.news, 'Hired a manager. -₦200k/week.', 'pos', prev.totalWeeks),
-            }));
+          <Magnetic strength={4} disabled={gs.money < 1000000 || !canHireTeam} onClick={() => {
+            patchFn(prev => {
+              if (prev.hasManager || prev.money < 1000000) return prev;
+              const acted = spendActionPoints(prev);
+              return acted ? { ...acted, hasManager:true, money:prev.money - 1000000, news:addNews(prev.news, 'Hired a manager. -₦200k/week.', 'pos', prev.totalWeeks) } : prev;
+            });
           }} className="soc-glass-btn" style={{ display:'block', textAlign:'center', width:'100%', padding:'10px 0', marginTop:10, fontSize:12, fontWeight:700 }}>
-            Hire Manager · ₦1M deposit
+            Hire Manager · 1 AP · ₦1M deposit
           </Magnetic>
         )}
         {!gs.hasLawyer && (
-          <Magnetic strength={4} disabled={gs.money < 500000} onClick={() => {
-            patchFn(prev => ({
-              hasLawyer: true, money: prev.money - 500000,
-              news: addNews(prev.news, 'Hired an entertainment lawyer. -₦100k/week retainer.', 'pos', prev.totalWeeks),
-            }));
+          <Magnetic strength={4} disabled={gs.money < 500000 || !canHireTeam} onClick={() => {
+            patchFn(prev => {
+              if (prev.hasLawyer || prev.money < 500000) return prev;
+              const acted = spendActionPoints(prev);
+              return acted ? { ...acted, hasLawyer:true, money:prev.money - 500000, news:addNews(prev.news, 'Hired an entertainment lawyer. -₦100k/week retainer.', 'pos', prev.totalWeeks) } : prev;
+            });
           }} className="soc-glass-btn" style={{ display:'block', textAlign:'center', width:'100%', padding:'10px 0', marginTop:10, fontSize:12, fontWeight:700 }}>
-            Hire Lawyer · ₦500k deposit
+            Hire Lawyer · 1 AP · ₦500k deposit
           </Magnetic>
         )}
       </div>
@@ -238,19 +256,19 @@ function ChartsView({ gs }) {
 
       <div className="soc-scroll-x" style={{ gap:6, marginBottom:10 }}>
         {CHART_TABS.map(t => (
-          <div key={t} onClick={() => setChartType(t)} className="soc-pill"
-            style={{ flexShrink:0, padding:'7px 16px', background:chartType===t?'var(--li-accent)':'var(--li-glass-bg)', border:'1px solid '+(chartType===t?'var(--li-accent)':'var(--li-glass-border)'), color:chartType===t?'#fff':'var(--text-muted)', fontSize:12 }}>
+          <button type="button" aria-pressed={chartType===t} key={t} onClick={() => setChartType(t)} className="soc-pill"
+            style={{ appearance:'none', flexShrink:0, padding:'7px 16px', background:chartType===t?'var(--li-accent)':'var(--li-glass-bg)', border:'1px solid '+(chartType===t?'var(--li-accent)':'var(--li-glass-border)'), color:chartType===t?'#fff':'var(--text-muted)', fontSize:12 }}>
             {t}
-          </div>
+          </button>
         ))}
       </div>
 
       <div className="soc-scroll-x" style={{ gap:4, marginBottom:16 }}>
         {GENRE_TABS.map(g => (
-          <div key={g} onClick={() => setGenreFilter(g)} className="soc-pill"
-            style={{ flexShrink:0, padding:'5px 12px', background:genreFilter===g?'rgba(200,146,42,0.15)':'var(--li-glass-bg)', border:'1px solid '+(genreFilter===g?'var(--accent-gold)':'var(--li-glass-border)'), color:genreFilter===g?'var(--accent-gold-lt)':'var(--text-muted)', fontSize:10 }}>
+          <button type="button" aria-pressed={genreFilter===g} key={g} onClick={() => setGenreFilter(g)} className="soc-pill"
+            style={{ appearance:'none', flexShrink:0, padding:'5px 12px', background:genreFilter===g?'rgba(200,146,42,0.15)':'var(--li-glass-bg)', border:'1px solid '+(genreFilter===g?'var(--accent-gold)':'var(--li-glass-border)'), color:genreFilter===g?'var(--accent-gold-lt)':'var(--text-muted)', fontSize:10 }}>
             {g}
-          </div>
+          </button>
         ))}
       </div>
 
@@ -347,7 +365,8 @@ function CareerView({ gs }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-function SettingsView({ gs, patch, showToast }) {
+function SettingsView({ gs, setGs, patch, showToast }) {
+  const avatarInput = useRef(null);
   const genre   = GENRES.find(g => g.id === gs.genre);
   const city    = CITIES.find(c => c.id === gs.city);
   const career  = CAREER_TYPES.find(c => c.id === gs.careerType);
@@ -356,9 +375,43 @@ function SettingsView({ gs, patch, showToast }) {
 
   const handleReset = () => {
     if (window.confirm('Delete this career and start fresh? This cannot be undone.')) {
-      deleteSave();
+      if (!deleteSave(gs._slotId)) { showToast('Could not delete this career from local storage.'); return; }
       window.location.reload();
     }
+  };
+
+  const handleExport = () => {
+    try {
+      const file = new Blob([exportSaveText(gs)], { type:'application/json' });
+      const url = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `treblr-${(gs.stageName || 'career').toLowerCase().replace(/[^a-z0-9]+/g,'-')}-save.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast('Career backup exported');
+    } catch (error) {
+      showToast(error.message || 'Could not export this career');
+    }
+  };
+
+  const handleImport = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const imported = importSaveText(await file.text());
+      setGs(imported);
+      showToast('Career imported into a new slot');
+    } catch (error) {
+      showToast(error.message || 'Could not import this save file');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const returnToCareers = () => {
+    if (!saveGame(gs, gs._slotId)) { showToast('Could not save this career. Free device storage, then try again.'); return; }
+    setGs(previous => ({ ...previous, screen:'start' }));
   };
 
   return (
@@ -366,21 +419,22 @@ function SettingsView({ gs, patch, showToast }) {
       <SectionLabel>Career Profile</SectionLabel>
       <div className="li-glass" style={{ padding:16, marginBottom:16 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14 }}>
-          <label style={{ flexShrink:0, cursor:'pointer', position:'relative' }}>
+          <div style={{ flexShrink:0 }}>
+            <button type="button" onClick={() => avatarInput.current?.click()} aria-label="Change avatar photo" className="soc-icon-btn" style={{ border:0, background:'none', padding:0, cursor:'pointer', borderRadius:'50%' }}>
             <div style={{ width:56, height:56, borderRadius:'50%', border:'2px solid '+(genre?.color||'var(--li-glass-border)'), overflow:'hidden', background:'var(--surface-2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
               {gs.avatarUrl
                 ? <img src={gs.avatarUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                 : <span style={{ fontFamily:'var(--li-font-display)', fontSize:20, color: genre?.color || 'var(--text-muted)' }}>{(gs.stageName||'?')[0]}</span>
               }
             </div>
-            <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => {
+            </button>
+            <input ref={avatarInput} type="file" accept="image/*" aria-label="Choose avatar image" style={{ display:'none' }} onChange={e => {
               const file = e.target.files?.[0];
               if (!file) return;
-              const reader = new FileReader();
-              reader.onload = ev => patch({ avatarUrl: ev.target.result });
-              reader.readAsDataURL(file);
+              optimizeArtwork(file).then(avatarUrl => patch({ avatarUrl })).catch(error => showToast(error.message || 'Could not process avatar image'));
+              e.target.value = '';
             }}/>
-          </label>
+          </div>
           <div>
             <div style={{ fontFamily:'var(--li-font-display)', fontSize:18, fontWeight:700 }}>{gs.stageName}</div>
             <div style={{ fontSize:12, color:'var(--text-muted)' }}>{gs.realName} · Age {ageNow}</div>
@@ -427,12 +481,18 @@ function SettingsView({ gs, patch, showToast }) {
       <SectionLabel>Game</SectionLabel>
       <div className="li-glass" style={{ padding:16, marginBottom:16 }}>
         <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:12 }}>
-          Last saved: {gs.lastSaved ? new Date(gs.lastSaved).toLocaleString() : 'Never'}
+          Last saved: {gs.lastSaved ? new Date(gs.lastSaved).toLocaleString() : 'Never'} · {getSaveSlots().length}/8 local career slots
         </div>
-        <Magnetic strength={5} onClick={() => { saveGame(gs); showToast('Game saved'); }}
+        <Magnetic strength={5} onClick={() => { showToast(saveGame(gs, gs._slotId) ? 'Game saved' : 'Could not save. Free device storage and try again.'); }}
           className="soc-glass-btn" style={{ display:'block', textAlign:'center', width:'100%', padding:'11px 0', marginBottom:10, fontSize:13, fontWeight:700 }}>
           SAVE NOW
         </Magnetic>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10 }}>
+          <button type="button" onClick={handleExport} className="soc-glass-btn" style={{ padding:'10px 6px', fontSize:11, fontWeight:700 }}>EXPORT BACKUP</button>
+          <button type="button" onClick={returnToCareers} className="soc-glass-btn" style={{ padding:'10px 6px', fontSize:11, fontWeight:700 }}>SWITCH CAREER</button>
+        </div>
+        <label className="form-label" htmlFor="treblr-save-import">Import a JSON backup into a new slot</label>
+        <input id="treblr-save-import" type="file" accept="application/json,.json" onChange={handleImport} aria-label="Choose a Treblr save backup to import" style={{ display:'block', width:'100%', marginBottom:12, color:'var(--text-muted)', fontSize:11 }} />
         <Magnetic strength={5} onClick={handleReset}
           className="soc-pill" style={{ display:'block', textAlign:'center', width:'100%', padding:'11px 0', background:'rgba(220,38,38,0.12)', color:'var(--accent-red)', border:'1px solid rgba(220,38,38,0.3)', fontSize:13 }}>
           DELETE CAREER

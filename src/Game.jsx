@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { fmtN, getEra, getTimeLabel } from './engine/utils';
 import { endWeek as doEndWeek, handleModalChoice } from './engine/weekEngine';
+import { getActionPoints, WEEKLY_ACTION_POINTS } from './engine/actionPoints';
 
 import HomeTab     from './tabs/HomeTab';
 import CreateTab   from './tabs/CreateTab';
@@ -87,7 +88,7 @@ export default function Game({ gs, setGs }) {
   const era     = getEra(gs.fans);
   const timeStr = getTimeLabel(gs.totalWeeks, gs.startYear);
 
-  const tabProps = { gs, patch, patchFn, showToast, endWeek: handleEndWeek, isEndingWeek };
+  const tabProps = { gs, setGs, patch, patchFn, showToast, endWeek: handleEndWeek, isEndingWeek };
 
   return (
     <div className="app-shell">
@@ -102,6 +103,9 @@ export default function Game({ gs, setGs }) {
         <div style={{ textAlign:'right' }}>
           <div className="li-topbar-money">{fmtN(gs.money)}</div>
           <div className="li-topbar-time">{timeStr}</div>
+          <div aria-label={`${getActionPoints(gs)} of ${WEEKLY_ACTION_POINTS} weekly action points remaining`} style={{ fontSize:9, color:'var(--accent-gold-lt)', marginTop:2, letterSpacing:0.8 }}>
+            {getActionPoints(gs)}/{WEEKLY_ACTION_POINTS} ACTIONS
+          </div>
         </div>
       </div>
 

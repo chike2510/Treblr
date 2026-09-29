@@ -1,124 +1,145 @@
 import { NPC_ARTISTS, NPC_SONG_TITLES } from '../data/artists';
-import { uid, rand, roll } from './utils';
+import { clamp, uid, rand, roll } from './utils';
+
+const ensureCareer = (npc, current = {}) => ({
+  fans: Math.max(1, Number(current.fans ?? npc.fans)),
+  clout: clamp(Number(current.clout ?? npc.clout), 0, 100),
+  releases: Number(current.releases || 0),
+  projects: Number(current.projects || 0),
+  lastActiveWeek: Number(current.lastActiveWeek || 0),
+});
+
+export const seedNPCCareers = () => Object.fromEntries(NPC_ARTISTS.map((npc) => [npc.id, ensureCareer(npc)]));
+
+export const generateNPCSong = (npc, releaseWeek, currentCareer) => {
+  const career = ensureCareer(npc, currentCareer);
+  return {
+    id: uid(),
+    npcId: npc.id,
+    title: roll(NPC_SONG_TITLES),
+    artist: npc.name,
+    genre: npc.genre,
+    quality: rand(Math.max(20, Math.round(npc.talent * 3)), Math.max(25, Math.round(npc.talent * 4.2))),
+    releaseWeek,
+    peakStreams: rand(Math.round(career.fans * 0.25), Math.round(career.fans * 0.8)),
+    peakSales: rand(Math.round(career.fans * 0.01), Math.round(career.fans * 0.035)),
+    weeklyStreams: 0,
+    lifetimeStreams: 0,
+    weeklySales: 0,
+    lifetimeSales: 0,
+    videoViews: 0,
+    weeksOnChart: 0,
+    chartHistory: [],
+    peakPos: null,
+    currentPos: null,
+  };
+};
 
 export const generateNPCCatalog = () => {
-  // Seed each NPC with 1-3 existing songs at game start
   const catalog = [];
+  const careers = seedNPCCareers();
   for (const npc of NPC_ARTISTS) {
     const numSongs = rand(1, 3);
-    for (let i = 0; i < numSongs; i++) {
-      catalog.push(generateNPCSong(npc, -(rand(4, 20))));
-    }
+    for (let i = 0; i < numSongs; i += 1) catalog.push(generateNPCSong(npc, -rand(4, 20), careers[npc.id]));
   }
   return catalog;
 };
 
-export const generateNPCSong = (npc, releaseWeek) => ({
-  id: uid(),
-  npcId: npc.id,
-  title: roll(NPC_SONG_TITLES),
-  artist: npc.name,
-  genre: npc.genre,
-  quality: rand(Math.round(npc.talent * 3), Math.round(npc.talent * 4.2)),
-  releaseWeek,
-  peakStreams: rand(Math.round(npc.fans * 0.25), Math.round(npc.fans * 0.8)),
-  peakSales: rand(Math.round(npc.fans * 0.05), Math.round(npc.fans * 0.2)),
-  weeksOnChart: 0,
-  chartHistory: [],
-  peakPos: null,
-  currentPos: null,
-});
-
-// Run every endWeek — may generate new NPC tracks
-export const tickNPCReleases = (npcCatalog, npcLastRelease, totalWeeks) => {
+export const tickNPCReleases = (npcCatalog, npcLastRelease, totalWeeks, npcCareers = {}) => {
   const newSongs = [];
   const updatedLastRelease = { ...npcLastRelease };
+  const careers = { ...npcCareers };
 
   for (const npc of NPC_ARTISTS) {
-    const lastRel = npcLastRelease[npc.id] ?? -(npc.releaseFrequency + rand(0, 4));
-    const weeksSinceLast = totalWeeks - lastRel;
+    const career = ensureCareer(npc, careers[npc.id]);
+    const weeksSinceActive = Math.max(0, totalWeeks - (career.lastActiveWeek || 0));
+    career.fans = Math.max(1, Math.round(career.fans * (1 + (career.clout / 10000) + (weeksSinceActive > 12 ? 0.0007 : 0.0013))));
+    career.clout = clamp(career.clout + (career.releases ? 0.025 : 0.01), 0, 100);
+    careers[npc.id] = career;
 
-    if (weeksSinceLast >= npc.releaseFrequency) {
-      // 35% chance when eligible
-      if (Math.random() < 0.35) {
-        newSongs.push(generateNPCSong(npc, totalWeeks));
-        updatedLastRelease[npc.id] = totalWeeks;
-      }
+    const lastRel = npcLastRelease[npc.id] ?? -(npc.releaseFrequency + rand(0, 4));
+    if (totalWeeks - lastRel >= npc.releaseFrequency && Math.random() < 0.35) {
+      const song = generateNPCSong(npc, totalWeeks, career);
+      newSongs.push(song);
+      updatedLastRelease[npc.id] = totalWeeks;
+      careers[npc.id] = { ...career, fans: Math.round(career.fans * 1.025 + 250), clout: clamp(career.clout + 0.2, 0, 100), releases: career.releases + 1, lastActiveWeek: totalWeeks };
     }
   }
 
+  const catalog = [...(npcCatalog || []), ...newSongs].map((song) => {
+    const npc = NPC_ARTISTS.find((artist) => artist.id === song.npcId);
+    if (!npc) return song;
+    const career = ensureCareer(npc, careers[npc.id]);
+    const age = Math.max(0, totalWeeks - (song.releaseWeek || 0));
+    const decay = Math.max(0.04, 1 - age / 96);
+    const weeklyStreams = Math.max(1, Math.round((song.quality / 100) * Math.sqrt(career.fans) * 30 * decay));
+    const weeklySales = Math.max(0, Math.round(weeklyStreams * 0.003));
+    return {
+      ...song,
+      weeklyStreams,
+      lifetimeStreams: Number(song.lifetimeStreams || 0) + weeklyStreams,
+      peakStreams: Math.max(Number(song.peakStreams || 0), weeklyStreams),
+      weeklySales,
+      lifetimeSales: Number(song.lifetimeSales || 0) + weeklySales,
+      videoViews: Number(song.videoViews || 0) + Math.round(weeklyStreams * 0.1),
+    };
+  });
+  return { newNpcSongs: newSongs, updatedLastRelease, updatedCatalog: catalog, updatedCareers: careers };
+};
+
+const getSongMetric = (song, type, state) => {
+  const career = song.isPlayer ? null : state?.npcCareers?.[song.npcId];
+  const fans = song.isPlayer ? state?.fans : career?.fans;
+  const quality = Number(song.quality || 50);
+  const recent = Number(song.weeklyStreams || 0);
+  if (type === 'streams') {
+    const allTime = Number(song.lifetimeStreams || song.peakStreams || 0);
+    return Math.log10(recent + 1) * 8 + Math.log10(allTime + 1) * 3.6 + Math.log10((fans || 0) + 1) * 1.4 + quality * 0.045;
+  }
+  if (type === 'sales') {
+    return Math.log10(Number(song.weeklySales || 0) * 4 + Number(song.lifetimeSales || song.peakSales || 0) * 0.08 + 1) * 10 + quality * 0.085;
+  }
+  return Math.log10(Number(song.weeklyVideoViews || 0) * 4 + Number(song.videoViews || 0) * 0.06 + Number(song.peakVideoViews || 0) + 1) * 10 + quality * 0.06;
+};
+
+export const calcChartScore = (song, totalWeeks, artistFans = 0, artistClout = 0, type = 'streams', state = {}) => {
+  const weeksOut = Math.max(0, totalWeeks - (song.releaseWeek || 0));
+  const recency = Math.max(0.15, 1 - weeksOut / 60);
+  const career = song.isPlayer ? null : state?.npcCareers?.[song.npcId];
+  const clout = song.isPlayer ? artistClout : career?.clout ?? NPC_ARTISTS.find((artist) => artist.id === song.npcId)?.clout ?? 0;
+  const audience = song.isPlayer ? artistFans : career?.fans ?? song.peakStreams;
+  const formatScore = getSongMetric(song, type, state);
+  return formatScore * recency + (Number(clout || 0) * 0.035) + Math.log10(Number(audience || 0) + 1) * 0.4;
+};
+
+export const buildCharts = (playerCatalog, npcCatalog, state) => {
+  const playerSongs = (playerCatalog || []).filter((track) => track.released).map((track) => ({
+    ...track,
+    isPlayer: true,
+    artist: state?.stageName || 'You',
+    peakStreams: Number(track.lifetimeStreams || track.streams || 0),
+    peakSales: Number(track.lifetimeSales || 0),
+    weeklyVideoViews: Number(track.weeklyVideoViews || 0),
+  }));
+  const allSongs = [...playerSongs, ...(npcCatalog || [])];
   return {
-    newNpcSongs: newSongs,
-    updatedLastRelease,
-    updatedCatalog: [...npcCatalog, ...newSongs],
+    streams: buildSingleChart(allSongs, state, 'streams'),
+    sales: buildSingleChart(allSongs, state, 'sales'),
+    videos: buildSingleChart(allSongs, state, 'videos'),
   };
 };
 
-// Calculate chart score for a song (NPC or player)
-export const calcChartScore = (song, totalWeeks, artistFans = 0, artistClout = 0) => {
-  const weeksOut = totalWeeks - (song.releaseWeek || 0);
-  const weeksOnChart = song.weeksOnChart || weeksOut;
-  const recency = Math.max(0, 1 - weeksOnChart / 20);
-
-  let cloutFactor = 0;
-  if (!song.isPlayer) {
-    const npc = NPC_ARTISTS.find(n => n.id === song.npcId);
-    cloutFactor = npc ? npc.clout / 100 : 0.5;
-  } else {
-    cloutFactor = Math.min(1, artistClout / 100);
-  }
-
-  const qualityFactor = (song.quality || 50) / 100;
-  const fanFactor = song.isPlayer
-    ? Math.min(1, Math.log10(Math.max(1, artistFans)) / 7)
-    : Math.min(1, Math.log10(Math.max(1, song.peakStreams || 1)) / 7);
-
-  return qualityFactor * 0.4 + recency * 0.35 + (cloutFactor * 0.15) + (fanFactor * 0.10);
-};
-
-export const buildCharts = (playerCatalog, npcCatalog, gs) => {
-  const playerSongs = (playerCatalog || [])
-    .filter(t => t.released)
-    .map(t => ({
-      ...t,
-      isPlayer: true,
-      artist: gs.stageName || 'You',
-      peakStreams: Math.round((t.quality / 100) * Math.sqrt(gs.fans || 1) * 150000),
-      peakSales: Math.round((t.quality / 100) * Math.sqrt(gs.fans || 1) * 30000),
-    }));
-
-  const allSongs = [...playerSongs, ...npcCatalog];
-
-  // Stream chart
-  const streamChart = buildSingleChart(allSongs, gs, 'streams');
-  // Sales chart (different weighting — quality-heavy)
-  const salesChart  = buildSingleChart(allSongs, gs, 'sales');
-  // Videos chart (VidTube)
-  const videoChart  = buildSingleChart(allSongs, gs, 'videos');
-
-  return { streams: streamChart, sales: salesChart, videos: videoChart };
-};
-
-const buildSingleChart = (allSongs, gs, type) => {
-  const scored = allSongs.map(song => {
-    let score = calcChartScore(song, gs.totalWeeks, gs.fans, gs.clout);
-    // Slight variance per chart type
-    if (type === 'sales')  score *= (0.85 + Math.random() * 0.3);
-    if (type === 'videos') score *= (0.80 + Math.random() * 0.4);
-    return { ...song, score };
-  });
-
-  return scored
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 50)
-    .map((song, i) => ({
-      ...song,
-      position: i + 1,
-      lastPos: song.currentPos || i + 2,
-      peakPos: song.peakPos ? Math.min(song.peakPos, i + 1) : i + 1,
-      weeksOnChart: (song.weeksOnChart || 0) + 1,
-      metricVal: type === 'streams' ? Math.round((song.peakStreams || 500000) * song.score * 1.2)
-                 : type === 'sales' ? Math.round((song.peakSales || 50000) * song.score * 1.2)
-                 : Math.round((song.peakStreams || 500000) * song.score * 0.8),
-    }));
-};
+const buildSingleChart = (allSongs, state, type) => allSongs
+  .map((song) => ({ ...song, score: calcChartScore(song, state?.totalWeeks || 0, state?.fans || 0, state?.clout || 0, type, state) }))
+  .sort((a, b) => b.score - a.score)
+  .slice(0, 50)
+  .map((song, index) => ({
+    ...song,
+    position: index + 1,
+    lastPos: song.currentPos || index + 2,
+    peakPos: song.peakPos ? Math.min(song.peakPos, index + 1) : index + 1,
+    weeksOnChart: (song.weeksOnChart || 0) + 1,
+    metricVal: type === 'streams' ? Math.round(song.weeklyStreams || 0)
+      : type === 'sales' ? Math.round((song.weeklySales || 0) * 4)
+      : Math.round(song.weeklyVideoViews || 0),
+  }));

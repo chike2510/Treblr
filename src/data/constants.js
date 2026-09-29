@@ -13,11 +13,11 @@ export const GENRES = [
 
 // ─── CITIES ──────────────────────────────────────────────────────────────────
 export const CITIES = [
-  { id:'lagos',   label:'Lagos',   flag:'NG', scene:'Afrobeats Capital', bonus:1.30 },
-  { id:'atlanta', label:'Atlanta', flag:'US', scene:'Trap Metropolis',   bonus:1.25 },
-  { id:'london',  label:'London',  flag:'GB', scene:'Global Crossroads', bonus:1.20 },
-  { id:'accra',   label:'Accra',   flag:'GH', scene:'Highlife Rising',   bonus:1.15 },
-  { id:'toronto', label:'Toronto', flag:'CA', scene:'Multicultural Hub', bonus:1.10 },
+  { id:'lagos',   label:'Lagos',   flag:'NG', scene:'Afrobeats Capital · Island & Mainland circuits', bonus:1.30 },
+  { id:'atlanta', label:'Atlanta', flag:'US', scene:'Trap Metropolis · Southern radio and club circuit', bonus:1.25 },
+  { id:'london',  label:'London',  flag:'GB', scene:'Global Crossroads · UK rap and diaspora stages', bonus:1.20 },
+  { id:'accra',   label:'Accra',   flag:'GH', scene:'Highlife Rising · Ghanaian live-music corridor', bonus:1.15 },
+  { id:'toronto', label:'Toronto', flag:'CA', scene:'Multicultural Hub · R&B and cross-genre rooms', bonus:1.10 },
 ];
 
 // ─── CAREER TYPES ─────────────────────────────────────────────────────────────
@@ -73,6 +73,12 @@ export const PRODUCERS = [
   { id:'legend',  name:'Legendary Producer', tier:4, cost:30000000, qBonus:35, minFans:300000, desc:'Grammy-certified.' },
 ];
 
+export const ROLLOUT_PLANS = [
+  { id:'organic', label:'Grassroots', cost:0, minFans:0, streamLift:1.08, fanLift:90, weeks:3, desc:'Community-first release. No cash spend; steady local lift.' },
+  { id:'targeted', label:'Targeted Campaign', cost:400000, minFans:0, streamLift:1.32, fanLift:360, weeks:4, desc:'Focused playlist, press, and short-form push.' },
+  { id:'global', label:'Global Launch', cost:2500000, minFans:5000, streamLift:1.62, fanLift:1100, weeks:5, desc:'International media and platform campaign.' },
+];
+
 // ─── LABELS ──────────────────────────────────────────────────────────────────
 export const LABELS = [
   {
@@ -90,6 +96,7 @@ export const LABELS = [
     color:'#0D9F68', pressureThreshold:3,
     desc:'Boutique indie. Artist-friendly split, creative freedom, modest budget.',
     demands:['1 single per quarter','3 social posts per week'],
+    obligations:{ postsPerWeek:3, singlesPer12Weeks:1, albumsPer48Weeks:0 },
   },
   {
     id:'nova', name:'Nova Records', tierLabel:'Mid-Tier Label',
@@ -98,6 +105,7 @@ export const LABELS = [
     color:'#00B8D4', pressureThreshold:2,
     desc:'Real marketing budget. They\'ll push you hard.',
     demands:['1 album per year','Approve all visuals','5 social posts per week'],
+    obligations:{ postsPerWeek:5, singlesPer12Weeks:1, albumsPer48Weeks:1 },
   },
   {
     id:'titan', name:'Titan Music Group', tierLabel:'Major Label',
@@ -105,7 +113,8 @@ export const LABELS = [
     contractWeeks:260, creativeControl:28, minClout:50, minFans:50000,
     color:'#C8922A', pressureThreshold:1,
     desc:'Global machine. Massive advance but they own your sound.',
-    demands:['2 albums per year','Full creative approval','10 social posts per week'],
+    demands:['2 albums per year','Full creative approval','6 social posts per week'],
+    obligations:{ postsPerWeek:6, singlesPer12Weeks:1, albumsPer48Weeks:2 },
   },
   {
     id:'apex', name:'Apex 360', tierLabel:'360 Deal',
@@ -113,7 +122,8 @@ export const LABELS = [
     contractWeeks:312, creativeControl:15, minClout:65, minFans:150000,
     color:'#D63548', pressureThreshold:1,
     desc:'Biggest advance in the game. They take a cut of EVERYTHING.',
-    demands:['Full creative override','40% of all revenue','6-year lock-in'],
+    demands:['Full creative override','40% of tour revenue','6-year lock-in'],
+    obligations:{ postsPerWeek:6, singlesPer12Weeks:1, albumsPer48Weeks:2 },
   },
 ];
 
@@ -155,6 +165,16 @@ export const RANDOM_EVENTS = [
   { id:'piracy',     label:'Piracy Wave',              desc:'Your music being downloaded illegally.', effect:{money:-500000, fans:100}, neg:true },
   { id:'label_buzz', label:'Label Interest',           desc:'A label rep saw your show.', effect:{clout:3, network:2}, neg:false, minWeeks:8 },
   { id:'genre_wave', label:'Genre Momentum',           desc:'Industry trend pushes your genre up.', effect:{fans:600, clout:2}, neg:false },
+  { id:'lagos_street_wave', label:'Lagos Street Wave', desc:'A mainland DJ puts your Afrobeats cut into weekend rotation.', effect:{fans:650, clout:3, reputation:2}, neg:false, city:'lagos', genre:'afrobeats' },
+  { id:'lagos_afrobeats_week', label:'Lagos Afrobeats Week', desc:'Local radio, DJs, and dance crews rally around the city scene.', effect:{fans:900, network:1, reputation:2}, neg:false, city:'lagos' },
+  { id:'accra_scene_exchange', label:'Accra–Lagos Exchange', desc:'A Ghanaian showcase links your sound with the wider West African circuit.', effect:{fans:700, clout:2, network:2}, neg:false, city:'accra', genre:'afrobeats' },
+  { id:'accra_highlife_night', label:'Accra Highlife Night', desc:'A live band reworks your song for a packed local room.', effect:{fans:420, lp:1, reputation:3}, neg:false, city:'accra' },
+  { id:'atlanta_cypher', label:'Atlanta Cypher', desc:'A respected local host puts your verse in front of the right ears.', effect:{fans:520, sw:1, network:2}, neg:false, city:'atlanta', genre:'hiphop' },
+  { id:'atlanta_radio_break', label:'Atlanta Radio Break', desc:'A late-night radio spin introduces your single to the city.', effect:{fans:680, clout:2}, neg:false, city:'atlanta' },
+  { id:'london_showcase', label:'London Diaspora Showcase', desc:'A packed showcase connects your team with UK promoters.', effect:{fans:560, network:2, reputation:2}, neg:false, city:'london' },
+  { id:'london_crossover', label:'London Crossover Set', desc:'A cross-genre session draws listeners from several scenes.', effect:{fans:500, clout:2}, neg:false, city:'london' },
+  { id:'toronto_festival', label:'Toronto Festival Slot', desc:'A festival clip travels across the city’s multicultural music scene.', effect:{fans:620, vidtube:1, reputation:2}, neg:false, city:'toronto' },
+  { id:'toronto_writer_room', label:'Toronto Writer Room', desc:'A songwriter introduces you to well-connected collaborators.', effect:{sw:1, network:2}, neg:false, city:'toronto' },
 ];
 
 // ─── LABEL EVENTS ─────────────────────────────────────────────────────────────
@@ -191,12 +211,12 @@ export const TOUR_TIERS = [
 
 // ─── SOCIAL PLATFORMS ────────────────────────────────────────────────────────
 export const SOCIAL_PLATFORMS = [
-  { id:'soundstream', name:'Soundstream', desc:'Tied to streaming — grows with music', color:'#1DB954', bgColor:'rgba(29,185,84,0.08)',  auto:true,  seCost:0 },
+  { id:'soundify',   name:'Soundify',   desc:'Streaming saves and first-week momentum', color:'#1DB954', bgColor:'rgba(29,185,84,0.08)',  auto:true,  seCost:0 },
   { id:'instapic',    name:'Instapic',    desc:'Photos, Reels, Stories',               color:'#E1306C', bgColor:'rgba(225,48,108,0.08)', seCost:1, contentTypes:['Photo Drop','Story Push','Reel Clip'] },
   { id:'chirp',       name:'Chirp',       desc:'Thoughts, Beef, Reactions',             color:'#1DA1F2', bgColor:'rgba(29,161,242,0.08)', seCost:1, contentTypes:['Drop Heat','Start Beef','React to News'] },
   { id:'vidtube',     name:'VidTube',     desc:'Music videos, Vlogs, Live sessions',    color:'#FF0000', bgColor:'rgba(255,0,0,0.08)',    seCost:2, contentTypes:['Post Music Video','Behind the Scenes Vlog','Live Session'] },
   { id:'rhythmtok',   name:'RhythmTok',   desc:'Short clips, Trends, Virality',         color:'#69C9D0', bgColor:'rgba(105,201,208,0.08)',seCost:1, contentTypes:['Jump on Trend','Original Sound','Artist Challenge'] },
-  { id:'soundcloud',  name:'SoundCloud',  desc:'Raw tracks, DJ mixes, Freestyles',      color:'#FF5500', bgColor:'rgba(255,85,0,0.08)',   seCost:1, contentTypes:['Drop Freestyle','DJ Mix','Exclusive Preview'] },
+  { id:'wavelog',     name:'Wavelog',     desc:'Raw tracks, DJ mixes, Freestyles',      color:'#FF5500', bgColor:'rgba(255,85,0,0.08)',   seCost:1, contentTypes:['Drop Freestyle','DJ Mix','Exclusive Preview'] },
 ];
 
 // ─── JOBS ─────────────────────────────────────────────────────────────────────

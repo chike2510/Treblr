@@ -85,6 +85,12 @@ body {
   overscroll-behavior: none;
 }
 
+button { font: inherit; color: inherit; }
+button:focus-visible, [role="button"]:focus-visible, [role="radio"]:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 3px;
+}
+
 /* ── APP SHELL ─────────────────────────────────────────────── */
 .app-shell {
   display: flex;
@@ -2440,6 +2446,10 @@ input[type="range"]::-webkit-slider-thumb {
 
 .soc-tab-underline {
   position: relative;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
   cursor: pointer;
   transition: color 200ms var(--li-ease-smooth);
 }

@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { MERCH_TYPES, LABELS, LABEL_AESTHETICS, TOUR_TIERS } from '../data/constants';
-import { clamp, fmt, fmtN, uid, rand } from '../engine/utils';
+import { clamp, fmt, fmtN, uid } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
-import { Aurora, Magnetic, SectionLabel, SubNav } from '../components/Living';
+import { canSpendActionPoint, getActionPoints, spendActionPoints, WEEKLY_ACTION_POINTS } from '../engine/actionPoints';
+import { buildTourRoute } from '../engine/cityScene';
+import { Aurora, Magnetic, SectionLabel, SubNav, ResourcePill } from '../components/Living';
 
 const MERCH_COOLDOWN = 4;
 const BRAND_COOLDOWN = 8;
@@ -31,12 +33,17 @@ const MerchIcon = ({ typeId }) => {
 
 export default function BusinessTab({ gs, patch, patchFn, showToast }) {
   const [section, setSection] = useState('merch');
+  const actionPoints = getActionPoints(gs);
 
   return (
     <div className="tab-content li-scene">
       <Aurora c1="#FF5500" c2="#7C6CFF" c3="#ffffff" />
       <div className="li-scene-content">
       <SubNav items={SUB_NAV} active={section} onChange={setSection} />
+      <div style={{ display:'flex', alignItems:'center', gap:10, margin:'-4px 0 12px' }}>
+        <ResourcePill label="Actions" value={actionPoints} max={WEEKLY_ACTION_POINTS} color="var(--accent-gold-lt)" suffix=" AP" />
+        <span style={{ fontSize:10, color:'var(--text-muted)' }}>Most business moves cost 1 action</span>
+      </div>
       {section === 'merch'  && <MerchView  gs={gs} patchFn={patchFn} showToast={showToast} />}
       {section === 'brands' && <BrandsView gs={gs} patchFn={patchFn} showToast={showToast} />}
       {section === 'label'  && <LabelView  gs={gs} patchFn={patchFn} showToast={showToast} />}
@@ -57,14 +64,20 @@ function MerchView({ gs, patchFn, showToast }) {
   const estimatedRevenue = Math.round(price * quantity * 0.65);
   const profit = estimatedRevenue - productionCost;
 
-  const weeksUntilMerch = Math.max(0, (gs.lastMerchWeek || -99) + MERCH_COOLDOWN - gs.totalWeeks);
-  const canDrop = gs.fans >= 5000 && gs.money >= productionCost && weeksUntilMerch === 0;
+  const weeksUntilMerch = Math.max(0, (gs.lastMerchWeek ?? -99) + MERCH_COOLDOWN - gs.totalWeeks);
+  const canDrop = gs.fans >= 5000 && gs.money >= productionCost && weeksUntilMerch === 0 && canSpendActionPoint(gs) && !gs.inPrison;
 
   const doDrop = () => {
     if (gs.fans < 5000) { showToast('Need 5,000 fans for merch'); return; }
     if (gs.money < productionCost) { showToast('Not enough money'); return; }
     if (weeksUntilMerch > 0) { showToast(`Merch cooldown: ${weeksUntilMerch}w`); return; }
-    patchFn(prev => ({
+    if (gs.inPrison) { showToast('You cannot launch merch while in prison'); return; }
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
+    patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
+      return {
+      ...acted,
       money: clamp(prev.money - productionCost, 0, 999_000_000_000),
       lastMerchWeek: prev.totalWeeks,
       activeMerchDrops: [
@@ -72,7 +85,8 @@ function MerchView({ gs, patchFn, showToast }) {
         { id: uid(), type: type.label, qty: quantity, price, cost: productionCost, revenue: estimatedRevenue, weeksLeft: 4, weekStarted: prev.totalWeeks }
       ],
       news: addNews(prev.news, `Merch drop! ${quantity} ${type.label}s at ₦${(price/1000).toFixed(0)}k. Revenue streams over 4 weeks.`, 'pos', prev.totalWeeks),
-    }));
+      };
+    });
     showToast(`${type.label} merch launched!`);
   };
 
@@ -109,11 +123,11 @@ function MerchView({ gs, patchFn, showToast }) {
         <label className="form-label">Item Type</label>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:18 }}>
           {MERCH_TYPES.map(t => (
-            <div key={t.id} onClick={() => { setSelectedType(t.id); setPrice(t.suggestedPrice); }} className="li-row"
-              style={{ textAlign:'center', padding:'10px 6px', borderRadius:12, cursor:'pointer', border:'1px solid '+(selectedType===t.id?'var(--li-accent)':'var(--li-glass-border)'), background:selectedType===t.id?'var(--li-accent-soft)':'transparent' }}>
+            <button type="button" key={t.id} aria-pressed={selectedType===t.id} onClick={() => { setSelectedType(t.id); setPrice(t.suggestedPrice); }} className="li-row"
+              style={{ appearance:'none', color:'inherit', font:'inherit', width:'100%', textAlign:'center', padding:'10px 6px', borderRadius:12, cursor:'pointer', border:'1px solid '+(selectedType===t.id?'var(--li-accent)':'var(--li-glass-border)'), background:selectedType===t.id?'var(--li-accent-soft)':'transparent' }}>
               <MerchIcon typeId={t.id} />
               <div style={{ fontSize:10, marginTop:4, color:'var(--text-secondary)' }}>{t.label}</div>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -153,7 +167,7 @@ function MerchView({ gs, patchFn, showToast }) {
 
         <Magnetic strength={6} disabled={!canDrop} onClick={doDrop}
           className="soc-pill" style={{ width:'100%', textAlign:'center', padding:'13px 0', background:canDrop?'var(--li-accent)':'var(--li-glass-bg)', color:canDrop?'#fff':'var(--text-muted)', fontSize:14 }}>
-          LAUNCH MERCH DROP
+          LAUNCH MERCH DROP · 1 AP
         </Magnetic>
       </div>
     </>
@@ -164,16 +178,23 @@ function MerchView({ gs, patchFn, showToast }) {
 function BrandsView({ gs, patchFn, showToast }) {
   const doBrand = (deal) => {
     if (gs.fans < deal.minFans) { showToast(`Need ${fmt(deal.minFans)} fans`); return; }
-    const lastWeek = (gs.lastBrandWeek || {})[deal.id] || -99;
+    if (gs.inPrison) { showToast('You cannot sign a brand deal while in prison'); return; }
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
+    const lastWeek = (gs.lastBrandWeek || {})[deal.id] ?? -99;
     if (gs.totalWeeks - lastWeek < BRAND_COOLDOWN) { showToast(`Brand cooldown: ${BRAND_COOLDOWN - (gs.totalWeeks - lastWeek)}w`); return; }
     const income = Math.round(deal.income * (1 + (gs.clout / 200)));
-    patchFn(prev => ({
+    patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
+      return {
+      ...acted,
       money: clamp(prev.money + income, 0, 999_000_000_000),
       clout: clamp(prev.clout + 2, 0, 100),
       lastBrandWeek: { ...(prev.lastBrandWeek || {}), [deal.id]: prev.totalWeeks },
       brandDeals: [...(prev.brandDeals || []), { type: deal.id, week: prev.totalWeeks, income }],
       news: addNews(prev.news, `Signed a ${deal.label} deal for ${fmtN(income)}!`, 'pos', prev.totalWeeks),
-    }));
+      };
+    });
     showToast(`Brand deal: +${fmtN(income)}`);
   };
 
@@ -181,9 +202,9 @@ function BrandsView({ gs, patchFn, showToast }) {
     <>
       <SectionLabel>{(gs.brandDeals || []).length} signed · 8-week cooldown per category</SectionLabel>
       {BRAND_DEALS.map((deal, i) => {
-        const lastWeek = (gs.lastBrandWeek || {})[deal.id] || -99;
+        const lastWeek = (gs.lastBrandWeek || {})[deal.id] ?? -99;
         const cooldown = Math.max(0, BRAND_COOLDOWN - (gs.totalWeeks - lastWeek));
-        const locked = gs.fans < deal.minFans || cooldown > 0;
+        const locked = gs.fans < deal.minFans || cooldown > 0 || !canSpendActionPoint(gs) || gs.inPrison;
         const estimatedIncome = Math.round(deal.income * (1 + (gs.clout / 200)));
         return (
           <Magnetic key={deal.id} strength={4} disabled={locked} onClick={() => doBrand(deal)}
@@ -197,6 +218,7 @@ function BrandsView({ gs, patchFn, showToast }) {
               <div style={{ fontWeight:700, fontSize:13 }}>{deal.label}</div>
               <div style={{ fontSize:11, color:'var(--text-muted)' }}>{deal.desc} · {fmt(deal.minFans)} fans req.</div>
               {cooldown > 0 && <div style={{ fontSize:10, color:'var(--accent-red)', marginTop:2 }}>Cooldown: {cooldown}w</div>}
+              {!canSpendActionPoint(gs) && <div style={{ fontSize:10, color:'var(--accent-orange)', marginTop:2 }}>1 AP · refreshes next week</div>}
             </div>
             <div style={{ fontFamily:'var(--font-mono)', fontSize:13, fontWeight:700, color:'var(--accent-gold-lt)', flexShrink:0 }}>~{fmtN(estimatedIncome)}</div>
           </Magnetic>
@@ -213,36 +235,56 @@ function LabelView({ gs, patchFn, showToast }) {
   const [ownAesthetic, setAesthet]  = useState('indie');
 
   const hasOwnLabel  = !!gs.ownLabel;
-  const canCreateOwn = gs.fans >= OWN_LABEL_MIN_FANS && gs.money >= OWN_LABEL_COST && !hasOwnLabel && gs.labelId === 'independent' && (gs.projects || []).length >= 1;
+  const canCreateOwn = gs.fans >= OWN_LABEL_MIN_FANS && gs.money >= OWN_LABEL_COST && !hasOwnLabel && gs.labelId === 'independent' && (gs.projects || []).length >= 1 && canSpendActionPoint(gs) && !gs.inPrison;
 
   const signLabel = (label) => {
     if (label.id === gs.labelId) return;
+    if (gs.inPrison) { showToast('You cannot change labels while in prison'); return; }
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
     if (label.id === 'independent') {
-      patchFn(prev => ({
-        labelId: 'independent', labelRel: 80, pressure: 0, recouped: 0,
-        news: addNews(prev.news, 'Went independent. Full ownership restored.', 'pos', prev.totalWeeks),
-      }));
+      patchFn(prev => {
+        const acted = spendActionPoints(prev);
+        if (!acted) return prev;
+        return {
+          ...acted, labelId:'independent', labelRel:80, pressure:0, recouped:0, contractWeeksLeft:0,
+          contractStartedWeek:null, contractSplit:null, creativeControl:100,
+          contractObligations:{ postsDue:0, singlesDue:0, albumsDue:0 },
+          news:addNews(prev.news, 'Went independent. Full ownership restored.', 'pos', prev.totalWeeks),
+        };
+      });
       showToast('NOW INDEPENDENT');
       return;
     }
     if (gs.clout < label.minClout) { showToast(`Need ${label.minClout} clout`); return; }
     if (gs.fans < label.minFans)   { showToast(`Need ${fmt(label.minFans)} fans`); return; }
-    patchFn(prev => ({
-      labelId: label.id, money: clamp(prev.money + label.advance, 0, 999_000_000_000),
-      labelRel: 80, pressure: 0, recouped: 0,
-      news: addNews(prev.news, `Signed to ${label.name}! Advance: ${fmtN(label.advance)}`, 'pos', prev.totalWeeks),
-    }));
+    patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
+      return {
+        ...acted,
+        labelId:label.id, money:clamp(prev.money + label.advance, 0, 999_000_000_000),
+        labelRel:80, pressure:0, recouped:0, contractWeeksLeft:label.contractWeeks,
+        contractStartedWeek:prev.totalWeeks, contractSplit:label.artistSplit, creativeControl:label.creativeControl,
+        contractObligations:{ postsDue:label.obligations?.postsPerWeek || 0, singlesDue:label.obligations?.singlesPer12Weeks || 0, albumsDue:label.obligations?.albumsPer48Weeks || 0 },
+        news:addNews(prev.news, `Signed to ${label.name}! Advance: ${fmtN(label.advance)}`, 'pos', prev.totalWeeks),
+      };
+    });
     showToast(`Signed to ${label.name}!`);
   };
 
   const createOwnLabel = () => {
     if (!ownLabelName.trim()) { showToast('Name your label'); return; }
     if (!canCreateOwn) return;
-    patchFn(prev => ({
-      money: clamp(prev.money - OWN_LABEL_COST, 0, 999_000_000_000),
-      ownLabel: { name: ownLabelName.trim(), aesthetic: ownAesthetic, budget: 0, reputation: 20, tier: 1, createdWeek: prev.totalWeeks },
-      news: addNews(prev.news, `${ownLabelName.trim()} is born! Your own record label is officially registered.`, 'milestone', prev.totalWeeks),
-    }));
+    patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
+      return {
+        ...acted,
+        money:clamp(prev.money - OWN_LABEL_COST, 0, 999_000_000_000),
+        ownLabel:{ name:ownLabelName.trim(), aesthetic:ownAesthetic, budget:0, reputation:20, tier:1, createdWeek:prev.totalWeeks },
+        news:addNews(prev.news, `${ownLabelName.trim()} is born! Your own record label is officially registered.`, 'milestone', prev.totalWeeks),
+      };
+    });
     showToast(`${ownLabelName} launched!`);
   };
 
@@ -262,19 +304,19 @@ function LabelView({ gs, patchFn, showToast }) {
     <>
       <div style={{ display:'flex', gap:8, marginBottom:16 }}>
         {[{id:'deals',l:'Sign Deals'},{id:'own',l:'My Label'}].map(v => (
-          <div key={v.id} onClick={()=>setView(v.id)} className="soc-pill"
-            style={{ flex:1, textAlign:'center', padding:'9px 0', background:view===v.id?'var(--li-accent)':'var(--li-glass-bg)', border:'1px solid '+(view===v.id?'var(--li-accent)':'var(--li-glass-border)'), color:view===v.id?'#fff':'var(--text-muted)', fontSize:12.5 }}>
+          <button type="button" key={v.id} aria-pressed={view===v.id} onClick={()=>setView(v.id)} className="soc-pill"
+            style={{ appearance:'none', font:'inherit', flex:1, textAlign:'center', padding:'9px 0', background:view===v.id?'var(--li-accent)':'var(--li-glass-bg)', border:'1px solid '+(view===v.id?'var(--li-accent)':'var(--li-glass-border)'), color:view===v.id?'#fff':'var(--text-muted)', fontSize:12.5 }}>
             {v.l}
-          </div>
+          </button>
         ))}
       </div>
 
       {view === 'deals' && (
         <>
-          <SectionLabel>Your split · Creative control</SectionLabel>
+          <SectionLabel>Your split · Creative control · Label changes cost 1 AP</SectionLabel>
           {LABELS.map((label, i) => {
             const isActive = gs.labelId === label.id;
-            const locked = !isActive && (gs.clout < label.minClout || gs.fans < label.minFans);
+            const locked = !isActive && (gs.clout < label.minClout || gs.fans < label.minFans || !canSpendActionPoint(gs) || gs.inPrison);
             return (
               <Magnetic key={label.id} strength={3} disabled={locked} onClick={() => signLabel(label)}
                 className="li-glass li-stagger" style={{ '--i':i, padding:14, marginBottom:10, borderColor: isActive ? label.color+'80' : 'var(--li-glass-border)', opacity:locked?0.55:1 }}>
@@ -298,6 +340,9 @@ function LabelView({ gs, patchFn, showToast }) {
                 )}
                 {isActive && gs.labelId !== 'independent' && (
                   <div style={{ marginTop:10 }}>
+                    <div style={{ fontSize:10, color:'var(--accent-orange)', marginBottom:7 }}>
+                      Contract · {Math.max(0,gs.contractWeeksLeft || 0)} weeks left · {gs.contractObligations?.postsDue || 0} promo posts this week · {gs.contractObligations?.singlesDue || 0} singles / quarter · {gs.contractObligations?.albumsDue || 0} albums / year
+                    </div>
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, marginBottom:4 }}>
                       <span style={{ color:'var(--text-muted)' }}>Recouped</span>
                       <span style={{ fontFamily:'var(--font-mono)' }}>{fmtN(gs.recouped)} / {fmtN(label.advance)}</span>
@@ -343,6 +388,15 @@ function LabelView({ gs, patchFn, showToast }) {
               <input type="range" min={0} max={5000000} step={100000} value={gs.ownLabel.budget || 0} onChange={e => updateBudget(Number(e.target.value))} />
             </div>
             <div style={{ fontSize:10, color:'var(--text-muted)' }}>Higher budget = more fan growth. Deducted weekly from cash.</div>
+            {Number(gs.ownLabel.budget || 0) > 0 && <div style={{ fontSize:11, color:'var(--accent-green)', marginTop:8 }}>
+              Next campaign: spend up to {fmtN(Math.min(gs.ownLabel.budget || 0, gs.money || 0))} for approximately +{fmt(Math.max(1,Math.round(Math.min(gs.ownLabel.budget || 0,gs.money || 0)/25000*(0.85+(gs.ownLabel.reputation||20)/200))))} fans.
+            </div>}
+            {(gs.ownLabelCampaigns || []).length > 0 && <div style={{ marginTop:12 }}>
+              <div style={{ fontSize:9, color:'var(--text-muted)', letterSpacing:1.5, marginBottom:5 }}>RECENT CAMPAIGNS</div>
+              {(gs.ownLabelCampaigns || []).slice(0,3).map(campaign => <div key={campaign.week} style={{ display:'flex', justifyContent:'space-between', gap:8, padding:'5px 0', fontSize:10, borderTop:'1px solid var(--li-glass-border)' }}>
+                <span>Week {campaign.week}</span><span>−{fmtN(campaign.spend)} · +{fmt(campaign.fanGain)} fans</span>
+              </div>)}
+            </div>}
           </div>
         ) : (
           <>
@@ -371,20 +425,20 @@ function LabelView({ gs, patchFn, showToast }) {
                 <label className="form-label" style={{ marginBottom:8 }}>Label Aesthetic</label>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
                   {LABEL_AESTHETICS.map(a => (
-                    <div key={a.id} onClick={() => setAesthet(a.id)} className="li-row"
-                      style={{ padding:'10px', borderRadius:12, cursor:'pointer', border:'1px solid '+(ownAesthetic===a.id?a.color:'var(--li-glass-border)'), background:ownAesthetic===a.id?a.color+'14':'transparent' }}>
+                    <button type="button" key={a.id} aria-pressed={ownAesthetic===a.id} onClick={() => setAesthet(a.id)} className="li-row"
+                      style={{ appearance:'none', color:'inherit', font:'inherit', width:'100%', textAlign:'left', padding:'10px', borderRadius:12, cursor:'pointer', border:'1px solid '+(ownAesthetic===a.id?a.color:'var(--li-glass-border)'), background:ownAesthetic===a.id?a.color+'14':'transparent' }}>
                       <div style={{ fontWeight:700, fontSize:13, color: ownAesthetic===a.id ? a.color : 'var(--text-primary)' }}>{a.label}</div>
                       <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:2 }}>{a.desc}</div>
-                    </div>
+                    </button>
                   ))}
                 </div>
                 <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:16 }}>
                   <span style={{ color:'var(--text-muted)' }}>Registration cost</span>
                   <span style={{ fontFamily:'var(--font-mono)', color:'var(--accent-red)' }}>{fmtN(OWN_LABEL_COST)}</span>
                 </div>
-                <Magnetic strength={6} disabled={!ownLabelName.trim()} onClick={createOwnLabel}
+                <Magnetic strength={6} disabled={!ownLabelName.trim() || !canCreateOwn} onClick={createOwnLabel}
                   className="soc-pill" style={{ width:'100%', textAlign:'center', padding:'13px 0', background:ownLabelName.trim()?'var(--li-accent)':'var(--li-glass-bg)', color:ownLabelName.trim()?'#fff':'var(--text-muted)', fontSize:14 }}>
-                  REGISTER LABEL
+                  REGISTER LABEL · 1 AP
                 </Magnetic>
               </div>
             )}
@@ -403,13 +457,21 @@ function TourView({ gs, patchFn, showToast }) {
     if (gs.tourActive) { showToast('Already on tour!'); return; }
     if (gs.totalWeeks < (gs.tourCooldownEnd || 0)) { showToast(`Tour cooldown: ${(gs.tourCooldownEnd || 0) - gs.totalWeeks}w left`); return; }
     if ((gs.catalog || []).filter(t => t.released).length < 1) { showToast('Release at least 1 song first'); return; }
-    const revenue = rand(tier.minRev, tier.maxRev);
-    patchFn(prev => ({
-      money: clamp(prev.money - tier.cost, 0, 999_000_000_000),
-      tourActive: true, tourWeeksLeft: tier.weeks, tourData: { ...tier, revenue },
-      energy: clamp(prev.energy - 20, 0, 100),
-      news: addNews(prev.news, `${tier.label} booked! Heading out for ${tier.weeks} weeks.`, 'pos', prev.totalWeeks),
-    }));
+    if (gs.inPrison) { showToast('You cannot tour while in prison'); return; }
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
+    const route = buildTourRoute(gs, tier.weeks);
+    const revenue = Math.round(clamp(route.reduce((total, stop) => total + stop.expectedAttendance * stop.ticketPrice, 0), tier.minRev, tier.maxRev));
+    patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
+      return {
+        ...acted,
+        money:clamp(prev.money - tier.cost, 0, 999_000_000_000),
+        tourActive:true, tourWeeksLeft:tier.weeks, tourData:{ ...tier, revenue, route, grossEarned:0, earnings:0 },
+        energy:clamp(prev.energy - 20, 0, 100),
+        news:addNews(prev.news, `${tier.label} booked! Heading out for ${tier.weeks} weeks.`, 'pos', prev.totalWeeks),
+      };
+    });
     showToast(`${tier.label} booked!`);
   };
 
@@ -431,6 +493,14 @@ function TourView({ gs, patchFn, showToast }) {
             <div style={{ height:'100%', width:`${((gs.tourData.weeks - gs.tourWeeksLeft) / gs.tourData.weeks) * 100}%`, background:'var(--accent-orange)', borderRadius:3 }} />
           </div>
           <div style={{ fontSize:12, color:'var(--accent-green)', fontWeight:700, marginTop:8 }}>Projected: {fmtN(gs.tourData.revenue)}</div>
+          <div style={{ marginTop:10, borderTop:'1px solid var(--li-glass-border)', paddingTop:7 }}>
+            {(gs.tourData.route || []).map((stop, index) => (
+              <div key={`${stop.cityId}-${index}`} style={{ display:'flex', justifyContent:'space-between', gap:8, padding:'4px 0', fontSize:10, color:stop.attendance ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                <span>{stop.week}. {stop.city}{stop.attendance ? ' · played' : ''}</span>
+                <span>{fmt(stop.attendance || stop.expectedAttendance)} · {fmtN(stop.revenue || stop.expectedAttendance * stop.ticketPrice)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -441,7 +511,9 @@ function TourView({ gs, patchFn, showToast }) {
       )}
 
       {TOUR_TIERS.map((tier, i) => {
-        const locked = gs.fans < tier.minFans || gs.tourActive || onCooldown || gs.money < tier.cost;
+        const route = buildTourRoute(gs, tier.weeks);
+        const estimate = Math.round(clamp(route.reduce((total, stop) => total + stop.expectedAttendance * stop.ticketPrice, 0), tier.minRev, tier.maxRev));
+        const locked = gs.fans < tier.minFans || gs.tourActive || onCooldown || gs.money < tier.cost || !canSpendActionPoint(gs) || gs.inPrison;
         return (
           <Magnetic key={tier.id} strength={3} disabled={locked} onClick={() => bookTour(tier)}
             className="li-glass li-row li-stagger" style={{ '--i':i, display:'flex', gap:14, alignItems:'center', padding:14, marginBottom:10, opacity:locked?0.55:1 }}>
@@ -454,14 +526,31 @@ function TourView({ gs, patchFn, showToast }) {
               <div style={{ fontWeight:700, fontSize:13 }}>{tier.label}</div>
               <div style={{ fontSize:11, color:'var(--text-muted)' }}>{tier.weeks}w · Cost {fmtN(tier.cost)} · {fmt(tier.minFans)} fans req.</div>
               <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{tier.desc}</div>
+              <div style={{ fontSize:10, color:'var(--accent-cyan)', marginTop:5, lineHeight:1.4 }}>Route: {route.map(stop => stop.city).join(' → ')}</div>
+              {!canSpendActionPoint(gs) && <div style={{ fontSize:10, color:'var(--accent-orange)', marginTop:3 }}>1 AP · refreshes next week</div>}
             </div>
             <div style={{ textAlign:'right', flexShrink:0 }}>
-              <div style={{ fontFamily:'var(--font-mono)', fontSize:13, fontWeight:700, color:'var(--accent-gold-lt)' }}>{fmtN(tier.minRev)}+</div>
-              <div style={{ fontSize:9, color:'var(--text-muted)' }}>potential</div>
+              <div style={{ fontFamily:'var(--font-mono)', fontSize:13, fontWeight:700, color:'var(--accent-gold-lt)' }}>{fmtN(estimate)}</div>
+              <div style={{ fontSize:9, color:'var(--text-muted)' }}>est. gross</div>
             </div>
           </Magnetic>
         );
       })}
+      {(gs.tourHistory || []).length > 0 && (
+        <>
+          <SectionLabel>Completed tour runs</SectionLabel>
+          <div className="li-glass" style={{ padding:'4px 14px', marginTop:8 }}>
+            {gs.tourHistory.slice(0, 3).map((tour, index) => (
+              <div key={`${tour.id || tour.label}-${tour.completedWeek || index}`} style={{ padding:'10px 0', borderBottom:index < Math.min(3, gs.tourHistory.length) - 1 ? '1px solid var(--li-glass-border)' : 'none' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', gap:8, fontSize:12, fontWeight:700 }}>
+                  <span>{tour.label}</span><span style={{ color:'var(--accent-green)' }}>{fmtN(tour.earnings || 0)} net</span>
+                </div>
+                <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:3 }}>{(tour.stops || []).map(stop => `${stop.city}: ${fmt(stop.attendance || 0)} · ${fmtN(stop.revenue || 0)}`).join('  ·  ')}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </>
   );
 }

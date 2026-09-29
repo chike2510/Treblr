@@ -77,18 +77,20 @@ const Aurora = ({ c1 = '#7C6CFF', c2 = '#3FD3C6', c3 = '#FF6FA5' }) => (
 );
 
 // Desktop pointer gently pulls the element toward the cursor, springs back on leave.
-const Magnetic = ({ strength=12, className, style, onClick, disabled, children }) => {
+const Magnetic = ({ strength=12, className, style, onClick, disabled, children, ariaLabel }) => {
   const m = useMagneticHover(strength);
   return (
-    <div
+    <button type="button"
       ref={m.ref}
       {...(disabled ? {} : m.handlers)}
       onClick={disabled ? undefined : onClick}
+      disabled={!!disabled}
+      aria-label={ariaLabel}
       className={className}
-      style={{ ...style, cursor: disabled ? 'default' : (onClick ? 'pointer' : style?.cursor) }}
+      style={{ appearance:'none', font:'inherit', color:'inherit', textAlign:'inherit', ...style, cursor: disabled ? 'default' : (onClick ? 'pointer' : style?.cursor) }}
     >
       {children}
-    </div>
+    </button>
   );
 };
 
@@ -257,8 +259,10 @@ const genChirpFeed = (gs, npcCatalog, playerName) => {
 
 // ── Post action (platform growth) ────────────────────────────────────────────
 const usePost = (gs, patchFn, showToast) => (platformId, seCost=1, extraEffects={}) => {
-  if ((gs.se||0) < seCost) { showToast(`Need ${seCost} Social Energy`); return; }
+  if (gs.inPrison) { showToast('You cannot post while in prison'); return false; }
+  if ((gs.se||0) < seCost) { showToast(`Need ${seCost} Social Energy`); return false; }
   patchFn(prev => {
+    if (prev.inPrison || (prev.se || 0) < seCost) return prev;
     const cur = (prev.socialPlatforms||{})[platformId]||0;
     const cb  = 1 + ((prev.charisma||5)/50);
     const sm  = prev.careerType==='social_media' ? 3 : 1;
@@ -279,15 +283,29 @@ const usePost = (gs, patchFn, showToast) => (platformId, seCost=1, extraEffects=
       case 'wavelog':   gain=rand(150,600); cloutG=1; break;
     }
 
+    const track = (prev.catalog || []).find(item => item.id === extraEffects.promoTrackId && item.released)
+      || [...(prev.catalog || [])].reverse().find(item => item.released);
+    const boost = { soundify:1.18, instapic:1.06, chirp:1.1, vidtube:1.08, rhythmtok:pendingToast?1.5:1.2, wavelog:1.05 }[platformId] || 1.05;
+    const postText = String(extraEffects.postText || `New ${PC[platformId]?.label || platformId} update.`).trim().slice(0,280);
+    const post = { id:`${prev.totalWeeks || 0}-${platformId}-${Math.random().toString(36).slice(2,7)}`, platformId, text:postText, trackId:track?.id || null, trackTitle:track?.title || null, week:prev.totalWeeks || 0, reach:Math.round(gain), viral:!!pendingToast };
+    const promotedCatalog = track ? (prev.catalog || []).map(item => item.id === track.id ? {
+      ...item,
+      promoByPlatform:{ ...(item.promoByPlatform || {}), [platformId]:{ multiplier:boost, expiresAt:(prev.totalWeeks || 0) + 3 } },
+    } : item) : prev.catalog;
     return {
       se: clamp((prev.se||0)-seCost, 0, prev.maxSe||7),
       clout: clamp((prev.clout||0)+cloutG, 0, 100),
       socialPlatforms: { ...(prev.socialPlatforms||{}), [platformId]: Math.round(cur+gain) },
+      catalog:promotedCatalog,
+      socialPostsThisWeek:Number(prev.socialPostsThisWeek || 0) + 1,
+      contractObligations:{ ...(prev.contractObligations || {}), postsDue:Math.max(0,Number(prev.contractObligations?.postsDue || 0) - 1) },
+      socialPostHistory:[post, ...(prev.socialPostHistory || [])].slice(0,60),
+      feed:[{ msg:`${PC[platformId]?.label || platformId}: ${postText}${track ? ` · promoting “${track.title}”` : ''}`, type:'social', week:prev.totalWeeks || 0 }, ...(prev.feed || [])].slice(0,50),
       news: addNews(prev.news, `Posted on ${PC[platformId]?.label||platformId} · +${Math.round(gain).toLocaleString()} reach`, 'pos', prev.totalWeeks),
       _pendingToast: pendingToast,
-      ...extraEffects,
     };
   });
+  return true;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -299,28 +317,36 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
   const [chirpTab,       setChirpTab]       = useState('foryou');
   const [instapicScreen, setInstapicScreen] = useState('feed');   // 'feed' | 'profile'
   const [rythmScreen,    setRythmScreen]    = useState('profile');
+  const [chirpText, setChirpText] = useState('');
+  const [promoTrackId, setPromoTrackId] = useState('');
 
   const platforms     = gs.socialPlatforms || {};
   const totalFollowers = Object.values(platforms).reduce((a,b) => a+(b||0), 0);
   const seLeft        = gs.se || 0;
   const releasedTracks = (gs.catalog||[]).filter(t => t.released);
+  const promoTrack = releasedTracks.find(track => track.id === promoTrackId) || null;
 
   const doPost = usePost(gs, patchFn, showToast);
 
-  const chirpFeed = useMemo(() =>
+  const generatedChirpFeed = useMemo(() =>
     genChirpFeed(gs, gs.npcCatalog||[], gs.stageName||'You'),
     [gs.totalWeeks, gs.latestChartSnapshot]
   );
+  const playerChirpFeed = (gs.socialPostHistory || []).filter(post => post.platformId === 'chirp').slice(0,10).map(post => ({
+    npc:{ id:'you', name:gs.stageName || 'You', color:'#1DA1F2', tier:'S' }, text:post.text,
+    time:`Week ${post.week}`, likes:post.reach, reposts:Math.round(post.reach * 0.12), views:Math.round(post.reach * 1.8),
+  }));
+  const chirpFeed = [...playerChirpFeed, ...generatedChirpFeed];
 
   // ── Back helper — circular glass button, magnetic on desktop ───────────────
   const BackBtn = ({ onBack, label }) => {
     const m = useMagneticHover(10);
     return (
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
-        <div ref={m.ref} {...m.handlers} onClick={onBack} className="soc-glass-btn soc-icon-btn"
+        <button type="button" ref={m.ref} {...m.handlers} onClick={onBack} aria-label={label || 'Back'} className="soc-glass-btn soc-icon-btn"
           style={{ width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'50%', flexShrink:0 }}>
           <svg viewBox="0 0 24 24" style={{ width:16, height:16, fill:'none', stroke:'var(--text-secondary)', strokeWidth:2 }}><polyline points="15 18 9 12 15 6"/></svg>
-        </div>
+        </button>
         {label && <span style={{ fontSize:13, color:'var(--text-muted)' }}>{label}</span>}
       </div>
     );
@@ -541,9 +567,9 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
           <Aurora c1={c.color} c2="#7C6CFF" c3="#ffffff" />
           <div className="li-scene-content">
           <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
-            <div onClick={() => setInstapicScreen('feed')} className="soc-glass-btn soc-icon-btn" style={{ width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <button type="button" aria-label="Back to Instapic feed" onClick={() => setInstapicScreen('feed')} className="soc-glass-btn soc-icon-btn" style={{ width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center' }}>
               <svg viewBox="0 0 24 24" style={{ width:18, height:18, fill:'none', stroke:'currentColor', strokeWidth:2 }}><polyline points="15 18 9 12 15 6"/></svg>
-            </div>
+            </button>
             <div style={{ fontWeight:700, fontSize:15 }}>{gs.stageName?.toLowerCase()}</div>
           </div>
 
@@ -634,14 +660,14 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
 
         {/* Stories */}
         <div className="soc-scroll-x" style={{ gap:12, paddingBottom:12, marginBottom:14 }}>
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, flexShrink:0, cursor:'pointer' }} onClick={() => setInstapicScreen('profile')}>
+          <button type="button" aria-label="Open your Instapic story" onClick={() => setInstapicScreen('profile')} style={{ appearance:'none', border:0, background:'none', color:'inherit', font:'inherit', display:'flex', flexDirection:'column', alignItems:'center', gap:4, flexShrink:0, cursor:'pointer' }}>
             <div style={{ width:56, height:56, borderRadius:'50%', padding:2, background:'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)' }}>
               <div style={{ width:'100%', height:'100%', borderRadius:'50%', border:'2px solid #000', overflow:'hidden', background:'var(--surface-2)' }}>
                 {gs.avatarUrl ? <img src={gs.avatarUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontFamily:'var(--li-font-display)' }}>{(gs.stageName||'?')[0]}</div>}
               </div>
             </div>
             <div style={{ fontSize:9, color:'var(--text-muted)' }}>Your Story</div>
-          </div>
+          </button>
           {NPC_ARTISTS.slice(0,6).map(npc => (
             <div key={npc.id} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, flexShrink:0 }}>
               <div style={{ width:56, height:56, borderRadius:'50%', padding:2, background:`linear-gradient(45deg,${npc.color},#a855f7)` }}>
@@ -699,14 +725,15 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
 
     // ── Compose screen ──────────────────────────────────────────────────────
     if (chirpScreen==='compose') {
-      const [text, setText] = useState('');
-      const [promoTrack, setPromoTrack] = useState(null);
-      const charLeft = 280 - text.length;
+      const charLeft = 280 - chirpText.length;
 
       const handlePost = () => {
         if ((gs.se||0) < 1) { showToast('Need 1 Social Energy'); return; }
-        doPost('chirp', 1);
-        setChirpScreen('feed');
+        if (doPost('chirp', 1, { postText:chirpText, promoTrackId:promoTrack?.id })) {
+          setChirpText('');
+          setPromoTrackId('');
+          setChirpScreen('feed');
+        }
       };
 
       return (
@@ -715,8 +742,8 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
           <div className="li-scene-content">
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
             <button onClick={() => setChirpScreen('feed')} style={{ background:'none', border:'none', color:'var(--text-muted)', cursor:'pointer', fontSize:14, padding:0 }}>Cancel</button>
-            <button onClick={handlePost} disabled={seLeft<1||text.length===0} className="soc-pill"
-              style={{ padding:'7px 20px', background:seLeft>=1&&text.length>0?c.color:'var(--li-glass-bg)', color:seLeft>=1&&text.length>0?'#fff':'var(--text-muted)', fontSize:13 }}>
+            <button onClick={handlePost} disabled={seLeft<1||chirpText.trim().length===0} className="soc-pill"
+              style={{ padding:'7px 20px', background:seLeft>=1&&chirpText.trim().length>0?c.color:'var(--li-glass-bg)', color:seLeft>=1&&chirpText.trim().length>0?'#fff':'var(--text-muted)', fontSize:13 }}>
               Post
             </button>
           </div>
@@ -725,8 +752,8 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
             <PlayerAvatar gs={gs} size={40} ring={c.color} />
             <div style={{ flex:1 }}>
               <textarea
-                value={text}
-                onChange={e => setText(e.target.value.slice(0,280))}
+                value={chirpText}
+                onChange={e => setChirpText(e.target.value.slice(0,280))}
                 placeholder="What's happening?"
                 style={{ width:'100%', background:'none', border:'none', outline:'none', color:'#fff', fontSize:16, lineHeight:1.5, resize:'none', minHeight:100, fontFamily:'var(--li-font-body)' }}
               />
@@ -734,13 +761,13 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
               {promoTrack && (
                 <div className="li-glass" style={{ display:'flex', gap:10, alignItems:'center', padding:10, marginTop:8 }}>
                   <div style={{ width:40, height:40, borderRadius:8, overflow:'hidden', background:'var(--surface-1)' }}>
-                    <img src={`/assets/covers/${COVER_POOL[gs.totalWeeks%COVER_POOL.length]}`} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e=>e.target.style.display='none'} />
+                    <img src={promoTrack.coverArt || `/assets/covers/${COVER_POOL[gs.totalWeeks%COVER_POOL.length]}`} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e=>e.target.style.display='none'} />
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:12, fontWeight:700 }}>{promoTrack.title}</div>
                     <div style={{ fontSize:10, color:'var(--text-muted)' }}>Pinned to this post</div>
                   </div>
-                  <button onClick={() => setPromoTrack(null)} style={{ background:'none', border:'none', color:'var(--text-muted)', cursor:'pointer', fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>
+                  <button onClick={() => setPromoTrackId('')} style={{ background:'none', border:'none', color:'var(--text-muted)', cursor:'pointer', fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>
                 </div>
               )}
             </div>
@@ -753,15 +780,15 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
             <div style={{ display:'flex', gap:18, color:c.color }}>
               <svg className="soc-icon-btn" viewBox="0 0 24 24" style={{ width:20, height:20, fill:'none', stroke:c.color, strokeWidth:1.5 }}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               <svg className="soc-icon-btn" viewBox="0 0 24 24" style={{ width:20, height:20, fill:'none', stroke:c.color, strokeWidth:1.5 }}><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M8 12h4v4H8v-4z"/><path d="M16 8v8"/><path d="M8 8h4"/></svg>
-              <div className="soc-icon-btn" style={{ display:'flex', alignItems:'center', gap:4 }}
+              <button type="button" aria-label="Pin a released track to this post" className="soc-icon-btn" style={{ appearance:'none', border:0, background:'none', color:'inherit', padding:0, display:'flex', alignItems:'center', gap:4 }}
                 onClick={() => {
-                  const track = releasedTracks[0];
-                  if (track) setPromoTrack(track);
+                  const track = releasedTracks[releasedTracks.length - 1];
+                  if (track) setPromoTrackId(track.id);
                   else showToast('Release a track first');
                 }}>
                 <svg viewBox="0 0 24 24" style={{ width:20, height:20, fill:'none', stroke:c.color, strokeWidth:1.5 }}><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
                 <span style={{ fontSize:11, color:c.color, fontWeight:700 }}>Promote</span>
-              </div>
+              </button>
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
               <div style={{ fontSize:12, color:charLeft<20?'var(--accent-red)':'var(--text-muted)' }}>{charLeft}</div>
@@ -875,10 +902,10 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
         {/* For You / Following */}
         <div style={{ display:'flex', borderBottom:'1px solid var(--li-glass-border)', marginBottom:4 }}>
           {['foryou','following'].map(t => (
-            <div key={t} onClick={() => setChirpTab(t)} className={`soc-tab-underline ${t===chirpTab?'on':''}`}
+            <button type="button" role="tab" aria-selected={t===chirpTab} key={t} onClick={() => setChirpTab(t)} className={`soc-tab-underline ${t===chirpTab?'on':''}`}
               style={{ flex:1, textAlign:'center', padding:'10px 0', fontSize:13, fontWeight:t===chirpTab?700:400, color:t===chirpTab?'#fff':'var(--text-muted)' }}>
               {t==='foryou'?'For You':'Following'}
-            </div>
+            </button>
           ))}
         </div>
 

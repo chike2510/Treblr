@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { GENRES, JOBS, PRODUCERS } from '../data/constants';
+import { GENRES, JOBS, PRODUCERS, ROLLOUT_PLANS } from '../data/constants';
 import { NPC_ARTISTS, NPC_TIERS } from '../data/artists';
 import { calcSongQuality } from '../engine/qualityCalc';
 import { clamp, fmt, fmtN, uid } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
+import { canSpendActionPoint, getActionPoints, spendActionPoints } from '../engine/actionPoints';
+import { getCollaborationPrice, getProducerPrice, hasPremiumProducerAccess } from '../engine/careerPerks';
+import { optimizeArtwork } from '../engine/coverArt';
 import { Aurora, Magnetic, SectionLabel, SubNav, ResourcePill } from '../components/Living';
 
 const RELEASE_COOLDOWN = { single: 2, ep: 6, album: 12 };
@@ -47,17 +50,23 @@ const SUB_NAV = [
 export default function CreateTab({ gs, patch, patchFn, showToast }) {
   const [section, setSection] = useState('train');
   const genreData = GENRES.find(g => g.id === gs.genre);
+  const actionPoints = getActionPoints(gs);
+  const canAct = canSpendActionPoint(gs);
 
   // ── Skill training ──────────────────────────────────────────────────────
   const trainSkill = (skillId) => {
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
     if (gs.energy < TRAINING_COST) { showToast('Need ' + TRAINING_COST + ' energy to train'); return; }
     const skill = SKILLS.find(s => s.id === skillId);
     if (!skill) return;
     patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
       const current = prev[skillId] || 0;
       if (current >= MAX_SKILL) { showToast(skill.label + ' is maxed!'); return prev; }
       const newVal = Math.min(MAX_SKILL, current + TRAINING_GAIN);
       return {
+        ...acted,
         [skillId]: newVal,
         energy: clamp((prev.energy || 0) - TRAINING_COST, 0, 100),
         news: addNews(prev.news, 'Trained ' + skill.label + ' · ' + newVal + '/' + MAX_SKILL, 'pos', prev.totalWeeks),
@@ -66,11 +75,15 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   };
 
   const trainGenre = () => {
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
     if (gs.energy < TRAINING_COST) { showToast('Need ' + TRAINING_COST + ' energy'); return; }
     patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
       const current = (prev.genreBonus || {})[prev.genre] || 0;
       if (current >= 50) { showToast('Genre mastery maxed!'); return prev; }
       return {
+        ...acted,
         genreBonus: { ...(prev.genreBonus || {}), [prev.genre]: Math.min(50, current + 2) },
         energy: clamp((prev.energy || 0) - TRAINING_COST, 0, 100),
         news: addNews(prev.news, 'Genre mastery +2 in ' + genreData?.label, 'pos', prev.totalWeeks),
@@ -79,15 +92,21 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   };
 
   const rest = () => {
-    patchFn(prev => ({
-      energy: clamp((prev.energy || 0) + 40, 0, 100),
-      news: addNews(prev.news, 'Took a rest day. Energy restored.', '', prev.totalWeeks),
-    }));
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
+    patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
+      return {
+        ...acted,
+        energy:clamp((prev.energy || 0) + 40, 0, 100),
+        news:addNews(prev.news, 'Took a rest day. Energy restored.', '', prev.totalWeeks),
+      };
+    });
     showToast('Rested — +40 energy');
   };
 
   const genreBonus = (gs.genreBonus || {})[gs.genre] || 0;
-  const canTrain = gs.energy >= TRAINING_COST;
+  const canTrain = gs.energy >= TRAINING_COST && canSpendActionPoint(gs);
   const overallMastery = Math.round(SKILLS.reduce((acc, s) => acc + (gs[s.id] || 0), 0) / (SKILLS.length * MAX_SKILL) * 100);
 
   // ── Jobs ─────────────────────────────────────────────────────────────────
@@ -100,10 +119,13 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   };
 
   const takeJob = (job) => {
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
     if (gs.activeJob) { showToast('Finish your current job first'); return; }
     if (gs.inPrison)  { showToast('You\'re in prison!'); return; }
     if (!checkJobReq(job)) { showToast('Requirements not met'); return; }
     patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
       let updates = {
         activeJob: {
           jobId: job.id,
@@ -123,17 +145,23 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
           updates[k] = Math.min(MAX_SKILL, (prev[k] || 0) + v);
         }
       }
-      return updates;
+      return { ...acted, ...updates };
     });
     showToast('Started: ' + job.label);
   };
 
   const quitJob = () => {
     if (!gs.activeJob) return;
-    patchFn(prev => ({
-      activeJob: null,
-      news: addNews(prev.news, 'Quit "' + prev.activeJob.label + '" early.', 'neg', prev.totalWeeks),
-    }));
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
+    patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
+      return {
+        ...acted,
+        activeJob: null,
+        news: addNews(prev.news, 'Quit "' + prev.activeJob.label + '" early.', 'neg', prev.totalWeeks),
+      };
+    });
     showToast('Job quit');
   };
 
@@ -142,31 +170,46 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   const [producerId, setProducerId] = useState('bedroom');
   const [featNpcs, setFeatNpcs]     = useState([]);
   const [openTier, setOpenTier]     = useState(null);
+  const [rolloutId, setRolloutId]   = useState('organic');
+  const [projectLeadId, setProjectLeadId] = useState(null);
 
   const released   = (gs.catalog || []).filter(t => t.released);
   const unreleased = (gs.catalog || []).filter(t => !t.released);
   const producer   = PRODUCERS.find(p => p.id === producerId) || PRODUCERS[0];
   const previewQ   = calcSongQuality(gs, producerId, featNpcs);
-  const weeksUntilRelease = Math.max(0, (gs.lastReleaseWeek || -99) + RELEASE_COOLDOWN.single - gs.totalWeeks);
+  const weeksUntilRelease = Math.max(0, (gs.lastReleaseWeek ?? -99) + RELEASE_COOLDOWN.single - gs.totalWeeks);
 
   const featCost = featNpcs.reduce((total, npcId) => {
     const npc = NPC_ARTISTS.find(n => n.id === npcId);
-    const discount = gs.careerType === 'fallen_star' ? 0.8 : 1.0;
-    return total + Math.round((npc?.collabCost || 0) * discount);
+    return total + getCollaborationPrice(gs, npc?.collabCost || 0, npcId);
   }, 0);
-  const totalCost = producer.cost + featCost;
+  const producerCost = getProducerPrice(gs, producer.cost);
+  const totalCost = producerCost + featCost;
+  const rolloutPlan = ROLLOUT_PLANS.find(plan => plan.id === rolloutId) || ROLLOUT_PLANS[0];
 
   const doRecord = () => {
     if (!title.trim()) { showToast('Name your track'); return; }
     if (gs.money < totalCost) { showToast('Need ' + fmtN(totalCost) + ' total'); return; }
     if (gs.energy < 25) { showToast('Too exhausted to record'); return; }
-    if (producer.minFans > gs.fans) { showToast('Need ' + fmt(producer.minFans) + ' fans for this producer'); return; }
+    if (gs.inPrison) { showToast('You can only rest while in prison'); return; }
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
+    if (producer.minFans > gs.fans && !hasPremiumProducerAccess(gs)) { showToast('Need ' + fmt(producer.minFans) + ' fans for this producer'); return; }
     const snap = totalCost;
     patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
       const quality = calcSongQuality(prev, producerId, featNpcs);
-      const track = { id:uid(), title:title.trim(), genre:prev.genre, quality, producerId, featNpcs:[...featNpcs], released:false, releaseWeek:null, chartPos:null, recordWeek:prev.totalWeeks };
+      const track = { id:uid(), title:title.trim(), genre:prev.genre, quality, producerId, featNpcs:[...featNpcs], released:false, releaseWeek:null, chartPos:null, recordWeek:prev.totalWeeks, lifetimeStreams:0, videoViews:0 };
+      const npcRelations = { ...(prev.npcRelations || {}) };
+      featNpcs.forEach(npcId => {
+        const relation = Number(npcRelations[npcId]?.value ?? npcRelations[npcId] ?? 0);
+        npcRelations[npcId] = { ...(typeof npcRelations[npcId] === 'object' ? npcRelations[npcId] : {}), value:clamp(relation + 8, 0, 100), collaborations:Number(npcRelations[npcId]?.collaborations || 0) + 1 };
+      });
       return {
+        ...acted,
         catalog: [...(prev.catalog || []), track],
+        npcRelations,
+        collaborationCount: Number(prev.collaborationCount || 0) + featNpcs.length,
         money: clamp(prev.money - snap, 0, 999_000_000_000),
         energy: clamp(prev.energy - 25, 0, 100),
         news: addNews(prev.news, 'Recorded "' + title.trim() + '" · Quality ' + quality + '/100', 'pos', prev.totalWeeks),
@@ -177,13 +220,23 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   };
 
   const doRelease = (trackId) => {
+    const candidate = (gs.catalog || []).find(track => track.id === trackId);
+    if (!candidate || candidate.released) { showToast('Select an unreleased track'); return; }
     if (weeksUntilRelease > 0) { showToast('Cooldown: ' + weeksUntilRelease + 'w'); return; }
+    if (gs.inPrison) { showToast('You can only rest while in prison'); return; }
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
+    if (gs.fans < rolloutPlan.minFans) { showToast(`This rollout needs ${fmt(rolloutPlan.minFans)} fans`); return; }
+    if (gs.money < rolloutPlan.cost) { showToast(`Need ${fmtN(rolloutPlan.cost)} for this rollout`); return; }
     patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
       const track = prev.catalog.find(t => t.id === trackId);
       return {
-        catalog: prev.catalog.map(t => t.id === trackId ? { ...t, released:true, releaseWeek:prev.totalWeeks } : t),
+        ...acted,
+        catalog: prev.catalog.map(t => t.id === trackId ? { ...t, released:true, releaseType:'single', releaseWeek:prev.totalWeeks, rollout:{ ...rolloutPlan, startWeek:prev.totalWeeks } } : t),
+        money: clamp(prev.money - rolloutPlan.cost, 0, 999_000_000_000),
         lastReleaseWeek: prev.totalWeeks,
-        fans: clamp(prev.fans + Math.round(Math.sqrt(prev.fans||1)*0.5+50), 0, 999_000_000),
+        fans: clamp(prev.fans + rolloutPlan.fanLift + Math.round(Math.sqrt(prev.fans||1)*0.5+50), 0, 999_000_000),
         clout: clamp(prev.clout + 1, 0, 100),
         news: addNews(prev.news, 'Dropped "' + (track?.title||'') + '" — the charts await.', 'pos', prev.totalWeeks),
       };
@@ -199,10 +252,8 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   const handleCoverUpload = (e, onLoaded) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { showToast('Images only'); return; }
-    const reader = new FileReader();
-    reader.onload = ev => onLoaded(ev.target.result);
-    reader.readAsDataURL(file);
+    optimizeArtwork(file).then(onLoaded).catch(error => showToast(error.message || 'Could not process cover art'));
+    e.target.value = '';
   };
 
   const assignTrackCover = (trackId, dataUrl) => {
@@ -222,7 +273,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   const maxTracks = projType === 'ep' ? 6 : 12;
   const cooldownKey = projType === 'ep' ? 'lastEpWeek' : 'lastAlbumWeek';
   const cooldownLen = RELEASE_COOLDOWN[projType];
-  const projCooldown = Math.max(0, ((gs[cooldownKey] || -99) + cooldownLen) - gs.totalWeeks);
+  const projCooldown = Math.max(0, ((gs[cooldownKey] ?? -99) + cooldownLen) - gs.totalWeeks);
 
   const toggleTrack = (id) => {
     setSelectedTracks(prev =>
@@ -236,11 +287,20 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
     if (!projTitle.trim()) { showToast('Give your project a title'); return; }
     if (selectedTracks.length < minTracks) { showToast(`Select at least ${minTracks} tracks`); return; }
     if (projCooldown > 0) { showToast(`Cooldown: ${projCooldown}w left`); return; }
+    if (gs.fans < rolloutPlan.minFans) { showToast(`This rollout needs ${fmt(rolloutPlan.minFans)} fans`); return; }
+    if (gs.money < rolloutPlan.cost) { showToast(`Need ${fmtN(rolloutPlan.cost)} for this rollout`); return; }
+    if (gs.inPrison) { showToast('You can only rest while in prison'); return; }
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
 
     patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
       const tracks = selectedTracks.map(id => prev.catalog.find(t => t.id === id)).filter(Boolean);
+      if (tracks.length < minTracks) { showToast(`Select at least ${minTracks} available tracks`); return prev; }
       const avgQ = Math.round(tracks.reduce((a, t) => a + t.quality, 0) / tracks.length);
       const fansGain = Math.round(Math.sqrt(prev.fans || 1) * 2 + avgQ * 10);
+      const leadTrackId = selectedTracks.includes(projectLeadId) ? projectLeadId : selectedTracks[0];
+      const genreCount = new Set(tracks.map(track => track.genre)).size;
       const proj = {
         id: uid(),
         title: projTitle.trim(),
@@ -250,21 +310,71 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
         releaseWeek: prev.totalWeeks,
         coverArt: projCover,
         streams: 0,
+        leadTrackId,
+        cohesion: clamp(Math.round(94 - (genreCount - 1) * 18 - Math.abs(Math.max(...tracks.map(t => t.quality)) - Math.min(...tracks.map(t => t.quality))) * 0.12), 20, 100),
+        deluxeCount: 0,
+        rollout: { ...rolloutPlan, startWeek: prev.totalWeeks },
       };
       return {
+        ...acted,
         projects: [...(prev.projects || []), proj],
         catalog: prev.catalog.map(t => selectedTracks.includes(t.id)
-          ? { ...t, released: true, releaseWeek: prev.totalWeeks, inProject: proj.id }
+          ? { ...t, released: true, releaseType:t.released ? (t.releaseType || 'single') : projType, releaseWeek:t.released ? t.releaseWeek : prev.totalWeeks, inProject: proj.id, rollout: { ...rolloutPlan, startWeek: prev.totalWeeks } }
           : t),
+        money: clamp(prev.money - rolloutPlan.cost, 0, 999_000_000_000),
         [cooldownKey]: prev.totalWeeks,
         lastReleaseWeek: prev.totalWeeks,
-        fans: clamp(prev.fans + fansGain, 0, 999_000_000),
+        fans: clamp(prev.fans + fansGain + rolloutPlan.fanLift, 0, 999_000_000),
         clout: clamp(prev.clout + 3, 0, 100),
-        news: addNews(prev.news, `Released ${projType.toUpperCase()} "${projTitle.trim()}" · ${tracks.length} tracks · Avg Q${avgQ}`, 'pos', prev.totalWeeks),
+        news: addNews(prev.news, `Released ${projType.toUpperCase()} "${projTitle.trim()}" · ${tracks.length} tracks · ${rolloutPlan.label} rollout · Avg Q${avgQ}`, 'pos', prev.totalWeeks),
       };
     });
     showToast(`${projType.toUpperCase()} "${projTitle}" released!`);
-    setProjTitle(''); setSelectedTracks([]); setProjCover(null); setShowProjectForm(false);
+    setProjTitle(''); setSelectedTracks([]); setProjCover(null); setProjectLeadId(null); setShowProjectForm(false);
+  };
+
+  const shootVideo = (trackId) => {
+    const videoCost = 750_000;
+    if (gs.inPrison) { showToast('You can only rest while in prison'); return; }
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
+    if (gs.money < videoCost) { showToast(`Need ${fmtN(videoCost)} to produce a video`); return; }
+    patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
+      return {
+        ...acted,
+        money:clamp(prev.money - videoCost, 0, 999_000_000_000),
+        catalog:prev.catalog.map(track => track.id === trackId ? { ...track, videoThroughWeek:prev.totalWeeks + 4, videoViral:(prev.vc || 0) + (prev.clout || 0) > 90 } : track),
+        news:addNews(prev.news, `A new visual dropped for "${prev.catalog.find(track => track.id === trackId)?.title || 'your song'}".`, 'pos', prev.totalWeeks),
+      };
+    });
+    showToast('Music video released · four-week chart run');
+  };
+
+  const releaseDeluxe = (projectId) => {
+    const project = (gs.projects || []).find(item => item.id === projectId);
+    const additions = (gs.catalog || []).filter(track => !track.released && !track.inProject).slice(0, 2);
+    const cost = 500_000;
+    if (!project || project.deluxeCount >= 1) return;
+    if (additions.length < 2) { showToast('Record two new songs for the deluxe edition'); return; }
+    if (gs.money < cost) { showToast(`Need ${fmtN(cost)} for the deluxe rollout`); return; }
+    if (gs.inPrison) { showToast('You can only rest while in prison'); return; }
+    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
+    patchFn(prev => {
+      const acted = spendActionPoints(prev);
+      if (!acted) return prev;
+      const newIds = additions.map(track => track.id);
+      return {
+        ...acted,
+        money:clamp(prev.money - cost, 0, 999_000_000_000),
+        catalog:prev.catalog.map(track => newIds.includes(track.id) ? { ...track, released:true, releaseType:'deluxe', releaseWeek:prev.totalWeeks, inProject:projectId, deluxeOf:projectId, rollout:{ id:'targeted', label:'Deluxe Reissue', streamLift:1.24, fanLift:250, weeks:3, startWeek:prev.totalWeeks, cost } } : track),
+        projects:prev.projects.map(item => item.id === projectId ? { ...item, trackIds:[...item.trackIds, ...newIds], deluxeCount:1, deluxeWeek:prev.totalWeeks, streams:item.streams || 0 } : item),
+        lastReleaseWeek:prev.totalWeeks,
+        fans:clamp(prev.fans + 250, 0, 999_000_000),
+        news:addNews(prev.news, `Deluxe edition of "${project.title}" adds two songs to the catalog.`, 'pos', prev.totalWeeks),
+      };
+    });
+    showToast(`Deluxe edition of "${project.title}" released`);
   };
 
   return (
@@ -272,6 +382,10 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
       <Aurora c1="#1DB954" c2="#7C6CFF" c3="#ffffff" />
       <div className="li-scene-content">
       <SubNav items={SUB_NAV} active={section} onChange={setSection} />
+      <div className="li-glass" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 13px',marginBottom:14}}>
+        <div><div style={{fontSize:10,letterSpacing:1.2,textTransform:'uppercase',color:'var(--text-muted)'}}>Weekly Actions</div><div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>Social posts use Social Energy instead.</div></div>
+        <div style={{fontFamily:'var(--font-mono)',fontSize:18,fontWeight:700,color:actionPoints?'var(--li-accent-lt)':'var(--accent-orange)'}}>{actionPoints}<span style={{fontSize:11,color:'var(--text-muted)'}}> / 3</span></div>
+      </div>
 
       {gs.inPrison && (
         <div className="li-glass" style={{ borderColor:'rgba(220,38,38,0.3)', background:'rgba(220,38,38,0.08)', padding:'12px 14px', marginBottom:16, textAlign:'center' }}>
@@ -293,7 +407,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
             <div style={{ height:5, background:'var(--li-glass-border)', borderRadius:3, overflow:'hidden' }}>
               <div style={{ height:'100%', width:overallMastery+'%', background:'linear-gradient(90deg,var(--li-accent),#3FD3C6)', borderRadius:3, transition:'width 500ms var(--li-ease-smooth)' }}/>
             </div>
-            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6 }}>Training costs {TRAINING_COST} energy · +{TRAINING_GAIN} per session · Max {MAX_SKILL}</div>
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6 }}>Training costs 1 action + {TRAINING_COST} energy · +{TRAINING_GAIN} per session · Max {MAX_SKILL}</div>
           </div>
 
           <div style={{ display:'flex', gap:8, marginBottom:16 }}>
@@ -321,9 +435,9 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                         <div style={{ height:'100%', width:pct+'%', background:skill.color, borderRadius:3, transition:'width 400ms var(--li-ease-smooth)' }}/>
                       </div>
                     </div>
-                    <Magnetic strength={6} onClick={() => !maxed && canTrain && !gs.inPrison && trainSkill(skill.id)} disabled={!canTrain || maxed || gs.inPrison}
+                    <Magnetic strength={6} onClick={() => !maxed && canTrain && canAct && !gs.inPrison && trainSkill(skill.id)} disabled={!canTrain || maxed || !canAct || gs.inPrison}
                       className="soc-pill" style={{ flexShrink:0, background:maxed?'var(--li-glass-bg)':skill.color+'22', color:maxed?'var(--text-muted)':skill.color, border:'1px solid '+(maxed?'var(--li-glass-border)':skill.color+'50'), fontSize:11, padding:'6px 12px' }}>
-                      {maxed ? 'MAX' : '+'+TRAINING_GAIN}
+                      {maxed ? 'MAX' : '+'+TRAINING_GAIN+' · 1 AP'}
                     </Magnetic>
                   </div>
                   <div style={{ fontSize:10, color:'var(--text-muted)', paddingLeft:44 }}>{skill.desc}</div>
@@ -343,9 +457,9 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
             <div style={{ height:5, background:'var(--li-glass-border)', borderRadius:3, marginBottom:12, overflow:'hidden' }}>
               <div style={{ height:'100%', width:((genreBonus/50)*100)+'%', background:'var(--accent-gold)', borderRadius:3 }}/>
             </div>
-            <Magnetic strength={5} onClick={() => canTrain && genreBonus<50 && !gs.inPrison && trainGenre()} disabled={!canTrain || genreBonus >= 50 || gs.inPrison}
+            <Magnetic strength={5} onClick={() => canTrain && genreBonus<50 && canAct && !gs.inPrison && trainGenre()} disabled={!canTrain || genreBonus >= 50 || !canAct || gs.inPrison}
               className="soc-glass-btn" style={{ width:'100%', padding:'10px 0', textAlign:'center', fontSize:13, fontWeight:700 }}>
-              Practice Genre · {TRAINING_COST} NRG
+              Practice Genre · 1 AP + {TRAINING_COST} NRG
             </Magnetic>
           </div>
 
@@ -375,8 +489,8 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                   ⚠ Illegal — {Math.round((gs.activeJob.prisonRisk||0)*100)}% arrest risk per week
                 </div>
               )}
-              <button className="soc-pill" style={{ width:'100%', padding:'9px 0', background:'rgba(220,38,38,0.1)', color:'var(--accent-red)', border:'1px solid rgba(220,38,38,0.2)', fontSize:12 }} onClick={quitJob}>
-                Quit Job (lose remaining income)
+              <button className="soc-pill" style={{ width:'100%', padding:'9px 0', background:'rgba(220,38,38,0.1)', color:canAct?'var(--accent-red)':'var(--text-muted)', border:'1px solid rgba(220,38,38,0.2)', fontSize:12 }} disabled={!canAct} onClick={quitJob}>
+                Quit Job · 1 AP (lose remaining income)
               </button>
             </div>
           )}
@@ -418,9 +532,9 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                       Bonus: +{Object.entries(job.skillGain).map(([k,v]) => v + ' ' + k.toUpperCase()).join(', ')} on start
                     </div>
                   )}
-                  <Magnetic strength={5} disabled={!!gs.activeJob || gs.inPrison || !unlocked} onClick={() => takeJob(job)}
+                  <Magnetic strength={5} disabled={!!gs.activeJob || gs.inPrison || !unlocked || !canAct} onClick={() => takeJob(job)}
                     className="soc-glass-btn" style={{ display:'inline-block', padding:'6px 14px', fontSize:11, fontWeight:700 }}>
-                    {isActive ? 'ACTIVE' : 'TAKE JOB'}
+                    {isActive ? 'ACTIVE' : 'TAKE JOB · 1 AP'}
                   </Magnetic>
                 </div>
               );
@@ -445,9 +559,9 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                   <div style={{ fontSize:10, color:'var(--accent-red)', marginBottom:8 }}>
                     If caught: {job.prisonWeeks}wk prison + 15% money lost
                   </div>
-                  <Magnetic strength={5} disabled={!!gs.activeJob || gs.inPrison || !unlocked} onClick={() => takeJob(job)}
+                  <Magnetic strength={5} disabled={!!gs.activeJob || gs.inPrison || !unlocked || !canAct} onClick={() => takeJob(job)}
                     className="soc-pill" style={{ display:'inline-block', padding:'6px 14px', background:'rgba(220,38,38,0.1)', color:'var(--accent-red)', border:'1px solid rgba(220,38,38,0.3)', fontSize:11 }}>
-                    {isActive ? 'ACTIVE' : 'TAKE JOB'}
+                    {isActive ? 'ACTIVE' : 'TAKE JOB · 1 AP'}
                   </Magnetic>
                 </div>
               );
@@ -469,17 +583,17 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
 
             <label className="form-label">Producer</label>
             <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:16}}>
-              {PRODUCERS.filter(p=>p.minFans<=gs.fans).map(p => (
-                <div key={p.id} onClick={()=>setProducerId(p.id)} className="li-row"
-                  style={{textAlign:'left',display:'flex',justifyContent:'space-between',alignItems:'center', padding:'10px 12px', borderRadius:12, border:'1px solid '+(producerId===p.id?'var(--li-accent)':'var(--li-glass-border)'), background:producerId===p.id?'var(--li-accent-soft)':'transparent', cursor:'pointer'}}>
+              {PRODUCERS.filter(p=>p.minFans<=gs.fans || hasPremiumProducerAccess(gs)).map(p => (
+                <button type="button" key={p.id} aria-pressed={producerId===p.id} onClick={()=>setProducerId(p.id)} className="li-row"
+                  style={{appearance:'none',color:'inherit',font:'inherit',width:'100%',textAlign:'left',display:'flex',justifyContent:'space-between',alignItems:'center', padding:'10px 12px', borderRadius:12, border:'1px solid '+(producerId===p.id?'var(--li-accent)':'var(--li-glass-border)'), background:producerId===p.id?'var(--li-accent-soft)':'transparent', cursor:'pointer'}}>
                   <div>
                     <div style={{fontWeight:700,fontSize:13}}>{p.name}</div>
                     <div style={{fontSize:11,color:'var(--text-muted)'}}>{p.desc} · +{p.qBonus} quality</div>
                   </div>
                   <div style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--accent-gold-lt)',flexShrink:0,marginLeft:8}}>
-                    {p.cost>0?fmtN(p.cost):'FREE'}
+                    {getProducerPrice(gs,p.cost)>0?fmtN(getProducerPrice(gs,p.cost)):'FREE'}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -495,11 +609,11 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                 const sel = featNpcs.filter(id => NPC_ARTISTS.find(n=>n.id===id&&n.tier===tid));
                 return (
                   <div key={tid}>
-                    <div
-                      onClick={() => ok && setOpenTier(isOpen ? null : tid)}
+                    <button type="button" aria-expanded={isOpen} disabled={!ok}
+                      onClick={() => setOpenTier(isOpen ? null : tid)}
                       className="li-row"
                       style={{
-                        display:'flex',alignItems:'center',gap:8,padding:'9px 10px',borderRadius:12,
+                        appearance:'none',color:'inherit',font:'inherit',width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:8,padding:'9px 10px',borderRadius:12,
                         background: isOpen?'var(--li-glass-bg-hi)':'transparent',
                         border:'1px solid '+(isOpen?t.color+'60':'var(--li-glass-border)'),
                         cursor:ok?'pointer':'default', opacity:ok?1:0.45,
@@ -516,7 +630,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                         <span style={{fontSize:10,color:'var(--text-muted)'}}>{t.feeRange}</span>
                         <ChevronDown open={isOpen}/>
                       </>}
-                    </div>
+                    </button>
                     {isOpen && ok && (
                       <div style={{display:'flex',flexWrap:'wrap',gap:5,padding:'8px 4px 4px'}}>
                         {npcByTier(tid).map(npc => {
@@ -551,7 +665,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
             <div style={{background:'var(--li-glass-bg-hi)',borderRadius:14,padding:'10px 12px',marginBottom:16}}>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
                 <span style={{color:'var(--text-muted)'}}>Producer</span>
-                <span>{producer.cost>0?fmtN(producer.cost):'FREE'}</span>
+                <span>{producerCost>0?fmtN(producerCost):'FREE'}{producerCost<producer.cost?' · career discount':''}</span>
               </div>
               {featCost>0 && (
                 <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginTop:4}}>
@@ -572,9 +686,9 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                 <span style={{color:qColor(previewQ),fontWeight:700}}>Q{previewQ}/99</span>
               </div>
             </div>
-            <Magnetic strength={6} disabled={!title.trim()||gs.money<totalCost||gs.energy<25} onClick={doRecord}
-              className="soc-pill" style={{ width:'100%', textAlign:'center', padding:'13px 0', background:(!title.trim()||gs.money<totalCost||gs.energy<25)?'var(--li-glass-bg)':'var(--li-accent)', color:(!title.trim()||gs.money<totalCost||gs.energy<25)?'var(--text-muted)':'#fff', fontSize:14 }}>
-              RECORD TRACK
+              <Magnetic strength={6} disabled={!title.trim()||gs.money<totalCost||gs.energy<25||!canAct||gs.inPrison} onClick={doRecord}
+              className="soc-pill" style={{ width:'100%', textAlign:'center', padding:'13px 0', background:(!title.trim()||gs.money<totalCost||gs.energy<25||!canAct||gs.inPrison)?'var(--li-glass-bg)':'var(--li-accent)', color:(!title.trim()||gs.money<totalCost||gs.energy<25||!canAct||gs.inPrison)?'var(--text-muted)':'#fff', fontSize:14 }}>
+              RECORD TRACK · 1 AP
             </Magnetic>
           </div>
         </>
@@ -584,6 +698,15 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
       {section === 'catalog' && (
         <>
           <SectionLabel>{released.length} released · {unreleased.length} in vault</SectionLabel>
+          <div className="li-glass" style={{ padding:14, marginBottom:14 }}>
+            <label className="form-label" htmlFor="release-rollout">Release campaign</label>
+            <select id="release-rollout" className="ob-input" value={rolloutId} onChange={event => setRolloutId(event.target.value)}>
+              {ROLLOUT_PLANS.map(plan => <option key={plan.id} value={plan.id} disabled={gs.fans < plan.minFans}>{plan.label} · {plan.cost ? fmtN(plan.cost) : 'Free'} · {plan.weeks} weeks</option>)}
+            </select>
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:7 }}>{rolloutPlan.desc} · +{fmt(rolloutPlan.fanLift)} fans · {Math.round((rolloutPlan.streamLift - 1) * 100)}% opening stream lift</div>
+            {rolloutPlan.cost > gs.money && <div style={{ fontSize:10, color:'var(--accent-red)', marginTop:4 }}>Need {fmtN(rolloutPlan.cost)} in cash to fund this rollout.</div>}
+            {!canAct && <div style={{ fontSize:10, color:'var(--accent-orange)', marginTop:4 }}>All 3 weekly actions have been spent; actions reset when you end the week.</div>}
+          </div>
           {(gs.catalog||[]).length === 0 ? (
             <div className="li-glass" style={{ padding:'30px 16px', textAlign:'center', marginBottom:16 }}>
               <svg viewBox="0 0 24 24" style={{width:36,height:36,stroke:'var(--text-muted)',fill:'none',strokeWidth:1.5,margin:'0 auto 10px',display:'block'}}>
@@ -614,15 +737,20 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                     <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:qColor(track.quality),marginTop:2}}>Q{track.quality}</div>
                   </div>
                   {!track.released && (
-                    <Magnetic strength={4} disabled={weeksUntilRelease>0} onClick={() => doRelease(track.id)}
-                      className="soc-pill" style={{ padding:'7px 12px', background:weeksUntilRelease>0?'var(--li-glass-bg)':'var(--li-accent)', color:weeksUntilRelease>0?'var(--text-muted)':'#fff', fontSize:11, flexShrink:0 }}>
-                      {weeksUntilRelease>0 ? weeksUntilRelease+'w' : 'DROP'}
+                    <Magnetic strength={4} disabled={weeksUntilRelease>0||!canAct||gs.inPrison||gs.money<rolloutPlan.cost||gs.fans<rolloutPlan.minFans} onClick={() => doRelease(track.id)}
+                      className="soc-pill" style={{ padding:'7px 12px', background:weeksUntilRelease>0||!canAct||gs.money<rolloutPlan.cost?'var(--li-glass-bg)':'var(--li-accent)', color:weeksUntilRelease>0||!canAct||gs.money<rolloutPlan.cost?'var(--text-muted)':'#fff', fontSize:11, flexShrink:0 }}>
+                      {weeksUntilRelease>0 ? weeksUntilRelease+'w' : 'DROP · 1 AP'}
                     </Magnetic>
                   )}
                   {track.released && (
-                    <div style={{textAlign:'right',flexShrink:0}}>
-                      <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--accent-green)'}}>LIVE</div>
-                      {track.chartPos && <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--accent-gold-lt)'}}>#{track.chartPos}</div>}
+                    <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+                      <div style={{textAlign:'right'}}>
+                        <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--accent-green)'}}>LIVE</div>
+                        {track.chartPos && <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--accent-gold-lt)'}}>#{track.chartPos}</div>}
+                      </div>
+                      <button className="soc-glass-btn" disabled={!canAct||gs.inPrison||gs.money<750000||Number(track.videoThroughWeek||-1)>=gs.totalWeeks} onClick={()=>shootVideo(track.id)} style={{padding:'6px 8px',fontSize:9,whiteSpace:'nowrap',color:canAct&&gs.money>=750000?'var(--li-accent-lt)':'var(--text-muted)'}}>
+                        {Number(track.videoThroughWeek||-1)>=gs.totalWeeks ? 'VIDEO LIVE' : 'VIDEO · 1 AP'}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -642,11 +770,11 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
             <div className="li-glass" style={{padding:16, marginBottom:16}}>
               <div style={{display:'flex',gap:8,marginBottom:16}}>
                 {['ep','album'].map(type => (
-                  <div key={type} onClick={()=>{setProjType(type);setSelectedTracks([]);}} className="li-row"
-                    style={{flex:1,textAlign:'center', padding:'10px', borderRadius:12, cursor:'pointer', border:'1px solid '+(projType===type?'var(--li-accent)':'var(--li-glass-border)'), background:projType===type?'var(--li-accent-soft)':'transparent'}}>
+                  <button type="button" key={type} aria-pressed={projType===type} onClick={()=>{setProjType(type);setSelectedTracks([]);}} className="li-row"
+                    style={{appearance:'none',color:'inherit',font:'inherit',flex:1,textAlign:'center', padding:'10px', borderRadius:12, cursor:'pointer', border:'1px solid '+(projType===type?'var(--li-accent)':'var(--li-glass-border)'), background:projType===type?'var(--li-accent-soft)':'transparent'}}>
                     <div style={{fontWeight:700,fontSize:13}}>{type.toUpperCase()}</div>
                     <div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>{type==='ep'?'4–6 tracks · 6w cooldown':'8–12 tracks · 12w cooldown'}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
 
@@ -692,12 +820,12 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                     const on = selectedTracks.includes(track.id);
                     const disabled = !on && selectedTracks.length >= maxTracks;
                     return (
-                      <div
+                      <button type="button" role="checkbox" aria-checked={on} disabled={disabled}
                         key={track.id}
-                        onClick={() => !disabled && toggleTrack(track.id)}
+                        onClick={() => toggleTrack(track.id)}
                         className="li-row"
                         style={{
-                          display:'flex',alignItems:'center',gap:10,padding:'9px 10px',
+                          appearance:'none',color:'inherit',font:'inherit',width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'9px 10px',
                           borderRadius:12,cursor: disabled ? 'default' : 'pointer',
                           border:'1px solid '+(on?'var(--li-accent)':'var(--li-glass-border)'),
                           background: on?'var(--li-accent-soft)':'transparent',
@@ -721,15 +849,29 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                           </div>
                         </div>
                         <div style={{flexShrink:0,width:8,height:8,borderRadius:'50%',background:qColor(track.quality)}}/>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
               )}
 
-              <Magnetic strength={6} disabled={selectedTracks.length < minTracks || !projTitle.trim() || projCooldown > 0} onClick={doCreateProject}
-                className="soc-pill" style={{ width:'100%', textAlign:'center', padding:'13px 0', marginTop:16, background:(selectedTracks.length < minTracks || !projTitle.trim() || projCooldown > 0)?'var(--li-glass-bg)':'var(--li-accent)', color:(selectedTracks.length < minTracks || !projTitle.trim() || projCooldown > 0)?'var(--text-muted)':'#fff', fontSize:14 }}>
-                RELEASE {projType.toUpperCase()} · {selectedTracks.length} TRACKS
+              {selectedTracks.length > 0 && <div style={{marginTop:12}}>
+                <label className="form-label" htmlFor="project-lead">Lead single · selection order sets sequence</label>
+                <select id="project-lead" className="ob-input" value={projectLeadId || selectedTracks[0]} onChange={event => setProjectLeadId(event.target.value)}>
+                  {selectedTracks.map((id,index) => <option key={id} value={id}>{index+1}. {gs.catalog.find(track=>track.id===id)?.title || 'Track'}</option>)}
+                </select>
+                <div style={{fontSize:10,color:'var(--text-muted)',marginTop:5}}>Selected tracks are sequenced in the order you added them. The lead gets a 12% streaming lift.</div>
+              </div>}
+              <div style={{marginTop:12}}>
+                <label className="form-label" htmlFor="project-rollout">Project rollout</label>
+                <select id="project-rollout" className="ob-input" value={rolloutId} onChange={event=>setRolloutId(event.target.value)}>
+                  {ROLLOUT_PLANS.map(plan=><option key={plan.id} value={plan.id} disabled={gs.fans<plan.minFans}>{plan.label} · {plan.cost?fmtN(plan.cost):'Free'} · {plan.weeks} weeks</option>)}
+                </select>
+              </div>
+
+              <Magnetic strength={6} disabled={selectedTracks.length < minTracks || !projTitle.trim() || projCooldown > 0 || !canAct || gs.inPrison || gs.money<rolloutPlan.cost} onClick={doCreateProject}
+                className="soc-pill" style={{ width:'100%', textAlign:'center', padding:'13px 0', marginTop:16, background:(selectedTracks.length < minTracks || !projTitle.trim() || projCooldown > 0 || !canAct || gs.money<rolloutPlan.cost)?'var(--li-glass-bg)':'var(--li-accent)', color:(selectedTracks.length < minTracks || !projTitle.trim() || projCooldown > 0 || !canAct || gs.money<rolloutPlan.cost)?'var(--text-muted)':'#fff', fontSize:14 }}>
+                RELEASE {projType.toUpperCase()} · {selectedTracks.length} TRACKS · 1 AP
               </Magnetic>
             </div>
           )}
@@ -739,6 +881,8 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
               <SectionLabel>Discography</SectionLabel>
               {(gs.projects||[]).map((proj, i) => {
                 const projTracks = (gs.catalog||[]).filter(t=>proj.trackIds?.includes(t.id));
+                const deluxeCandidates = unreleased.filter(t=>!t.inProject).slice(0,2);
+                const deluxeLocked = !!proj.deluxeCount || deluxeCandidates.length < 2 || !canAct || gs.inPrison || gs.money < 500000 || weeksUntilRelease > 0;
                 return (
                   <div key={proj.id} className="li-glass li-stagger" style={{ '--i':i, padding:14, marginBottom:8 }}>
                     <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
@@ -763,6 +907,10 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                         ))}
                       </div>
                     )}
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,marginTop:12}}>
+                      <span style={{fontSize:10,color:'var(--text-muted)'}}>{proj.deluxeCount?'Deluxe edition released':deluxeCandidates.length<2?'Record 2 new songs to unlock a deluxe reissue':'Adds your next 2 vault tracks · ₦500k'}</span>
+                      <button className="soc-glass-btn" disabled={deluxeLocked} onClick={()=>releaseDeluxe(proj.id)} style={{padding:'7px 10px',fontSize:9,whiteSpace:'nowrap',color:deluxeLocked?'var(--text-muted)':'var(--accent-gold-lt)'}}>{proj.deluxeCount?'DELUXE OUT':'DELUXE · 1 AP'}</button>
+                    </div>
                   </div>
                 );
               })}

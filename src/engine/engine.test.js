@@ -130,6 +130,26 @@ describe('music economy, charts, and awards', () => {
     expect(getTrackWeeklyStreams({ ...state, city:'lagos' }, state.catalog[0])).toBeGreaterThan(getTrackWeeklyStreams({ ...state, city:'toronto' }, state.catalog[0]));
   });
 
+  it('stores each real closed-week stream sample for released tracks and bounds history to 52 weeks', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
+    const initial = {
+      ...makeDefault(), stageName:'Test Artist', totalWeeks:0, fans:100_000, city:'lagos', genre:'afrobeats',
+      catalog:[{ id:'history-song', title:'Week by Week', released:true, releaseType:'single', releaseWeek:0, quality:88, lifetimeStreams:0 }],
+    };
+    const first = endWeek(initial, () => {}, () => {});
+    expect(first.catalog[0].weeklyHistory).toHaveLength(1);
+    expect(first.catalog[0].weeklyHistory[0]).toEqual({ week:first.totalWeeks, streams:first.catalog[0].weeklyStreams });
+
+    const second = endWeek(first, () => {}, () => {});
+    expect(second.catalog[0].weeklyHistory).toHaveLength(2);
+    expect(second.catalog[0].weeklyHistory[1]).toEqual({ week:second.totalWeeks, streams:second.catalog[0].weeklyStreams });
+
+    const olderHistory = Array.from({ length:60 }, (_, week) => ({ week, streams:week }));
+    const bounded = endWeek({ ...second, catalog:[{ ...second.catalog[0], weeklyHistory:olderHistory }] }, () => {}, () => {});
+    expect(bounded.catalog[0].weeklyHistory).toHaveLength(52);
+    expect(bounded.catalog[0].weeklyHistory.at(-1).week).toBe(bounded.totalWeeks);
+  });
+
   it('ranks streams, sales, and video views using distinct format-specific metrics', () => {
     const tracks = [
       { id:'stream-hit', title:'Stream Hit', released:true, releaseWeek:0, quality:60, lifetimeStreams:5_000_000, weeklyStreams:500_000, lifetimeSales:20, weeklySales:5, videoViews:10, weeklyVideoViews:2 },

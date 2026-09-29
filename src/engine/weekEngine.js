@@ -158,7 +158,11 @@ export const endWeek = (prev, showToast, setModal) => {
 
   // Actual per-song streams/sales/visual views; project totals roll up from the same tracks.
   const trackWeek = calculateCatalogWeek(next);
-  next.catalog = trackWeek.catalog;
+  next.catalog = trackWeek.catalog.map((track) => {
+    if (!track.released) return track;
+    const history = [...(track.weeklyHistory || []), { week:next.totalWeeks, streams:Number(track.weeklyStreams || 0) }].slice(-52);
+    return { ...track, weeklyHistory:history };
+  });
   next.projects = trackWeek.projects;
   next.weeklyStreamCount = trackWeek.weeklyStreams;
   next.totalLifetimeStreams = Number(prev.totalLifetimeStreams || 0) + trackWeek.weeklyStreams;

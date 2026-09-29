@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GENRES, CITIES, CAREER_TYPES, MILESTONES } from '../data/constants';
 import { fmt, fmtN, getTier, getTalent, getTimeLabel } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
@@ -24,13 +24,22 @@ const SUB_NAV = [
 ];
 
 export default function ProfileTab({ gs, setGs, patch, patchFn, showToast }) {
-  const [section, setSection] = useState('stats');
+  const [section, setSection] = useState(gs.appRoutes?.profile || 'stats');
+  useEffect(() => {
+    const route = gs.appRoutes?.profile;
+    if (route && route !== section) setSection(route);
+  }, [gs.appRoutes?.profile, section]);
+  const changeSection = (id) => {
+    setSection(id);
+    patch({ appRoutes:{ ...(gs.appRoutes || {}), profile:id } });
+  };
 
   return (
     <div className="tab-content li-scene">
       <Aurora c1="#7C6CFF" c2="#3FD3C6" c3="#FF6FA5" />
       <div className="li-scene-content">
-      <SubNav items={SUB_NAV} active={section} onChange={setSection} />
+      <div className="editorial-page-head" style={{ padding:'0 0 12px' }}><div className="page-kicker">ARTIST DOSSIER</div><h1>{SUB_NAV.find(item => item.id === section)?.label || 'Stats'}</h1></div>
+      <SubNav items={SUB_NAV} active={section} onChange={changeSection} />
       {section === 'stats'    && <StatsView    gs={gs} patchFn={patchFn} />}
       {section === 'charts'   && <ChartsView   gs={gs} />}
       {section === 'career'   && <CareerView   gs={gs} />}
@@ -52,6 +61,11 @@ function StatsView({ gs, patchFn }) {
 
   const releasedTracks = (gs.catalog || []).filter(t => t.released);
   const peakChart = releasedTracks.reduce((best, t) => (t.chartPos && (best === null || t.chartPos < best) ? t.chartPos : best), null);
+  const showsPlayed = [
+    ...(gs.tourHistory || []).flatMap(tour => tour.route || tour.stops || []),
+    ...(gs.tourActive && gs.tourData?.route ? gs.tourData.route : []),
+  ].filter(stop => Number(stop.attendance || 0) > 0).length;
+  const latestReport = gs.lastWeekReport || gs.weekReport;
 
   const skills = [
     { id:'sw', label:'Songwriting',      val: gs.sw || 0 },
@@ -108,15 +122,17 @@ function StatsView({ gs, patchFn }) {
       {/* Career stats */}
       <SectionLabel>Career Stats</SectionLabel>
       <div className="li-glass" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', marginBottom:16, overflow:'hidden' }}>
-        {[
-          { label:'Net Worth',       val: fmtN(gs.money), c:'var(--accent-green)' },
-          { label:'Social Reach',    val: fmt(totalSocial), c:'var(--text-primary)' },
-          { label:'Tracks Released', val: releasedTracks.length, c:'var(--text-primary)' },
-          { label:'Peak Chart Pos',  val: peakChart ? `#${peakChart}` : '—', c:'var(--accent-gold-lt)' },
-          { label:'Weekly Income',   val: fmtN(gs.weeklyStreamIncome || 0), c:'var(--accent-green)' },
-          { label:'Weeks Active',    val: gs.totalWeeks, c:'var(--text-primary)' },
+          {[
+          { label:'Available Cash',     val: fmtN(gs.money), c:'var(--accent-green)' },
+          { label:'Lifetime Streams',   val: fmt(gs.totalLifetimeStreams || 0), c:'var(--text-primary)' },
+          { label:'Fans',               val: fmt(gs.fans || 0), c:'var(--accent-gold-lt)' },
+          { label:'Platform Followers', val: fmt(totalSocial), c:'var(--text-primary)' },
+          { label:'Tracks Released',    val: releasedTracks.length, c:'var(--text-primary)' },
+          { label:'Shows Played',       val: showsPlayed, c:'var(--accent-orange)' },
+          { label:'Peak Chart Pos',     val: peakChart ? `#${peakChart}` : '—', c:'var(--accent-gold-lt)' },
+          { label:'Last Week Income',   val: latestReport ? fmtN(latestReport.revenue || 0) : '—', c:'var(--accent-green)' },
         ].map((s,i) => (
-          <div key={s.label} style={{ padding:'12px 14px', borderBottom: i<4?'1px solid var(--li-glass-border)':'none', borderRight: i%2===0?'1px solid var(--li-glass-border)':'none' }}>
+          <div key={s.label} style={{ padding:'12px 14px', borderBottom: i<6?'1px solid var(--li-glass-border)':'none', borderRight: i%2===0?'1px solid var(--li-glass-border)':'none' }}>
             <div style={{ fontSize:10, color:'var(--text-muted)', marginBottom:4 }}>{s.label}</div>
             <div style={{ fontFamily:'var(--font-mono)', fontSize:15, fontWeight:700, color:s.c }}>{s.val}</div>
           </div>
@@ -310,6 +326,10 @@ function CareerView({ gs }) {
   const progressToNext = nextMilestone
     ? Math.min(100, Math.round(((gs.fans - currentMilestone.fans) / (nextMilestone.fans - currentMilestone.fans)) * 100))
     : 100;
+  const careerTimeline = (gs.news || [])
+    .filter(item => item.type === 'milestone' || /(released|dropped|started|hired|award|tour|signed|label|deal|chart|viral|launch|wrapped)/i.test(item.msg || ''))
+    .slice(0, 8)
+    .reverse();
 
   return (
     <>
@@ -359,6 +379,15 @@ function CareerView({ gs }) {
             );
           })}
         </div>
+      </div>
+      <div className="finance-note" style={{ margin:'-5px 0 15px' }}>Progression is currently fan-milestone based. Shows, releases and other achievements are tracked separately and are not tier prerequisites.</div>
+
+      <SectionLabel>Career timeline</SectionLabel>
+      <div className="li-glass" style={{ padding:'4px 14px', marginBottom:16 }}>
+        {careerTimeline.length ? careerTimeline.map((item,index) => <div key={`${item.week ?? 0}-${index}-${item.msg}`} className="career-timeline-item">
+          <span className="career-timeline-date">{getTimeLabel(item.week || 0, gs.startYear)}</span>
+          <span className="career-timeline-text">{item.msg}</span>
+        </div>) : <div className="finance-note" style={{ margin:'10px 0' }}>Your career moments will be recorded here as the simulation moves forward.</div>}
       </div>
     </>
   );
@@ -483,6 +512,7 @@ function SettingsView({ gs, setGs, patch, showToast }) {
         <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:12 }}>
           Last saved: {gs.lastSaved ? new Date(gs.lastSaved).toLocaleString() : 'Never'} · {getSaveSlots().length}/8 local career slots
         </div>
+        <div className="finance-note">This is a local-save simulation. Account, audio, notification, privacy, difficulty and simulation-speed controls are not implemented; the current engine uses a fixed standard pace.</div>
         <Magnetic strength={5} onClick={() => { showToast(saveGame(gs, gs._slotId) ? 'Game saved' : 'Could not save. Free device storage and try again.'); }}
           className="soc-glass-btn" style={{ display:'block', textAlign:'center', width:'100%', padding:'11px 0', marginBottom:10, fontSize:13, fontWeight:700 }}>
           SAVE NOW

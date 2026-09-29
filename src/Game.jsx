@@ -2,24 +2,46 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { fmtN, getEra, getTimeLabel } from './engine/utils';
 import { endWeek as doEndWeek, handleModalChoice } from './engine/weekEngine';
 import { getActionPoints, WEEKLY_ACTION_POINTS } from './engine/actionPoints';
+import { PlayerAvatar } from './components/Living';
 
 import HomeTab     from './tabs/HomeTab';
 import CreateTab   from './tabs/CreateTab';
-import SocialTab   from './tabs/SocialTab';
+import NewsTab     from './tabs/NewsTab';
 import BusinessTab from './tabs/BusinessTab';
 import ProfileTab  from './tabs/ProfileTab';
 import WeeklyReport from './components/WeeklyReport';
 
-// ── Tab icons ─────────────────────────────────────────────────────────────────
 const Icons = {
-  home:     () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
-  create:   () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
-  social:   () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
-  business: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
-  profile:  () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  home: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  music: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
+  news: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><rect x="3" y="4" width="15" height="16" rx="1"/><path d="M7 8h7M7 12h7M7 16h4"/><path d="M18 8h2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-2"/></svg>,
+  career: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><path d="M2 12h20"/></svg>,
+  profile: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  city: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-5h6v5M8 10h.01M12 10h.01M16 10h.01"/></svg>,
+  tour: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M3 7h18M3 12h18M3 17h18"/><circle cx="7" cy="7" r="2"/><circle cx="17" cy="12" r="2"/><circle cx="10" cy="17" r="2"/></svg>,
+  collab: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v1"/></svg>,
 };
 
-// Modal SVG icons — no emojis
+const TABS = [
+  { id:'home', label:'Home', Icon:Icons.home },
+  { id:'create', label:'Music', Icon:Icons.music },
+  { id:'business', label:'Career', Icon:Icons.career },
+  { id:'social', label:'News', Icon:Icons.news },
+  { id:'profile', label:'Profile', Icon:Icons.profile },
+];
+
+const DESKTOP_LINKS = [
+  { label:'Career', tab:'business', route:'overview', Icon:Icons.career },
+  { label:'Music', tab:'create', route:'record', Icon:Icons.music },
+  { label:'Releases', tab:'create', route:'release', Icon:Icons.news },
+  { label:'Shows', tab:'business', route:'tour', Icon:Icons.tour },
+  { label:'Collabs', tab:'business', route:'network', Icon:Icons.collab },
+  { label:'Industry', tab:'business', route:'industry', Icon:Icons.career },
+  { label:'Finances', tab:'business', route:'money', Icon:Icons.career },
+  { label:'News', tab:'social', route:'wire', Icon:Icons.news },
+  { label:'Inbox', tab:'social', route:'inbox', Icon:Icons.news },
+];
+
 const ModalIcon = ({ ev }) => {
   if (ev?.id === 'award_nom' || ev?.id === 'award_win')
     return <svg viewBox="0 0 24 24" style={{ width:40,height:40,fill:'none',stroke:'#FFD700',strokeWidth:1.5,margin:'0 auto 10px',display:'block' }}><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>;
@@ -28,45 +50,71 @@ const ModalIcon = ({ ev }) => {
   return <svg viewBox="0 0 24 24" style={{ width:40,height:40,fill:'#a855f7',margin:'0 auto 10px',display:'block' }}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
 };
 
-// ── 5 major tabs. Everything else lives inside these via sub-nav. ─────────────
-const TABS = [
-  { id:'home',     label:'Home',     Icon:Icons.home },
-  { id:'create',   label:'Create',   Icon:Icons.create },
-  { id:'social',   label:'Social',   Icon:Icons.social },
-  { id:'business', label:'Business', Icon:Icons.business },
-  { id:'profile',  label:'Profile',  Icon:Icons.profile },
-];
+function DesktopSidebar({ gs, navigate }) {
+  return (
+    <aside className="desktop-sidebar" aria-label="Main navigation">
+      <div className="sidebar-brand"><span className="sidebar-mark">T</span><span>TREBLR</span></div>
+      <div className="sidebar-season">ARTIST CAREER SIMULATION</div>
+      <nav className="sidebar-links">
+        <button type="button" className={`desktop-nav-item${gs.tab === 'home' ? ' is-active' : ''}`} onClick={() => navigate('home')}>
+          <span className="desktop-nav-icon"><Icons.home/></span><span>Home</span>
+        </button>
+        {DESKTOP_LINKS.map((link) => {
+          const Icon = link.Icon;
+          const active = gs.tab === link.tab && gs.appRoutes?.[{ create:'music', business:'career', social:'news' }[link.tab]] === link.route;
+          return <div key={link.label}>
+            {link.group && <div className="sidebar-group-label">{link.group}</div>}
+            <button type="button" className={`desktop-nav-item${active ? ' is-active' : ''}`} aria-current={active ? 'page' : undefined} onClick={() => navigate(link.tab, link.route)}>
+              <span className="desktop-nav-icon"><Icon/></span><span>{link.label}</span>
+            </button>
+          </div>;
+        })}
+      </nav>
+      <div className="sidebar-bottom">
+        <button type="button" className={`desktop-nav-item${gs.tab === 'profile' && gs.appRoutes?.profile !== 'settings' ? ' is-active' : ''}`} onClick={() => navigate('profile','stats')}><span className="desktop-nav-icon"><Icons.profile/></span><span>Profile</span></button>
+        <button type="button" className={`desktop-nav-item${gs.tab === 'profile' && gs.appRoutes?.profile === 'settings' ? ' is-active' : ''}`} onClick={() => navigate('profile','settings')}><span className="desktop-nav-icon"><Icons.career/></span><span>Settings</span></button>
+      </div>
+    </aside>
+  );
+}
 
 export default function Game({ gs, setGs }) {
-  const [toast,       setToast]       = useState(null);
-  const [modal,       setModal]       = useState(null);
-  const [showReport,  setShowReport]  = useState(false);
-  const [isEndingWeek,setIsEndingWeek]= useState(false);
+  const [toast, setToast] = useState(null);
+  const [modal, setModal] = useState(null);
+  const [showReport, setShowReport] = useState(false);
+  const [isEndingWeek, setIsEndingWeek] = useState(false);
   const toastTimer = useRef(null);
 
-  const patch   = useCallback(upd => setGs(prev => ({ ...prev, ...upd })), [setGs]);
-  const patchFn = useCallback(fn  => setGs(prev => ({ ...prev, ...fn(prev) })), [setGs]);
-
+  const patch = useCallback(upd => setGs(prev => ({ ...prev, ...upd })), [setGs]);
+  const patchFn = useCallback(fn => setGs(prev => ({ ...prev, ...fn(prev) })), [setGs]);
   const showToast = useCallback((msg) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast(msg);
     toastTimer.current = setTimeout(() => setToast(null), 3200);
   }, []);
 
-  // Consume pending side-effects safely via useEffect
+  const navigate = useCallback((tab, route) => {
+    const routeKey = { create:'music', business:'career', social:'news', profile:'profile' }[tab];
+    if (routeKey && route) {
+      setGs(prev => ({ ...prev, tab, appRoutes:{ ...(prev.appRoutes || {}), [routeKey]:route } }));
+    } else {
+      setGs(prev => ({ ...prev, tab }));
+    }
+  }, [setGs]);
+
   useEffect(() => {
     if (gs._pendingToast) {
       showToast(gs._pendingToast);
-      setGs(prev => ({ ...prev, _pendingToast: null }));
+      setGs(prev => ({ ...prev, _pendingToast:null }));
     }
-  }, [gs._pendingToast]);
+  }, [gs._pendingToast, setGs, showToast]);
 
   useEffect(() => {
     if (gs._pendingModal) {
       setModal(gs._pendingModal);
-      setGs(prev => ({ ...prev, _pendingModal: null }));
+      setGs(prev => ({ ...prev, _pendingModal:null }));
     }
-  }, [gs._pendingModal]);
+  }, [gs._pendingModal, setGs]);
 
   const handleEndWeek = useCallback(() => {
     if (isEndingWeek) return;
@@ -77,7 +125,7 @@ export default function Game({ gs, setGs }) {
 
   const handleReportClose = useCallback(() => {
     setShowReport(false);
-    setGs(prev => ({ ...prev, weekReport: null }));
+    setGs(prev => ({ ...prev, lastWeekReport:prev.weekReport || prev.lastWeekReport || null, weekReport:null }));
   }, [setGs]);
 
   const handleChoice = useCallback((opt) => {
@@ -85,91 +133,94 @@ export default function Game({ gs, setGs }) {
     setModal(null);
   }, [patchFn, showToast]);
 
-  const era     = getEra(gs.fans);
+  const era = getEra(gs.fans);
   const timeStr = getTimeLabel(gs.totalWeeks, gs.startYear);
-
-  const tabProps = { gs, setGs, patch, patchFn, showToast, endWeek: handleEndWeek, isEndingWeek };
+  const actionPoints = getActionPoints(gs);
+  const tabProps = { gs, setGs, patch, patchFn, showToast, endWeek:handleEndWeek, isEndingWeek };
 
   return (
     <div className="app-shell">
-
-      {/* ── PERSISTENT TOP BAR — same on every tab, lightweight wayfinding only.
-             No fans/clout/talent/social here — that lives in Profile now. ── */}
-      <div className="li-topbar">
-        <div>
-          <div className="li-topbar-name">{gs.stageName}</div>
-          <div className="li-topbar-era">{era.label.replace(' Era','')}</div>
-        </div>
-        <div style={{ textAlign:'right' }}>
-          <div className="li-topbar-money">{fmtN(gs.money)}</div>
-          <div className="li-topbar-time">{timeStr}</div>
-          <div aria-label={`${getActionPoints(gs)} of ${WEEKLY_ACTION_POINTS} weekly action points remaining`} style={{ fontSize:9, color:'var(--accent-gold-lt)', marginTop:2, letterSpacing:0.8 }}>
-            {getActionPoints(gs)}/{WEEKLY_ACTION_POINTS} ACTIONS
+      <DesktopSidebar gs={gs} navigate={navigate}/>
+      <div className="app-workspace">
+        <header className="li-topbar">
+          <div className="li-topbar-row">
+            <div className="li-topbar-identity">
+              <PlayerAvatar gs={gs} size={36} ring="#C8922A"/>
+              <div className="li-topbar-copy">
+                <div className="li-topbar-name">{gs.stageName}</div>
+                <div className="li-topbar-era">{era.label.replace(' Era','')} · {(gs.genre || 'Music').replace('afrobeats','Afrobeats').replace('hiphop','Hip-Hop').replace('rnb','R&B')}</div>
+              </div>
+            </div>
+            <div className="li-topbar-balance">
+              <div className="li-topbar-money">{fmtN(gs.money)}</div>
+              <div className="li-topbar-time">Cash balance · {timeStr}</div>
+            </div>
           </div>
-        </div>
+          <div className="li-topbar-status">
+            <div className="li-energy-block" role="group" aria-label={`Energy ${gs.energy || 0} of 100`}>
+              <div className="li-status-caption"><span>Energy</span><strong>{gs.energy || 0}<small>/100</small></strong></div>
+              <div className="li-energy-track"><span style={{ width:`${Math.max(0,Math.min(100,Number(gs.energy || 0)))}%` }}/></div>
+            </div>
+            <div className="li-action-block" aria-label={`${actionPoints} of ${WEEKLY_ACTION_POINTS} weekly action points remaining`}>
+              <div className="li-status-caption"><span>Actions</span><strong>{actionPoints}<small>/{WEEKLY_ACTION_POINTS}</small></strong></div>
+              <div className="li-action-dots" aria-hidden="true">{Array.from({ length:WEEKLY_ACTION_POINTS }).map((_, index) => <span key={index} className={index < actionPoints ? 'is-ready' : ''}/>)}</div>
+            </div>
+          </div>
+        </header>
+
+        <main className="app-main" aria-label="Career simulation">
+          {gs.tab === 'home' && <HomeTab {...tabProps}/>}
+          {gs.tab === 'create' && <CreateTab {...tabProps}/>}
+          {gs.tab === 'social' && <NewsTab {...tabProps}/>}
+          {gs.tab === 'business' && <BusinessTab {...tabProps}/>}
+          {gs.tab === 'profile' && <ProfileTab {...tabProps}/>}
+        </main>
+
+        <nav className="tab-bar" aria-label="Primary navigation">
+          {TABS.map(tab => {
+            const Icon = tab.Icon;
+            return <button type="button" key={tab.id} className={`tab-btn${gs.tab === tab.id ? ' on' : ''}`} aria-current={gs.tab === tab.id ? 'page' : undefined} onClick={() => navigate(tab.id)}>
+              <span className="tab-btn-icon"><Icon/></span>
+              <span className="tab-btn-label">{tab.label}</span>
+            </button>;
+          })}
+        </nav>
       </div>
 
-      {/* ── ACTIVE TAB ──────────────────────────────────────────────── */}
-      <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-        {gs.tab==='home'     && <HomeTab     {...tabProps}/>}
-        {gs.tab==='create'   && <CreateTab   {...tabProps}/>}
-        {gs.tab==='social'   && <SocialTab   {...tabProps}/>}
-        {gs.tab==='business' && <BusinessTab {...tabProps}/>}
-        {gs.tab==='profile'  && <ProfileTab  {...tabProps}/>}
-      </div>
+      {showReport && gs.weekReport && <WeeklyReport report={gs.weekReport} stageName={gs.stageName} genre={gs.genre} onContinue={handleReportClose}/>}
 
-      {/* ── TAB BAR — 5 tabs, no more horizontal squeeze ──────────────── */}
-      <div className="tab-bar">
-        {TABS.map(t => (
-          <button key={t.id} className={`tab-btn${gs.tab===t.id?' on':''}`} onClick={() => patch({tab:t.id})}>
-            <span className="tab-btn-icon"><t.Icon/></span>
-            <span className="tab-btn-label">{t.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* ── WEEKLY REPORT ───────────────────────────────────────────── */}
-      {showReport&&gs.weekReport&&(
-        <WeeklyReport report={gs.weekReport} stageName={gs.stageName} genre={gs.genre} onContinue={handleReportClose}/>
-      )}
-
-      {/* ── MODAL ───────────────────────────────────────────────────── */}
-      {modal&&(
-        <div className="overlay" onClick={()=>!modal.event?.choice&&setModal(null)}>
-          <div className="modal" onClick={e=>e.stopPropagation()}>
+      {modal && (
+        <div className="overlay" onClick={() => !modal.event?.choice && setModal(null)}>
+          <div className="modal" onClick={event => event.stopPropagation()}>
             <div className="modal-handle"/>
             <ModalIcon ev={modal.event}/>
             <div className="modal-title">{modal.event.label}</div>
             <div className="modal-desc">{modal.event.desc}</div>
-            {modal.event.effect&&!modal.event.choice&&(
+            {modal.event.effect && !modal.event.choice && (
               <div className="effect-chips">
-                {Object.entries(modal.event.effect).map(([k,v])=>(
-                  <div key={k} className={`effect-chip ${v>0?'pos':'neg'}`}>
-                    {v>0?'+':''}{k==='money'?fmtN(v):v} {k!=='money'?k:''}
-                  </div>
-                ))}
+                {Object.entries(modal.event.effect).map(([key, value]) => <div key={key} className={`effect-chip ${value > 0 ? 'pos' : 'neg'}`}>
+                  {value > 0 ? '+' : ''}{key === 'money' ? fmtN(value) : value} {key !== 'money' ? key : ''}
+                </div>)}
               </div>
             )}
-            {modal.event.choice?(
-              <div className="modal-choices">
-                {modal.event.options.map((opt,i)=>(
-                  <button key={i} className="choice-btn" onClick={()=>handleChoice(opt)}>
-                    {opt.text}
+            {modal.event.choice ? (
+              <>
+                <div className="event-effect-note">Immediate modeled effects are listed below. Longer-term outcomes depend on how the simulation develops.</div>
+                <div className="modal-choices">
+                  {modal.event.options.map((option, index) => <button type="button" key={index} className="choice-btn" onClick={() => handleChoice(option)}>
+                    {option.text}
                     <div className="choice-btn-sub">
-                      {Object.entries(opt.effect).filter(([k])=>!['dropped','renegotiate'].includes(k)).map(([k,v])=>`${v>0?'+':''}${k==='money'?fmtN(v):v} ${k!=='money'?k:''}`).join(' · ')}
+                      {Object.entries(option.effect || {}).filter(([key]) => !['dropped','renegotiate'].includes(key)).map(([key,value]) => `${value > 0 ? '+' : ''}${key === 'money' ? fmtN(value) : value} ${key !== 'money' ? key : ''}`).join(' · ')}
                     </div>
-                  </button>
-                ))}
-              </div>
-            ):(
-              <button className="btn btn-primary btn-full" onClick={()=>setModal(null)}>GOT IT</button>
-            )}
+                  </button>)}
+                </div>
+              </>
+            ) : <button className="btn btn-primary btn-full" onClick={() => setModal(null)}>GOT IT</button>}
           </div>
         </div>
       )}
 
-      {/* ── TOAST ───────────────────────────────────────────────────── */}
-      {toast&&<div className="toast">{toast}</div>}
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }

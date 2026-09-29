@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { MERCH_TYPES, LABELS, LABEL_AESTHETICS, TOUR_TIERS } from '../data/constants';
-import { clamp, fmt, fmtN, uid } from '../engine/utils';
+import { useEffect, useState } from 'react';
+import { MERCH_TYPES, LABELS, LABEL_AESTHETICS, TOUR_TIERS, CITIES, GENRES, ERAS } from '../data/constants';
+import { NPC_ARTISTS } from '../data/artists';
+import { clamp, fmt, fmtN, uid, getEra } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
 import { canSpendActionPoint, getActionPoints, spendActionPoints, WEEKLY_ACTION_POINTS } from '../engine/actionPoints';
-import { buildTourRoute } from '../engine/cityScene';
+import { buildTourRoute, getCityDemand, getCityScene, getCityCollaboratorAffinity } from '../engine/cityScene';
+import { getCollaborationPrice } from '../engine/careerPerks';
 import { Aurora, Magnetic, SectionLabel, SubNav, ResourcePill } from '../components/Living';
 
 const MERCH_COOLDOWN = 4;
@@ -20,10 +22,18 @@ const BRAND_DEALS = [
 ];
 
 const SUB_NAV = [
-  { id:'merch',  label:'Merch' },
+  { id:'overview', label:'Overview' },
+  { id:'money',    label:'Finances' },
+  { id:'tour',     label:'Tour' },
+  { id:'network',  label:'Collabs' },
+  { id:'industry', label:'Industry' },
+  { id:'world',    label:'Markets' },
+];
+
+const INDUSTRY_NAV = [
+  { id:'label',  label:'Labels' },
   { id:'brands', label:'Brands' },
-  { id:'label',  label:'Label' },
-  { id:'tour',   label:'Tour' },
+  { id:'merch',  label:'Merch' },
 ];
 
 const MerchIcon = ({ typeId }) => {
@@ -32,25 +42,184 @@ const MerchIcon = ({ typeId }) => {
 };
 
 export default function BusinessTab({ gs, patch, patchFn, showToast }) {
-  const [section, setSection] = useState('merch');
+  const [section, setSection] = useState(gs.appRoutes?.career || 'overview');
+  const [industrySection, setIndustrySection] = useState('label');
+  const [collabSearch, setCollabSearch] = useState('');
+  const [selectedArtistId, setSelectedArtistId] = useState(null);
+  useEffect(() => {
+    const route = gs.appRoutes?.career;
+    if (route && route !== section) setSection(route);
+  }, [gs.appRoutes?.career, section]);
   const actionPoints = getActionPoints(gs);
+  const changeSection = (id) => {
+    setSection(id);
+    patch({ appRoutes:{ ...(gs.appRoutes || {}), career:id } });
+  };
 
   return (
     <div className="tab-content li-scene">
       <Aurora c1="#FF5500" c2="#7C6CFF" c3="#ffffff" />
       <div className="li-scene-content">
-      <SubNav items={SUB_NAV} active={section} onChange={setSection} />
+      <div className="editorial-page-head" style={{ padding:'0 0 12px' }}>
+        <div className="page-kicker">CAREER DESK</div>
+        <h1>{section === 'overview' ? 'The work behind the music' : SUB_NAV.find(item => item.id === section)?.label}</h1>
+      </div>
+      <SubNav items={SUB_NAV} active={section} onChange={changeSection} />
       <div style={{ display:'flex', alignItems:'center', gap:10, margin:'-4px 0 12px' }}>
         <ResourcePill label="Actions" value={actionPoints} max={WEEKLY_ACTION_POINTS} color="var(--accent-gold-lt)" suffix=" AP" />
         <span style={{ fontSize:10, color:'var(--text-muted)' }}>Most business moves cost 1 action</span>
       </div>
-      {section === 'merch'  && <MerchView  gs={gs} patchFn={patchFn} showToast={showToast} />}
-      {section === 'brands' && <BrandsView gs={gs} patchFn={patchFn} showToast={showToast} />}
-      {section === 'label'  && <LabelView  gs={gs} patchFn={patchFn} showToast={showToast} />}
-      {section === 'tour'   && <TourView   gs={gs} patchFn={patchFn} showToast={showToast} />}
+      {section === 'overview' && <CareerOverview gs={gs} onSelect={changeSection} />}
+      {section === 'money' && <MoneyView gs={gs} />}
+      {section === 'tour' && <TourView gs={gs} patchFn={patchFn} showToast={showToast} />}
+      {section === 'network' && <CollaboratorsView gs={gs} patch={patch} showToast={showToast} query={collabSearch} onQuery={setCollabSearch} selectedArtistId={selectedArtistId} onSelectArtist={setSelectedArtistId} />}
+      {section === 'industry' && <>
+        <SubNav items={INDUSTRY_NAV} active={industrySection} onChange={setIndustrySection} />
+        {industrySection === 'label' && <LabelView gs={gs} patchFn={patchFn} showToast={showToast} />}
+        {industrySection === 'brands' && <BrandsView gs={gs} patchFn={patchFn} showToast={showToast} />}
+        {industrySection === 'merch' && <MerchView gs={gs} patchFn={patchFn} showToast={showToast} />}
+      </>}
+      {section === 'world' && <MarketsView gs={gs} />}
       </div>
     </div>
   );
+}
+
+function CareerOverview({ gs, onSelect }) {
+  const era = getEra(gs.fans);
+  const releases = (gs.catalog || []).filter(track => track.released);
+  const report = gs.lastWeekReport || gs.weekReport;
+  const nextEra = ERAS.find(item => item.minFans > Number(gs.fans || 0));
+  const nextGoal = nextEra ? nextEra.minFans - Number(gs.fans || 0) : 0;
+  return <>
+    <div className="career-metrics">
+      <div><label>Career stage</label><strong style={{ color:era.color }}>{era.label.replace(' Era','')}</strong></div>
+      <div><label>Fans</label><strong>{fmt(gs.fans || 0)}</strong></div>
+      <div><label>Releases out</label><strong>{releases.length}</strong></div>
+      <div><label>Career cash</label><strong>{fmtN(gs.money || 0)}</strong></div>
+    </div>
+    <div className="li-glass" style={{ padding:14, marginBottom:14 }}>
+      <SectionLabel action={report ? `Week ${report.week}` : 'No week closed yet'}>Last week at a glance</SectionLabel>
+      {report ? <div className="ledger-row"><span>{fmt(report.fansDelta || 0)} new fans · {fmt(report.streamCount || 0)} streams</span><strong style={{ color:'var(--accent-green)' }}>{fmtN(report.revenue || 0)}</strong></div> : <div className="finance-note">Close your first week to create a proper performance and finance statement.</div>}
+      {gs.tourActive && gs.tourData && <div className="ledger-row"><span>On the road · {gs.tourWeeksLeft} weeks left</span><strong style={{ color:'var(--accent-orange)' }}>{gs.tourData.label}</strong></div>}
+      {gs.activeJob && <div className="ledger-row"><span>Current work · {gs.activeJob.weeksLeft} weeks remaining</span><strong>{fmtN(gs.activeJob.weeklyPay)}/wk</strong></div>}
+      <div className="finance-note">{nextEra ? `${fmt(nextGoal)} more fans to ${nextEra.label}.` : 'You have reached the highest fan-based career era.'}</div>
+    </div>
+    <SectionLabel>Choose your next move</SectionLabel>
+    <div className="li-glass" style={{ padding:'2px 14px', marginBottom:16 }}>
+      {[
+        ['money','Review finances','Actual income, bills and tax liability'],
+        ['tour','Plan a tour','Book one of the modeled tour tiers'],
+        ['network','Find a collaborator','Choose an eligible feature for a track'],
+        ['industry','Industry deals','Labels, brand offers and merchandise'],
+        ['world','Explore markets','Compare the five cities in the simulation'],
+      ].map(([id,title,desc]) => <button key={id} type="button" className="career-shortcut" onClick={() => onSelect(id)}><span><strong>{title}</strong><small>{desc}</small></span><span aria-hidden="true">›</span></button>)}
+    </div>
+  </>;
+}
+
+function MoneyView({ gs }) {
+  const report = gs.lastWeekReport || gs.weekReport;
+  const incomeRows = report ? [
+    ['Streaming', report.streamIncome], ['Shows', report.tourIncome], ['Merchandise', report.merchIncome], ['Contract / job', report.jobIncome],
+  ] : [];
+  const expenses = report ? [
+    ['Management & legal', report.teamCosts], ['Campaigns', report.campaignSpend], ['Tax paid', report.tax],
+  ] : [];
+  const weeklyIncome = Number(report?.revenue || 0);
+  const weeklyCosts = expenses.reduce((sum, [, value]) => sum + Number(value || 0), 0);
+  const weeklyNet = weeklyIncome - weeklyCosts;
+  const maxIncome = Math.max(1, ...incomeRows.map(([, value]) => Number(value || 0)));
+  const maxCosts = Math.max(1, ...expenses.map(([, value]) => Number(value || 0)));
+  const monthsLeft = weeklyNet < 0 ? (Number(gs.money || 0) / Math.abs(weeklyNet)) / 4.33 : null;
+  return <>
+    <div className="career-metrics">
+      <div><label>Available cash</label><strong>{fmtN(gs.money || 0)}</strong></div>
+      <div><label>Last week · income</label><strong>{report ? fmtN(weeklyIncome) : '—'}</strong></div>
+      <div><label>Last week · net cash</label><strong style={{ color:report ? (weeklyNet >= 0 ? 'var(--accent-green)' : 'var(--accent-red)') : 'var(--text-muted)' }}>{report ? `${weeklyNet >= 0 ? '+' : '−'}${fmtN(Math.abs(weeklyNet))}` : '—'}</strong></div>
+      <div><label>Tax set aside</label><strong>{fmtN(gs.taxAccum || 0)}</strong></div>
+    </div>
+    {report ? <>
+      <SectionLabel>Last settled week · week {report.week}</SectionLabel>
+      <div className="li-glass" style={{ padding:'4px 14px', marginBottom:14 }}>
+        {incomeRows.map(([label,value]) => <div key={label}>
+          <div className="ledger-row"><span>{label}</span><strong>{fmtN(value || 0)}</strong></div>
+          <div className="ledger-bar-track"><span style={{ width:`${Math.max(0,Math.min(100,(Number(value || 0)/maxIncome)*100))}%` }}/></div>
+        </div>)}
+        {!incomeRows.some(([,value]) => Number(value || 0) > 0) && <div className="finance-note">No income was recorded for this week.</div>}
+      </div>
+      <SectionLabel>Cash costs in the same week</SectionLabel>
+      <div className="li-glass" style={{ padding:'4px 14px', marginBottom:14 }}>
+        {expenses.map(([label,value]) => <div key={label}>
+          <div className="ledger-row"><span>{label}</span><strong style={{ color:Number(value || 0) > 0 ? 'var(--accent-red)' : 'var(--text-muted)' }}>{fmtN(value || 0)}</strong></div>
+          <div className="ledger-bar-track"><span style={{ width:`${Math.max(0,Math.min(100,(Number(value || 0)/maxCosts)*100))}%`, background:'#A45A50' }}/></div>
+        </div>)}
+        <div className="ledger-row"><span>Cash from operations</span><strong style={{ color:weeklyNet >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>{weeklyNet < 0 ? '−' : '+'}{fmtN(Math.abs(weeklyNet))}</strong></div>
+      </div>
+      <div className="li-glass" style={{ padding:14 }}>
+        <SectionLabel>Cash runway</SectionLabel>
+        <div style={{ fontFamily:'var(--font-display)', fontSize:19, fontWeight:700, color:monthsLeft == null ? 'var(--accent-green)' : monthsLeft < 3 ? 'var(--accent-red)' : 'var(--accent-gold-lt)' }}>
+          {monthsLeft == null ? 'Cash-positive last week' : `${monthsLeft.toFixed(1)} months at that rate`}
+        </div>
+        <p className="finance-note">Approximation from the latest settled week; it assumes that week repeats, and excludes one-off studio, tour-booking and merchandise launch costs. Accrued tax: {fmtN(gs.taxAccum || 0)}.</p>
+      </div>
+    </> : <div className="li-glass" style={{ padding:16 }}><SectionLabel>Weekly statement</SectionLabel><p className="finance-note">Your first ledger is generated when the in-game week closes. The simulation currently tracks streams, shows, merchandise, contract pay, team retainers, label campaigns and quarterly tax—not publishing, travel, crew or personal lifestyle budgets.</p></div>}
+  </>;
+}
+
+function CollaboratorsView({ gs, patch, showToast, query, onQuery, selectedArtistId, onSelectArtist }) {
+  const artists = NPC_ARTISTS.filter(artist => Number(artist.minFansToFeature || 0) <= Number(gs.fans || 0))
+    .filter(artist => `${artist.name} ${artist.genre}`.toLowerCase().includes(query.toLowerCase()))
+    .sort((a,b) => Number(b.genre === gs.genre) - Number(a.genre === gs.genre) || Number(a.collabCost || 0) - Number(b.collabCost || 0))
+    .slice(0, 18);
+  const selectedArtist = NPC_ARTISTS.find(artist => artist.id === selectedArtistId);
+  const startStudio = artist => {
+    const cost = getCollaborationPrice(gs, artist.collabCost || 0, artist.id);
+    if (gs.money < cost) { showToast(`Need ${fmtN(cost)} for ${artist.name}'s feature fee`); return; }
+    patch({ tab:'create', pendingFeatureRequest:artist.id, appRoutes:{ ...(gs.appRoutes || {}), music:'record' } });
+    showToast(`${artist.name} is selected in the Studio. Confirm the cost before recording.`);
+  };
+  return <>
+    <div className="news-lede"><div><div className="news-lede-label">FEATURE DISCOVERY</div><div className="news-lede-title">Find a voice for the next record.</div></div></div>
+    <p className="finance-note">Audience figures below are the artists' current in-simulation fanbases. Compatibility is based on modeled home-scene and genre data; there is no separate negotiation or audience-overlap model.</p>
+    <input className="collab-search" aria-label="Search eligible artists" placeholder="Search by artist or genre" value={query} onChange={event => onQuery(event.target.value)} />
+    <div className="li-glass" style={{ padding:'2px 12px' }}>
+      {artists.length ? artists.map(artist => {
+        const relation = gs.npcRelations?.[artist.id];
+        const relationValue = Number(typeof relation === 'object' ? relation?.value || 0 : relation || 0);
+        const currentFans = Number(gs.npcCareers?.[artist.id]?.fans ?? artist.fans ?? 0);
+        const cost = getCollaborationPrice(gs, artist.collabCost || 0, artist.id);
+        const genre = GENRES.find(item => item.id === artist.genre)?.label || artist.genre;
+        const affinity = getCityCollaboratorAffinity(gs.city, artist.id) === 1;
+        return <div key={artist.id}>
+          <div className="collab-card">
+            <div className="collab-avatar" style={{ background:`${artist.color}22`, color:artist.color, border:`1px solid ${artist.color}66` }}>{artist.initials || artist.name.slice(0,1)}</div>
+            <div style={{ minWidth:0 }}><div className="collab-name">{artist.name} <span style={{ color:artist.color, fontSize:9 }}>{artist.tier}-tier</span></div><div className="collab-details">{genre} · {fmt(currentFans)} fans · {affinity ? 'Home-scene artist' : 'Cross-market artist'}<br/>{relationValue ? `Relationship ${relationValue}/100` : 'No feature history'} · Fee {fmtN(cost)}</div></div>
+            <button type="button" className="collab-action" onClick={() => onSelectArtist(selectedArtistId === artist.id ? null : artist.id)} aria-expanded={selectedArtistId === artist.id}>PROFILE</button>
+          </div>
+          {selectedArtistId === artist.id && <div className="collab-profile"><div className="ledger-row"><span>Audience in this career</span><strong>{fmt(currentFans)} fans</strong></div><div className="ledger-row"><span>Feature eligibility</span><strong>{fmt(artist.minFansToFeature || 0)} fans required</strong></div><button type="button" className="collab-action" style={{ margin:'9px 0 12px' }} disabled={gs.money < cost} onClick={() => startStudio(artist)}>PLAN IN STUDIO · {fmtN(cost)}</button></div>}
+        </div>;
+      }) : <div className="collab-empty">No eligible artists match that search. Reach the fan requirement or try another name or genre.</div>}
+    </div>
+    {selectedArtist && <p className="finance-note" style={{ marginTop:8 }}>Choosing a feature sets it in the recording form; the simulation charges the fee only when the track is recorded.</p>}
+  </>;
+}
+
+function MarketsView({ gs }) {
+  const markets = [...CITIES].map(city => ({ city, demand:getCityDemand(city.id, gs.genre), scene:getCityScene(city.id) }))
+    .sort((a,b) => b.demand - a.demand);
+  return <>
+    <div className="news-lede"><div><div className="news-lede-label">MODELED MARKETS</div><div className="news-lede-title">Five cities. Different scenes.</div></div></div>
+    <p className="finance-note">Demand is the game's genre multiplier, not a share of real streams or listeners. Touring itineraries use these same venue and ticket assumptions.</p>
+    <div className="market-list">
+      {markets.map(({city,demand,scene},index) => <div className="market-row" key={city.id}>
+        <div className="market-row-main"><span className="market-flag">{city.flag}</span><div><strong>{city.label}{city.id === gs.city && <span style={{ color:'var(--accent-gold-lt)', fontSize:9, marginLeft:7 }}>HOME</span>}</strong><small>{index === 0 ? 'Highest modeled demand' : city.scene.split('·')[0].trim()}</small></div></div>
+        <div className="market-row-side"><strong>{demand.toFixed(2)}×</strong><small>{(city.bonus * 100).toFixed(0)}% base market</small></div>
+        <div className="market-row-note">{city.scene} · venue capacity {fmt(scene.venueCapacity)} · typical ticket {fmtN(scene.ticketPrice)}</div>
+      </div>)}
+    </div>
+    <div className="finance-note" style={{ marginTop:12 }}>The game models Lagos, Atlanta, London, Accra and Toronto only. It does not yet track per-city listener counts or a geographic audience map.</div>
+  </>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

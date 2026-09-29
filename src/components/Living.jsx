@@ -32,8 +32,8 @@ export const StatNumber = ({ value, format, className, style }) => {
   return <span ref={ref} className={className} style={style}>{fmtFn(value)}</span>;
 };
 
-export const PlayerAvatar = ({ gs, size = 40, ring = '#7C6CFF' }) => (
-  <div style={{ width:size, height:size, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:'var(--surface-2)', border:`2px solid ${ring}`, boxShadow:`0 0 0 3px ${ring}22`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+export const PlayerAvatar = ({ gs, size = 40, ring = '#C8922A' }) => (
+  <div style={{ width:size, height:size, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:'var(--surface-2)', border:`2px solid ${ring}`, boxShadow:'0 0 0 3px rgba(200,146,42,.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
     {gs.avatarUrl
       ? <img src={gs.avatarUrl} alt={`${gs.stageName || 'Artist'} avatar`} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
       : <span aria-hidden="true" style={{ fontFamily:'var(--li-font-display)', fontWeight:700, fontSize:size*0.38, color:'var(--text-secondary)' }}>{(gs.stageName||'?')[0]}</span>
@@ -41,7 +41,7 @@ export const PlayerAvatar = ({ gs, size = 40, ring = '#7C6CFF' }) => (
   </div>
 );
 
-export const ResourcePill = ({ label, value, max, color = '#7C6CFF', suffix = '' }) => {
+export const ResourcePill = ({ label, value, max, color = 'var(--li-accent)', suffix = '' }) => {
   const pct = max > 0 ? Math.min(100, Math.round((value/max)*100)) : 0;
   return (
     <div className="li-glass" role="group" aria-label={`${label}: ${value} of ${max}`} style={{ padding:'8px 12px', display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>

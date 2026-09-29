@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GENRES, JOBS, PRODUCERS, ROLLOUT_PLANS } from '../data/constants';
 import { NPC_ARTISTS, NPC_TIERS } from '../data/artists';
 import { calcSongQuality } from '../engine/qualityCalc';
@@ -25,6 +25,12 @@ const SKILL_ICONS = {
   lp: () => <svg viewBox="0 0 24 24" style={{width:16,height:16,fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round'}}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>,
 };
 
+const COVER_POOL = Array.from({ length:27 }, (_, index) => {
+  const row = Math.floor(index / 9) + 1;
+  const column = (index % 9) + 1;
+  return `cov_${String(row).padStart(2, '0')}_${String(column).padStart(2, '0')}.png`;
+});
+
 const LockIcon = () => (
   <svg viewBox="0 0 24 24" style={{ width:12, height:12, fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round' }}>
     <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
@@ -40,18 +46,54 @@ const TRAINING_COST = 15; // energy per session
 const TRAINING_GAIN = 3;  // skill points per session
 const MAX_SKILL     = 100;
 
+function StreamSparkline({ track }) {
+  const history = (track.weeklyHistory || []).slice(-12);
+  const samples = history.map(point => ({ week:point.week, value:Number(point.streams || 0) }));
+  if (samples.length === 1) samples.unshift({ week:samples[0].week - 1, value:0 });
+  if (samples.length < 2) return <div className="finance-note">The stream graph will build after more weeks close.</div>;
+  const max = Math.max(1, ...samples.map(point => point.value));
+  const points = samples.map((point,index) => `${8 + (index / (samples.length - 1)) * 464},${88 - (point.value / max) * 72}`).join(' ');
+  const finalPoint = samples[samples.length - 1];
+  const finalX = 8 + 464;
+  const finalY = 88 - (finalPoint.value / max) * 72;
+  return <div className="stream-chart-wrap">
+    <svg viewBox="0 0 480 100" role="img" aria-label={`Weekly streams over ${history.length} closed weeks`} className="stream-chart">
+      <line x1="8" y1="88" x2="472" y2="88" stroke="rgba(245,241,232,.12)" strokeWidth="1"/>
+      <polyline points={points} fill="none" stroke="#D0A45C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx={finalX} cy={finalY} r="3.5" fill="#E9C17A"/>
+    </svg>
+    <div className="stream-chart-captions"><span>Week {history[0].week}</span><span>Week {history[history.length - 1].week}</span></div>
+    <div className="stream-chart-peak">Latest closed week · {fmt(finalPoint.value)} streams</div>
+  </div>;
+}
+
 const SUB_NAV = [
-  { id:'train',   label:'Train' },
-  { id:'jobs',    label:'Jobs' },
   { id:'record',  label:'Record' },
   { id:'catalog', label:'Catalog' },
+  { id:'release', label:'Release' },
+  { id:'performance', label:'Performance' },
+  { id:'train',   label:'Train' },
+  { id:'jobs',    label:'Jobs' },
 ];
 
 export default function CreateTab({ gs, patch, patchFn, showToast }) {
-  const [section, setSection] = useState('train');
+  const [section, setSection] = useState(gs.pendingFeatureRequest ? 'record' : (gs.appRoutes?.music || 'catalog'));
+  useEffect(() => {
+    const route = gs.appRoutes?.music;
+    if (route && route !== section) setSection(route);
+  }, [gs.appRoutes?.music, section]);
   const genreData = GENRES.find(g => g.id === gs.genre);
   const actionPoints = getActionPoints(gs);
   const canAct = canSpendActionPoint(gs);
+  const changeSection = (id) => {
+    setSection(id);
+    patch({ appRoutes:{ ...(gs.appRoutes || {}), music:id } });
+  };
+  const openPerformance = (track) => {
+    setSelectedReleaseTrackId(track.id);
+    patch({ focusedTrackId:track.id });
+    changeSection('performance');
+  };
 
   // ── Skill training ──────────────────────────────────────────────────────
   const trainSkill = (skillId) => {
@@ -168,13 +210,24 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   // ── Studio: record ──────────────────────────────────────────────────────
   const [title, setTitle]           = useState('');
   const [producerId, setProducerId] = useState('bedroom');
-  const [featNpcs, setFeatNpcs]     = useState([]);
+  const [featNpcs, setFeatNpcs]     = useState(() => NPC_ARTISTS.some(npc => npc.id === gs.pendingFeatureRequest) ? [gs.pendingFeatureRequest] : []);
   const [openTier, setOpenTier]     = useState(null);
   const [rolloutId, setRolloutId]   = useState('organic');
   const [projectLeadId, setProjectLeadId] = useState(null);
+  const [selectedReleaseTrackId, setSelectedReleaseTrackId] = useState(gs.focusedTrackId || '');
 
   const released   = (gs.catalog || []).filter(t => t.released);
   const unreleased = (gs.catalog || []).filter(t => !t.released);
+  const releaseTrack = unreleased.find(track => track.id === selectedReleaseTrackId) || unreleased[0] || null;
+  const performanceTrack = released.find(track => track.id === (gs.focusedTrackId || selectedReleaseTrackId)) || released[0] || null;
+  const currentRelease = released.reduce((best, track) => !best || Number(track.releaseWeek || 0) > Number(best.releaseWeek || 0) ? track : best, null);
+  const latestReport = gs.lastWeekReport || gs.weekReport;
+  const performanceHistory = (performanceTrack?.weeklyHistory || []).slice(-12);
+  const previousWeeklyStreams = Number(performanceHistory.at(-2)?.streams || 0);
+  const latestWeeklyStreams = Number(performanceHistory.at(-1)?.streams ?? performanceTrack?.weeklyStreams ?? 0);
+  const weeklyStreamGrowth = performanceHistory.length > 1 && previousWeeklyStreams > 0
+    ? Math.round((latestWeeklyStreams - previousWeeklyStreams) / previousWeeklyStreams * 100)
+    : null;
   const producer   = PRODUCERS.find(p => p.id === producerId) || PRODUCERS[0];
   const previewQ   = calcSongQuality(gs, producerId, featNpcs);
   const weeksUntilRelease = Math.max(0, (gs.lastReleaseWeek ?? -99) + RELEASE_COOLDOWN.single - gs.totalWeeks);
@@ -199,7 +252,8 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
       const acted = spendActionPoints(prev);
       if (!acted) return prev;
       const quality = calcSongQuality(prev, producerId, featNpcs);
-      const track = { id:uid(), title:title.trim(), genre:prev.genre, quality, producerId, featNpcs:[...featNpcs], released:false, releaseWeek:null, chartPos:null, recordWeek:prev.totalWeeks, lifetimeStreams:0, videoViews:0 };
+      const coverFile = COVER_POOL[(prev.catalog || []).length % COVER_POOL.length];
+      const track = { id:uid(), title:title.trim(), genre:prev.genre, quality, producerId, featNpcs:[...featNpcs], coverArt:`/assets/covers/${coverFile}`, released:false, releaseWeek:null, chartPos:null, recordWeek:prev.totalWeeks, lifetimeStreams:0, videoViews:0 };
       const npcRelations = { ...(prev.npcRelations || {}) };
       featNpcs.forEach(npcId => {
         const relation = Number(npcRelations[npcId]?.value ?? npcRelations[npcId] ?? 0);
@@ -208,6 +262,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
       return {
         ...acted,
         catalog: [...(prev.catalog || []), track],
+        pendingFeatureRequest:null,
         npcRelations,
         collaborationCount: Number(prev.collaborationCount || 0) + featNpcs.length,
         money: clamp(prev.money - snap, 0, 999_000_000_000),
@@ -217,6 +272,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
     });
     showToast('Recorded "' + title + '" · Q' + previewQ);
     setTitle(''); setFeatNpcs([]); setOpenTier(null); setSection('catalog');
+    patch({ pendingFeatureRequest:null, appRoutes:{ ...(gs.appRoutes || {}), music:'catalog' } });
   };
 
   const doRelease = (trackId) => {
@@ -234,6 +290,8 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
       return {
         ...acted,
         catalog: prev.catalog.map(t => t.id === trackId ? { ...t, released:true, releaseType:'single', releaseWeek:prev.totalWeeks, rollout:{ ...rolloutPlan, startWeek:prev.totalWeeks } } : t),
+        focusedTrackId:trackId,
+        appRoutes:{ ...(prev.appRoutes || {}), music:'performance' },
         money: clamp(prev.money - rolloutPlan.cost, 0, 999_000_000_000),
         lastReleaseWeek: prev.totalWeeks,
         fans: clamp(prev.fans + rolloutPlan.fanLift + Math.round(Math.sqrt(prev.fans||1)*0.5+50), 0, 999_000_000),
@@ -242,6 +300,8 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
       };
     });
     showToast('Single dropped!');
+    setSelectedReleaseTrackId(trackId);
+    setSection('performance');
   };
 
   const toggleFeat = id => setFeatNpcs(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
@@ -308,7 +368,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
         trackIds: [...selectedTracks],
         avgQuality: avgQ,
         releaseWeek: prev.totalWeeks,
-        coverArt: projCover,
+        coverArt: projCover || tracks.find(track => track.id === leadTrackId)?.coverArt || null,
         streams: 0,
         leadTrackId,
         cohesion: clamp(Math.round(94 - (genreCount - 1) * 18 - Math.abs(Math.max(...tracks.map(t => t.quality)) - Math.min(...tracks.map(t => t.quality))) * 0.12), 20, 100),
@@ -381,7 +441,11 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
     <div className="tab-content li-scene">
       <Aurora c1="#1DB954" c2="#7C6CFF" c3="#ffffff" />
       <div className="li-scene-content">
-      <SubNav items={SUB_NAV} active={section} onChange={setSection} />
+      <div className="editorial-page-head" style={{ padding:'0 0 12px' }}>
+        <div className="page-kicker">MUSIC & STUDIO</div>
+        <h1>{SUB_NAV.find(item => item.id === section)?.label || 'Catalog'}</h1>
+      </div>
+      <SubNav items={SUB_NAV} active={section} onChange={changeSection} />
       <div className="li-glass" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 13px',marginBottom:14}}>
         <div><div style={{fontSize:10,letterSpacing:1.2,textTransform:'uppercase',color:'var(--text-muted)'}}>Weekly Actions</div><div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>Social posts use Social Energy instead.</div></div>
         <div style={{fontFamily:'var(--font-mono)',fontSize:18,fontWeight:700,color:actionPoints?'var(--li-accent-lt)':'var(--accent-orange)'}}>{actionPoints}<span style={{fontSize:11,color:'var(--text-muted)'}}> / 3</span></div>
@@ -685,6 +749,13 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                 <span style={{color:'var(--text-muted)'}}>Est. Quality</span>
                 <span style={{color:qColor(previewQ),fontWeight:700}}>Q{previewQ}/99</span>
               </div>
+              <div className="quality-breakdown">
+                {[
+                  ['Writing',gs.sw || 0,'35%'], ['Vocals',gs.vc || 0,'30%'],
+                  ['Production',gs.pd || 0,'25%'], ['Live',gs.lp || 0,'10%'],
+                ].map(([label,value,weight]) => <div key={label}><span>{label} · {weight}</span><strong>{value}</strong></div>)}
+              </div>
+              <p className="finance-note">These are the engine's weighted base-skill inputs. Your producer, genre, selected features and low-energy penalty modify the final score (capped at Q99). Mood, BPM and audio recording are not simulated.</p>
             </div>
               <Magnetic strength={6} disabled={!title.trim()||gs.money<totalCost||gs.energy<25||!canAct||gs.inPrison} onClick={doRecord}
               className="soc-pill" style={{ width:'100%', textAlign:'center', padding:'13px 0', background:(!title.trim()||gs.money<totalCost||gs.energy<25||!canAct||gs.inPrison)?'var(--li-glass-bg)':'var(--li-accent)', color:(!title.trim()||gs.money<totalCost||gs.energy<25||!canAct||gs.inPrison)?'var(--text-muted)':'#fff', fontSize:14 }}>
@@ -697,16 +768,11 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
       {/* ════════════════════════════ CATALOG ════════════════════════════ */}
       {section === 'catalog' && (
         <>
-          <SectionLabel>{released.length} released · {unreleased.length} in vault</SectionLabel>
-          <div className="li-glass" style={{ padding:14, marginBottom:14 }}>
-            <label className="form-label" htmlFor="release-rollout">Release campaign</label>
-            <select id="release-rollout" className="ob-input" value={rolloutId} onChange={event => setRolloutId(event.target.value)}>
-              {ROLLOUT_PLANS.map(plan => <option key={plan.id} value={plan.id} disabled={gs.fans < plan.minFans}>{plan.label} · {plan.cost ? fmtN(plan.cost) : 'Free'} · {plan.weeks} weeks</option>)}
-            </select>
-            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:7 }}>{rolloutPlan.desc} · +{fmt(rolloutPlan.fanLift)} fans · {Math.round((rolloutPlan.streamLift - 1) * 100)}% opening stream lift</div>
-            {rolloutPlan.cost > gs.money && <div style={{ fontSize:10, color:'var(--accent-red)', marginTop:4 }}>Need {fmtN(rolloutPlan.cost)} in cash to fund this rollout.</div>}
-            {!canAct && <div style={{ fontSize:10, color:'var(--accent-orange)', marginTop:4 }}>All 3 weekly actions have been spent; actions reset when you end the week.</div>}
-          </div>
+          <SectionLabel action="Plan a release" onAction={() => changeSection('release')}>{released.length} out · {unreleased.length} in the vault</SectionLabel>
+          {currentRelease && <div className="featured-release">
+            <div className="featured-release-cover">{currentRelease.coverArt ? <img src={currentRelease.coverArt} alt={`${currentRelease.title} cover art`} /> : <span>{currentRelease.title.slice(0,1).toUpperCase()}</span>}</div>
+            <div className="featured-release-copy"><div className="page-kicker">CURRENT RELEASE</div><strong>{currentRelease.title}</strong><span>{genreData?.label} · Week {currentRelease.releaseWeek ?? '—'}</span><div className="featured-release-stats"><b>{fmt(currentRelease.lifetimeStreams || currentRelease.streams || 0)} streams</b><b>{currentRelease.chartPos ? `#${currentRelease.chartPos}` : 'Not charting'}</b></div><button type="button" className="text-link-button" onClick={() => openPerformance(currentRelease)}>OPEN PERFORMANCE →</button></div>
+          </div>}
           {(gs.catalog||[]).length === 0 ? (
             <div className="li-glass" style={{ padding:'30px 16px', textAlign:'center', marginBottom:16 }}>
               <svg viewBox="0 0 24 24" style={{width:36,height:36,stroke:'var(--text-muted)',fill:'none',strokeWidth:1.5,margin:'0 auto 10px',display:'block'}}>
@@ -735,11 +801,12 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                       {track.released && track.chartPos ? ' · #'+track.chartPos : track.released ? ' · Live' : ' · Unreleased'}
                     </div>
                     <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:qColor(track.quality),marginTop:2}}>Q{track.quality}</div>
+                    {track.released && <button type="button" className="text-link-button" onClick={() => openPerformance(track)}>View performance →</button>}
                   </div>
                   {!track.released && (
-                    <Magnetic strength={4} disabled={weeksUntilRelease>0||!canAct||gs.inPrison||gs.money<rolloutPlan.cost||gs.fans<rolloutPlan.minFans} onClick={() => doRelease(track.id)}
-                      className="soc-pill" style={{ padding:'7px 12px', background:weeksUntilRelease>0||!canAct||gs.money<rolloutPlan.cost?'var(--li-glass-bg)':'var(--li-accent)', color:weeksUntilRelease>0||!canAct||gs.money<rolloutPlan.cost?'var(--text-muted)':'#fff', fontSize:11, flexShrink:0 }}>
-                      {weeksUntilRelease>0 ? weeksUntilRelease+'w' : 'DROP · 1 AP'}
+                    <Magnetic strength={4} onClick={() => { setSelectedReleaseTrackId(track.id); changeSection('release'); }}
+                      className="soc-pill" style={{ padding:'7px 12px', background:'var(--li-accent-soft)', color:'var(--li-accent-lt)', fontSize:11, flexShrink:0 }}>
+                      PLAN →
                     </Magnetic>
                   )}
                   {track.released && (
@@ -916,6 +983,85 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
               })}
             </>
           )}
+        </>
+      )}
+
+      {section === 'release' && (
+        <>
+          <div className="news-lede"><div><div className="news-lede-label">RELEASE STRATEGY</div><div className="news-lede-title">Choose what gets the next push.</div></div></div>
+          <p className="finance-note">The game models three campaign tiers, not an editable budget by channel. Choose a vault track and compare the actual cost and modeled launch lift before committing.</p>
+          <SectionLabel>01 · Select an unreleased track</SectionLabel>
+          {unreleased.length ? <div className="release-track-list">
+            {unreleased.map(track => <button key={track.id} type="button" aria-pressed={releaseTrack?.id === track.id} className={`release-track-choice${releaseTrack?.id === track.id ? ' is-selected' : ''}`} onClick={() => setSelectedReleaseTrackId(track.id)}>
+              <span className="release-track-mark">{track.coverArt ? <img src={track.coverArt} alt=""/> : track.title.slice(0,1).toUpperCase()}</span>
+              <span><strong>{track.title}</strong><small>{GENRES.find(item => item.id === track.genre)?.label || track.genre} · Quality {track.quality}/99 · Recorded week {track.recordWeek ?? '—'}</small></span>
+              <span className="release-track-check" aria-hidden="true">{releaseTrack?.id === track.id ? '●' : '○'}</span>
+            </button>)}
+          </div> : <div className="li-glass" style={{ padding:16, marginBottom:14 }}><div className="finance-note">No unreleased tracks are available. Record a new song or build an EP/album from the Catalog.</div><button type="button" className="text-link-button" onClick={() => changeSection('record')}>GO TO RECORD →</button></div>}
+
+          <SectionLabel>02 · Choose a rollout</SectionLabel>
+          <div className="rollout-list">
+            {ROLLOUT_PLANS.map(plan => {
+              const eligible = Number(gs.fans || 0) >= plan.minFans;
+              return <button type="button" key={plan.id} disabled={!eligible} aria-pressed={rolloutId === plan.id} className={`rollout-choice${rolloutId === plan.id ? ' is-selected' : ''}`} onClick={() => setRolloutId(plan.id)}>
+                <span className="rollout-choice-head"><strong>{plan.label}</strong><b>{plan.cost ? fmtN(plan.cost) : 'No spend'}</b></span>
+                <span className="rollout-choice-desc">{plan.desc}</span>
+                <span className="rollout-choice-metrics"><span>{Math.round((plan.streamLift - 1) * 100)}% opening stream lift</span><span>{plan.weeks} weeks</span></span>
+                {!eligible && <span className="rollout-lock">Available at {fmt(plan.minFans)} fans</span>}
+              </button>;
+            })}
+          </div>
+
+          {releaseTrack && <div className="li-glass" style={{ padding:14, marginTop:14 }}>
+            <SectionLabel>Modeled release effects</SectionLabel>
+            <div className="career-metrics" style={{ marginBottom:10 }}>
+              <div><label>Campaign cost</label><strong>{fmtN(rolloutPlan.cost)}</strong></div>
+              <div><label>Fan lift in engine</label><strong>+{fmt(rolloutPlan.fanLift)}</strong></div>
+              <div><label>Stream multiplier</label><strong>{rolloutPlan.streamLift.toFixed(2)}×</strong></div>
+              <div><label>Campaign duration</label><strong>{rolloutPlan.weeks} weeks</strong></div>
+            </div>
+            <p className="finance-note">The simulation applies its listed fan lift and streaming multiplier; it does not forecast unique listeners, daily activity or guaranteed chart positions.</p>
+            {weeksUntilRelease > 0 && <p className="release-block-note">Release cooldown · {weeksUntilRelease} week{weeksUntilRelease === 1 ? '' : 's'} remaining.</p>}
+            {!canAct && <p className="release-block-note">No weekly action points remain. They reset when the week closes.</p>}
+            {gs.money < rolloutPlan.cost && <p className="release-block-note">Need {fmtN(rolloutPlan.cost)} cash for this plan.</p>}
+            {gs.fans < rolloutPlan.minFans && <p className="release-block-note">This rollout requires {fmt(rolloutPlan.minFans)} fans.</p>}
+            <Magnetic strength={5} disabled={!canAct || gs.inPrison || weeksUntilRelease > 0 || gs.money < rolloutPlan.cost || gs.fans < rolloutPlan.minFans} onClick={() => doRelease(releaseTrack.id)} className="soc-pill" style={{ width:'100%', marginTop:8, padding:'12px 0', textAlign:'center', color:'#F6F2EA', background:canAct && !gs.inPrison && weeksUntilRelease === 0 && gs.money >= rolloutPlan.cost && gs.fans >= rolloutPlan.minFans ? 'var(--li-accent)' : 'var(--surface-2)', fontSize:12, fontWeight:700 }}>
+              RELEASE “{releaseTrack.title.toUpperCase()}” · 1 AP
+            </Magnetic>
+          </div>}
+          <button type="button" className="text-link-button" onClick={() => { setShowProjectForm(true); changeSection('catalog'); }}>PLAN AN EP / ALBUM IN CATALOG →</button>
+        </>
+      )}
+
+      {section === 'performance' && (
+        <>
+          <div className="news-lede"><div><div className="news-lede-label">RELEASE PERFORMANCE</div><div className="news-lede-title">Streams, as your weeks unfold.</div></div></div>
+          {released.length ? <>
+            <label className="form-label" htmlFor="performance-track">Released track</label>
+            <select id="performance-track" className="ob-input" value={performanceTrack?.id || ''} onChange={event => { const track = released.find(item => item.id === event.target.value); if (track) openPerformance(track); }}>
+              {released.map(track => <option key={track.id} value={track.id}>{track.title}</option>)}
+            </select>
+            {performanceTrack && <>
+              <div className="performance-feature">
+                <div className="performance-art">{performanceTrack.coverArt ? <img src={performanceTrack.coverArt} alt={`${performanceTrack.title} cover art`} /> : <span>{performanceTrack.title.slice(0,1).toUpperCase()}</span>}</div>
+                <div className="performance-title"><div className="page-kicker">{GENRES.find(item => item.id === performanceTrack.genre)?.label || performanceTrack.genre} · RELEASED WEEK {performanceTrack.releaseWeek ?? '—'}</div><h2>{performanceTrack.title}</h2><span>Quality score {performanceTrack.quality}/99</span></div>
+              </div>
+              <div className="career-metrics">
+                <div><label>Lifetime streams</label><strong>{fmt(performanceTrack.lifetimeStreams || performanceTrack.streams || 0)}</strong></div>
+                <div><label>Latest closed week</label><strong>{fmt(latestWeeklyStreams)}</strong>{weeklyStreamGrowth != null && <small className={weeklyStreamGrowth >= 0 ? 'performance-up' : 'performance-down'}>{weeklyStreamGrowth >= 0 ? '+' : ''}{weeklyStreamGrowth}% vs previous</small>}</div>
+                <div><label>Current chart</label><strong>{performanceTrack.chartPos ? `#${performanceTrack.chartPos}` : '—'}</strong></div>
+                <div><label>Streaming income · all tracks</label><strong>{latestReport ? fmtN(latestReport.streamIncome || 0) : '—'}</strong></div>
+              </div>
+              <SectionLabel action={performanceHistory.length ? `${performanceHistory.length} weeks` : 'Building'}>Weekly streams</SectionLabel>
+              <div className="li-glass" style={{ padding:'14px 12px', marginBottom:14 }}><StreamSparkline track={performanceTrack} /></div>
+              <SectionLabel>What the game tracks</SectionLabel>
+              <div className="li-glass" style={{ padding:'4px 14px', marginBottom:14 }}>
+                <div className="ledger-row"><span>Fans gained last week · career-wide</span><strong>{latestReport ? fmt(latestReport.fansDelta || 0) : '—'}</strong></div>
+                <div className="ledger-row"><span>Video views · this release</span><strong>{fmt(performanceTrack.videoViews || 0)}</strong></div>
+                <p className="finance-note" style={{ margin:'9px 0' }}>Listeners by country or city, unique monthly listeners, per-track revenue, playlist sources and fan demographics are not modeled. The income shown is the real weekly total across the catalog.</p>
+              </div>
+            </>}
+          </> : <div className="li-glass" style={{ padding:16 }}><SectionLabel>No releases to chart</SectionLabel><p className="finance-note">Record a track, then give it a release plan. Weekly stream history will appear here as the simulation advances.</p><button type="button" className="text-link-button" onClick={() => changeSection('record')}>GO TO RECORD →</button></div>}
         </>
       )}
       </div>

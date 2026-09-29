@@ -27,7 +27,7 @@ const NPC_AVATARS = {
 const COVER_POOL = Array.from({ length: 27 }, (_, i) => {
   const row = Math.floor(i / 9) + 1;
   const col = (i % 9) + 1;
-  return `cov_0${row}_0${String(col).padStart(2,'0')}.png`;
+  return `cov_${String(row).padStart(2,'0')}_${String(col).padStart(2,'0')}.png`;
 });
 
 // ── Verified Chirp accounts ───────────────────────────────────────────────────
@@ -178,47 +178,40 @@ const ChartCard = ({ chartCard }) => {
 };
 
 // ── Chirp stat row ────────────────────────────────────────────────────────────
-const ChirpStats = ({ likes, reposts, views }) => (
-  <div style={{ display:'flex', gap:18, marginTop:10, fontSize:12, color:'var(--text-muted)' }}>
-    <span style={{ display:'flex', alignItems:'center', gap:4 }}>
-      <svg viewBox="0 0 24 24" style={{ width:13, height:13, fill:'none', stroke:'currentColor', strokeWidth:1.5 }}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-      {fmtStat(likes)}
-    </span>
-    <span style={{ display:'flex', alignItems:'center', gap:4 }}>
-      <svg viewBox="0 0 24 24" style={{ width:13, height:13, fill:'none', stroke:'currentColor', strokeWidth:1.5 }}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-      {fmtStat(reposts)}
-    </span>
-    <span style={{ display:'flex', alignItems:'center', gap:4 }}>
-      <svg viewBox="0 0 24 24" style={{ width:13, height:13, fill:'none', stroke:'currentColor', strokeWidth:1.5 }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      {fmtStat(views)}
-    </span>
+const ChirpStats = ({ reach }) => reach ? (
+  <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:9, fontSize:11, color:'var(--text-muted)' }}>
+    <svg viewBox="0 0 24 24" style={{ width:13, height:13, fill:'none', stroke:'currentColor', strokeWidth:1.5 }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    {fmtStat(reach)} modeled reach
   </div>
-);
+) : null;
 
 // ── Chirp feed generator ──────────────────────────────────────────────────────
 const genChirpFeed = (gs, npcCatalog, playerName) => {
   const feed = [];
   const snap = gs.latestChartSnapshot;
-  const week = gs.totalWeeks;
-  const ago  = (n) => n === 0 ? 'now' : `${n}h`;
+  const week = Number(gs.totalWeeks || 0);
+  const time = `Week ${week}`;
 
   if (snap?.hot100?.length > 0) {
-    feed.push({ account:VERIFIED_ACCOUNTS.hillboard, text:`This week's top 10 on the #Hot100 (Week ${week}).`, chartCard:{ type:'hot100', entries:snap.hot100.slice(0,10) }, time:ago(1), likes:rand(30000,90000), reposts:rand(5000,20000), views:rand(500000,2000000) });
+    feed.push({ account:VERIFIED_ACCOUNTS.hillboard, text:`This week's top 10 on the #Hot100 (Week ${week}).`, chartCard:{ type:'hot100', entries:snap.hot100.slice(0,10) }, time });
     if (snap.global200?.length > 0)
-      feed.push({ account:VERIFIED_ACCOUNTS.hillboard, text:`Global 200 updated — Week ${week}.`, chartCard:{ type:'global200', entries:snap.global200.slice(0,10) }, time:ago(2), likes:rand(20000,60000), reposts:rand(3000,12000), views:rand(200000,800000) });
+      feed.push({ account:VERIFIED_ACCOUNTS.hillboard, text:`Global 200 updated — Week ${week}.`, chartCard:{ type:'global200', entries:snap.global200.slice(0,10) }, time });
     if (snap.artist100?.length > 0)
-      feed.push({ account:VERIFIED_ACCOUNTS.hillboard, text:`#Artist100 — Who's running things this week.`, chartCard:{ type:'artist100', entries:snap.artist100.slice(0,5) }, time:ago(3), likes:rand(15000,50000), reposts:rand(2000,8000), views:rand(150000,500000) });
+      feed.push({ account:VERIFIED_ACCOUNTS.hillboard, text:`#Artist100 — Week ${week}.`, chartCard:{ type:'artist100', entries:snap.artist100.slice(0,5) }, time });
   }
 
   const topNpcs = NPC_ARTISTS.filter(n => n.tier==='S'||n.tier==='A').slice(0,12);
-  const reactions = [
-    `The ${playerName} fandom really said we're streaming until this goes #1 and honestly? I believe them.`,
-    `Hot100 this week: Ella Langley holding strong. The numbers don't lie.`,
-    `The way ${playerName} is moving up without a single label push is something else.`,
-  ];
-  feed.push({ account:VERIFIED_ACCOUNTS.popchase, text:reactions[week%reactions.length], time:ago(rand(1,6)), likes:rand(5000,80000), reposts:rand(1000,30000), views:rand(80000,600000) });
+  const latestTrack = [...(gs.catalog || [])].reverse().find(track => track.released);
+  const reactions = latestTrack
+    ? [`The room's been talking about “${latestTrack.title}” this week.`, `A new week for “${latestTrack.title}” — curious where the charts land.`, `${playerName} has a new chapter out. Listening in.`]
+    : [`${playerName} is building before the first release.`, `Studio week for ${playerName}; waiting on the first single.`, `A new career takes patience. ${playerName} is just getting started.`];
+  feed.push({ account:VERIFIED_ACCOUNTS.popchase, text:reactions[week % reactions.length], time });
 
-  feed.push({ account:VERIFIED_ACCOUNTS.chartinfo, text:`Hillboard Hot100 updated: ${snap?.hot100?.[0]?.artist||'Ella Langley'} leads. New entry: ${topNpcs[rand(0,4)]?.name||'Tems'} debuts at #${rand(15,40)}.`, time:ago(rand(1,8)), likes:rand(2000,15000), reposts:rand(500,5000), views:rand(40000,200000) });
+  if (snap?.hot100?.length) {
+    const leader = snap.hot100[0];
+    const playerEntry = snap.hot100.find(entry => entry.isPlayer);
+    feed.push({ account:VERIFIED_ACCOUNTS.chartinfo, text:`Hillboard Hot100, Week ${week}: ${leader.title || leader.artist} leads at #${leader.position || 1}.${playerEntry ? ` ${playerName}'s “${playerEntry.title}” is at #${playerEntry.position}.` : ''}`, time });
+  }
 
   for (let i = 0; i < 4; i++) {
     const npc = topNpcs[(week + i*3) % topNpcs.length];
@@ -230,29 +223,11 @@ const genChirpFeed = (gs, npcCatalog, playerName) => {
       `No features for a while. Next project is just me.`,
       `New music tonight at midnight. Been sitting on this one for months.`,
     ];
-    feed.push({ npc, text:posts[i%posts.length], time:ago(rand(1,12)), likes:rand(10000,400000), reposts:rand(2000,80000), views:rand(100000,2000000) });
+    feed.push({ npc, text:posts[i%posts.length], time });
   }
 
-  const burrcoItems = [
-    `EXCLUSIVE: ${topNpcs[0]?.name||'Drake'} turned down a major sync deal to keep creative control.`,
-    `The sampling situation with ${topNpcs[1]?.name||'Kendrick'}'s last project is about to get messy.`,
-    `${playerName} is doing things most producers won't attempt. The layering on this new one is something.`,
-  ];
-  feed.push({ account:VERIFIED_ACCOUNTS.burrco, text:burrcoItems[week%burrcoItems.length], time:ago(rand(2,10)), likes:rand(15000,120000), reposts:rand(3000,40000), views:rand(200000,1000000) });
-
-  const cmzItems = [
-    `${topNpcs[2]?.name||'Wizkid'} seen leaving a recording session at 4am. Album incoming?`,
-    `Sources say there's a collab the labels don't want released. Interesting timing.`,
-    `${playerName} spotted at industry event — looking like the next big thing.`,
-  ];
-  feed.push({ account:VERIFIED_ACCOUNTS.cmz, text:cmzItems[week%cmzItems.length], time:ago(rand(3,15)), likes:rand(5000,50000), reposts:rand(1000,15000), views:rand(50000,300000) });
-
-  const popCrazeItems = [
-    `The way ${playerName}'s fanbase has been trending all week without a single post from them… the fandom said "we'll do it ourselves"`,
-    `Hillboard Hot100 updated: Ella Langley is locked in. It's her era.`,
-    `The discourse about whether ${topNpcs[3]?.name||'SZA'} deserved that spot is sending me`,
-  ];
-  feed.push({ account:VERIFIED_ACCOUNTS.popcraze, text:popCrazeItems[week%popCrazeItems.length], time:ago(rand(2,8)), likes:rand(8000,100000), reposts:rand(2000,30000), views:rand(100000,500000) });
+  const milestone = (gs.news || []).find(item => item.type === 'milestone');
+  if (milestone) feed.push({ account:VERIFIED_ACCOUNTS.popcraze, text:`A milestone in the books: ${milestone.msg}`, time:`Week ${milestone.week ?? week}` });
 
   return feed;
 };
@@ -325,16 +300,19 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
   const seLeft        = gs.se || 0;
   const releasedTracks = (gs.catalog||[]).filter(t => t.released);
   const promoTrack = releasedTracks.find(track => track.id === promoTrackId) || null;
+  const socialPostHistory = gs.socialPostHistory || [];
+  const videoPosts = socialPostHistory.filter(post => post.platformId === 'vidtube');
+  const rhythmPosts = socialPostHistory.filter(post => post.platformId === 'rhythmtok');
 
   const doPost = usePost(gs, patchFn, showToast);
 
   const generatedChirpFeed = useMemo(() =>
     genChirpFeed(gs, gs.npcCatalog||[], gs.stageName||'You'),
-    [gs.totalWeeks, gs.latestChartSnapshot]
+    [gs.totalWeeks, gs.latestChartSnapshot, gs.catalog, gs.news, gs.stageName]
   );
-  const playerChirpFeed = (gs.socialPostHistory || []).filter(post => post.platformId === 'chirp').slice(0,10).map(post => ({
+  const playerChirpFeed = socialPostHistory.filter(post => post.platformId === 'chirp').slice(0,10).map(post => ({
     npc:{ id:'you', name:gs.stageName || 'You', color:'#1DA1F2', tier:'S' }, text:post.text,
-    time:`Week ${post.week}`, likes:post.reach, reposts:Math.round(post.reach * 0.12), views:Math.round(post.reach * 1.8),
+    time:`Week ${post.week}`, reach:post.reach,
   }));
   const chirpFeed = [...playerChirpFeed, ...generatedChirpFeed];
 
@@ -365,11 +343,11 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
               <div>
                 <div style={{ fontSize:24, fontWeight:700, fontFamily:'var(--li-font-display)', letterSpacing:-0.5 }}>Social Hub</div>
-                <div style={{ fontSize:11, color:'var(--li-accent-lt)', letterSpacing:1.5, textTransform:'uppercase', marginTop:3, fontWeight:600 }}>Global Influence</div>
+                <div style={{ fontSize:10, color:'var(--li-accent-lt)', letterSpacing:1.2, textTransform:'uppercase', marginTop:3, fontWeight:600 }}>Cross-platform follower total</div>
               </div>
               <div style={{ textAlign:'right' }}>
                 <StatNumber value={totalFollowers} className="li-count" style={{ fontSize:24, fontWeight:700, color:'var(--li-accent-lt)', display:'block' }} />
-                <div style={{ fontSize:10, color:'var(--text-muted)', letterSpacing:1, marginTop:2 }}>TOTAL REACH</div>
+                <div style={{ fontSize:10, color:'var(--text-muted)', letterSpacing:0.6, marginTop:2 }}>ALL-PLATFORM FOLLOWERS</div>
               </div>
             </div>
             <div style={{ height:4, background:'var(--li-glass-bg)', borderRadius:4, marginTop:14, overflow:'hidden', border:'1px solid var(--li-glass-border)' }}>
@@ -540,7 +518,7 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{track.title}</div>
-                    <div style={{ fontSize:11, color:'var(--text-muted)' }}>{fmt(Math.round((track.quality/100)*followers*0.4))} plays</div>
+                    <div style={{ fontSize:11, color:'var(--text-muted)' }}>{fmt(track.weeklyStreams || 0)} streams last week</div>
                   </div>
                   <svg viewBox="0 0 24 24" style={{ width:16, height:16, fill:'none', stroke:'var(--text-muted)', strokeWidth:1.5, flexShrink:0 }}><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
                 </div>
@@ -708,7 +686,7 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
                 </div>
                 <svg className="soc-icon-btn" viewBox="0 0 24 24" style={{ width:22, height:22, fill:'none', stroke:'#fff', strokeWidth:1.5 }}><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
               </div>
-              <div style={{ fontSize:13, fontWeight:700, marginBottom:2 }}>{fmt(rand(5000,500000))} likes</div>
+              <div style={{ fontSize:10, color:'var(--text-muted)', marginBottom:4 }}>In-world artist post · engagement is not tracked</div>
               <div style={{ fontSize:13 }}><span style={{ fontWeight:700 }}>{npc.name.toLowerCase().replace(/ /g,'_')}</span> {(gs.npcCatalog||[]).find(s=>s.npcId===npc.id) ? `"${(gs.npcCatalog||[]).find(s=>s.npcId===npc.id).title}" out now` : 'Living my best life'}</div>
             </div>
           </div>
@@ -926,7 +904,7 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
               </div>
               <div style={{ fontSize:14, lineHeight:1.5, color:'var(--text-primary)', marginBottom:2 }}>{item.text}</div>
               {item.chartCard && <ChartCard chartCard={item.chartCard} />}
-              <ChirpStats likes={item.likes} reposts={item.reposts} views={item.views} />
+              <ChirpStats reach={item.reach} />
             </div>
           </div>
         ))}
@@ -955,42 +933,41 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
           <PlayerAvatar gs={gs} size={60} ring={c.color} />
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:700, fontSize:16, fontFamily:'var(--li-font-display)' }}>{gs.stageName?.toUpperCase()}</div>
-            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>@{gs.stageName?.toLowerCase().replace(/ /g,'')} · {fmt(followers)} subscribers · {releasedTracks.length} videos</div>
-            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:1 }}>Official Channel. Subscribe for new music.</div>
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>@{gs.stageName?.toLowerCase().replace(/ /g,'')} · {fmt(followers)} subscribers · {videoPosts.length} promo posts</div>
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:1 }}>In-game channel. Video files and watch time are not part of the simulation.</div>
           </div>
         </div>
         <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-          <button className="soc-pill" style={{ padding:'8px 20px', background:'#fff', color:'#000', fontSize:12 }}>Subscribe</button>
           <button onClick={() => doPost('vidtube', 2)} disabled={seLeft<2} className="soc-pill"
-            style={{ padding:'8px 16px', background:seLeft>=2?c.bg:'var(--li-glass-bg)', border:'1px solid '+(seLeft>=2?c.border:'var(--li-glass-border)'), color:seLeft>=2?c.color:'var(--text-muted)', fontSize:12 }}>
-            + Upload · 2 SE
+            style={{ flex:1, padding:'8px 16px', background:seLeft>=2?c.bg:'var(--li-glass-bg)', border:'1px solid '+(seLeft>=2?c.border:'var(--li-glass-border)'), color:seLeft>=2?c.color:'var(--text-muted)', fontSize:12 }}>
+            + Simulated promo post · 2 SE
           </button>
-          <button className="soc-pill" style={{ padding:'8px 14px', background:'var(--li-glass-bg)', color:'#fff', fontSize:12, border:'1px solid var(--li-glass-border)' }}>Analytics</button>
         </div>
         <div style={{ display:'flex', gap:24, borderBottom:'1px solid var(--li-glass-border)', marginBottom:14 }}>
-          {['Latest','Popular','Oldest'].map((t,i) => (
-            <div key={t} className={`soc-tab-underline ${i===1?'on':''}`} style={{ padding:'8px 0', fontSize:12, fontWeight:i===1?700:400, color:i===1?'#fff':'var(--text-muted)' }}>{t}</div>
+          {['Posts','Reach','About'].map((t,i) => (
+            <div key={t} className={`soc-tab-underline ${i===0?'on':''}`} style={{ padding:'8px 0', fontSize:12, fontWeight:i===0?700:400, color:i===0?'#fff':'var(--text-muted)' }}>{t}</div>
           ))}
         </div>
-        {releasedTracks.length===0 ? (
+        {videoPosts.length===0 ? (
           <div style={{ textAlign:'center', padding:'50px 0', color:'var(--text-muted)' }}>
             <svg viewBox="0 0 24 24" style={{ width:48, height:48, fill:'none', stroke:'var(--text-muted)', strokeWidth:1, margin:'0 auto 12px', display:'block' }}><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-            <div style={{ fontSize:14, fontWeight:700, marginBottom:4 }}>No content uploaded.</div>
-            <div style={{ fontSize:12 }}>Upload a video to grow your channel.</div>
+            <div style={{ fontSize:14, fontWeight:700, marginBottom:4 }}>No promo posts yet.</div>
+            <div style={{ fontSize:12 }}>Record a simulated channel post above to build followers and see its modeled reach.</div>
           </div>
         ) : (
-          releasedTracks.map((track, idx) => (
-            <div key={track.id} className="li-row li-stagger" style={{ '--i':idx, display:'flex', gap:12, marginBottom:16 }}>
+          videoPosts.map((post, idx) => {
+            const track = (gs.catalog || []).find(item => item.id === post.trackId);
+            return <div key={post.id} className="li-row li-stagger" style={{ '--i':idx, display:'flex', gap:12, marginBottom:16 }}>
               <div style={{ width:120, height:68, background:'var(--surface-2)', borderRadius:10, overflow:'hidden', flexShrink:0, position:'relative' }}>
-                {track.coverArt ? <img src={track.coverArt} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <img src={`/assets/covers/${COVER_POOL[(idx+gs.totalWeeks)%COVER_POOL.length]}`} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e=>e.target.style.display='none'} />}
-                <div style={{ position:'absolute', bottom:3, right:4, background:'rgba(0,0,0,0.85)', borderRadius:4, padding:'1px 4px', fontSize:10, color:'#fff' }}>3:42</div>
+                {track?.coverArt ? <img src={track.coverArt} alt={`${track.title} cover art`} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <img src={`/assets/covers/${COVER_POOL[(idx+gs.totalWeeks)%COVER_POOL.length]}`} alt="In-game promotional artwork" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e=>e.target.style.display='none'} />}
+                <div style={{ position:'absolute', bottom:3, right:4, background:'rgba(0,0,0,0.8)', borderRadius:4, padding:'2px 5px', fontSize:9, color:'#fff' }}>POST</div>
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:13, lineHeight:1.3, marginBottom:4 }}>{track.title}</div>
-                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{fmt(Math.round((track.quality/100)*followers*0.4))} views · Week {track.releaseWeek}</div>
+                <div style={{ fontWeight:700, fontSize:13, lineHeight:1.3, marginBottom:4 }}>{post.text || track?.title || 'Music promo post'}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{fmt(post.reach || 0)} modeled reach · Week {post.week}</div>
               </div>
-            </div>
-          ))
+            </div>;
+          })
         )}
         </div>
       </div>
@@ -1018,16 +995,12 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
           <PlayerAvatar gs={gs} size={76} ring={c.color} />
           <div style={{ display:'flex', gap:24, flex:1 }}>
             <div style={{ textAlign:'center' }}>
-              <div style={{ fontWeight:700, fontSize:17 }}>{releasedTracks.length}</div>
-              <div style={{ fontSize:11, color:'var(--text-muted)' }}>Videos</div>
+              <div style={{ fontWeight:700, fontSize:17 }}>{rhythmPosts.length}</div>
+              <div style={{ fontSize:11, color:'var(--text-muted)' }}>Promo posts</div>
             </div>
             <div style={{ textAlign:'center' }}>
               <StatNumber value={followers} className="li-count" style={{ fontWeight:700, fontSize:17, color:c.color, display:'block' }} />
               <div style={{ fontSize:11, color:'var(--text-muted)' }}>Followers</div>
-            </div>
-            <div style={{ textAlign:'center' }}>
-              <div style={{ fontWeight:700, fontSize:17 }}>{fmt(Math.round(followers*3.2))}</div>
-              <div style={{ fontSize:11, color:'var(--text-muted)' }}>Likes</div>
             </div>
           </div>
         </div>
@@ -1035,46 +1008,39 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
         {/* Name + bio */}
         <div style={{ marginBottom:12 }}>
           <div style={{ fontWeight:700, fontSize:15, fontFamily:'var(--li-font-display)' }}>{gs.stageName?.toUpperCase()}</div>
-          <div style={{ fontSize:13, color:'var(--text-muted)', marginTop:2 }}>{gs.genre} artist — New music out now</div>
+          <div style={{ fontSize:13, color:'var(--text-muted)', marginTop:2 }}>{gs.genre} · {rhythmPosts.length ? `${rhythmPosts.length} simulated promo post${rhythmPosts.length === 1 ? '' : 's'}` : 'No promo posts yet'}</div>
         </div>
 
         {/* Action buttons */}
         <div style={{ display:'flex', gap:8, marginBottom:16 }}>
           <button onClick={() => doPost('rhythmtok', 1)} disabled={seLeft<1} className="soc-pill"
             style={{ flex:1, padding:'9px 0', borderRadius:8, background:seLeft>=1?c.color:'var(--li-glass-bg)', color:seLeft>=1?'#fff':'var(--text-muted)', fontSize:13 }}>
-            + Create Video
+            + Create promo post
           </button>
           <button className="soc-glass-btn" style={{ padding:'9px 14px', color:'#fff' }}>
             <svg viewBox="0 0 24 24" style={{ width:16, height:16, fill:'none', stroke:'currentColor', strokeWidth:2 }}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
           </button>
         </div>
 
-        {/* Tab bar */}
-        <div style={{ display:'flex', borderBottom:'1px solid var(--li-glass-border)', marginBottom:2 }}>
-          {['Videos','Liked','Saved'].map((t,i) => (
-            <div key={t} className={`soc-tab-underline ${i===0?'on':''}`} style={{ flex:1, textAlign:'center', padding:'8px 0', fontSize:12, fontWeight:i===0?700:400, color:i===0?'#fff':'var(--text-muted)' }}>{t}</div>
-          ))}
-        </div>
+        <div className="page-kicker" style={{ padding:'10px 0', borderBottom:'1px solid var(--li-glass-border)' }}>POSTS · SIMULATED REACH ONLY</div>
 
-        {followers===0 ? (
+        {rhythmPosts.length===0 ? (
           <div style={{ textAlign:'center', padding:'40px 20px', color:'var(--text-muted)' }}>
             <div style={{ width:64, height:64, background:'var(--surface-2)', borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
               <svg viewBox="0 0 24 24" style={{ width:28, height:28, fill:'none', stroke:'var(--text-muted)', strokeWidth:1.5 }}><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
             </div>
-            <div style={{ fontWeight:700, marginBottom:6 }}>No videos yet</div>
-            <div style={{ fontSize:12 }}>Your RhythmToks appear here once you post.</div>
+            <div style={{ fontWeight:700, marginBottom:6 }}>No promo posts yet</div>
+            <div style={{ fontSize:12 }}>A post records text, a linked track and modeled reach. No video file is stored.</div>
           </div>
         ) : (
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:2, marginTop:2 }}>
-            {Array.from({ length:Math.min(9, Math.ceil(followers/100)) }).map((_,i) => (
-              <div key={i} style={{ aspectRatio:'9/16', background:'var(--surface-2)', overflow:'hidden', position:'relative' }}>
-                <img src={`/assets/covers/${COVER_POOL[(i+gs.totalWeeks)%COVER_POOL.length]}`} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e=>e.target.style.display='none'} />
-                <div style={{ position:'absolute', bottom:4, left:4, display:'flex', alignItems:'center', gap:3 }}>
-                  <svg viewBox="0 0 24 24" style={{ width:10, height:10, fill:'#fff' }}><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  <span style={{ fontSize:10, color:'#fff', fontWeight:700 }}>{fmtStat(rand(Math.round(followers*0.1), Math.round(followers*2)))}</span>
-                </div>
-              </div>
-            ))}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:10 }}>
+            {rhythmPosts.map((post,i) => {
+              const track = (gs.catalog || []).find(item => item.id === post.trackId);
+              return <article key={post.id} className="rhythm-post-card">
+                <div className="rhythm-post-art">{track?.coverArt ? <img src={track.coverArt} alt={`${track.title} cover art`} /> : <img src={`/assets/covers/${COVER_POOL[(i+gs.totalWeeks)%COVER_POOL.length]}`} alt="In-game artwork" />}</div>
+                <div className="rhythm-post-copy"><strong>{post.text || track?.title || 'Music promo post'}</strong><span>{fmt(post.reach || 0)} modeled reach · Wk {post.week}</span></div>
+              </article>;
+            })}
           </div>
         )}
         </div>
@@ -1134,8 +1100,8 @@ export default function SocialTab({ gs, patch, patchFn, showToast }) {
                   <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:1 }}>Q{track.quality} · Wk {track.releaseWeek}</div>
                 </div>
                 <div style={{ textAlign:'right', fontSize:12, color:c.color, fontFamily:'var(--font-mono)', flexShrink:0 }}>
-                  {fmt(Math.round((track.quality/100)*followers*0.1))}<br/>
-                  <span style={{ color:'var(--text-muted)', fontSize:9 }}>plays</span>
+                  {fmt(track.weeklyStreams || 0)}<br/>
+                  <span style={{ color:'var(--text-muted)', fontSize:9 }}>streams · last week</span>
                 </div>
               </div>
             ))}

@@ -45,7 +45,7 @@ const NpcAvatar = ({ npc, size=32 }) => {
 
 const COVER_POOL = Array.from({length:27},(_,i)=>{
   const row=Math.floor(i/9)+1, col=(i%9)+1;
-  return `cov_0${row}_0${String(col).padStart(2,'0')}.png`;
+  return `cov_${String(row).padStart(2,'0')}_${String(col).padStart(2,'0')}.png`;
 });
 
 export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndingWeek }) {
@@ -61,7 +61,16 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
   const topNpcs = NPC_ARTISTS.filter(n=>n.tier==='S'||n.tier==='A').slice(0,5);
   const chartTop5 = (gs.charts?.streams||[]).slice(0,5);
   const objective = getNextObjective(gs);
-  const objectiveTab = ({ CREATE:'create', RECORD:'create', RELEASE:'create', COLLAB:'create', PROJECT:'create', TOUR:'business', CAMPAIGN:'business', CONTRACT:'business', GROW:'social', LEGACY:'profile' })[objective.action] || 'create';
+  const objectiveRoute = ({
+    CREATE:['create','record'], RECORD:['create','record'], RELEASE:['create','release'],
+    COLLAB:['business','network'], PROJECT:['create','catalog'], TOUR:['business','tour'],
+    CAMPAIGN:['business','industry'], CONTRACT:['business','industry'], GROW:['social','community'], LEGACY:['profile','career'],
+  })[objective.action] || ['create','record'];
+  const objectiveTab = objectiveRoute[0];
+  const goTo = (tab, route) => {
+    const routeKey = { create:'music', business:'career', social:'news', profile:'profile' }[tab];
+    patch(routeKey && route ? { tab, appRoutes:{ ...(gs.appRoutes || {}), [routeKey]:route } } : { tab });
+  };
   const city = CITIES.find(item => item.id === gs.city) || CITIES[0];
   const scene = getCityScene(city.id);
   const localDemand = getCityDemand(city.id, gs.genre);
@@ -73,7 +82,7 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
 
   return (
     <div className="tab-content li-scene" style={{ padding:0 }}>
-      <Aurora c1={era.color} c2="#7C6CFF" c3="#ffffff" />
+      <Aurora c1="#C8922A" c2="#E8B048" c3="#ffffff" />
       <div className="li-scene-content">
 
       {/* ── HERO SECTION ─────────────────────────────────────────────── */}
@@ -88,7 +97,7 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
 
         <div style={{ position:'relative', padding:'20px 16px 16px' }}>
           <div style={{ display:'flex', alignItems:'flex-end', gap:14, marginBottom:16 }}>
-            <div style={{ width:72, height:72, borderRadius:'50%', overflow:'hidden', border:`2px solid ${era.color}55`, boxShadow:`0 0 0 4px ${era.color}22`, flexShrink:0, background:'var(--surface-2)' }}>
+            <div style={{ width:72, height:72, borderRadius:'50%', overflow:'hidden', border:'2px solid rgba(200,146,42,.55)', boxShadow:'0 0 0 4px rgba(200,146,42,.12)', flexShrink:0, background:'var(--surface-2)' }}>
               {gs.avatarUrl
                 ? <img src={gs.avatarUrl} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
                 : <div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--li-font-display)',fontSize:28,color:'var(--text-muted)'}}>{(gs.stageName||'?')[0]}</div>
@@ -97,7 +106,7 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:'var(--li-font-display)', fontSize:26, fontWeight:700, letterSpacing:-0.5, lineHeight:1.05, marginBottom:5 }}>{gs.stageName?.toUpperCase()}</div>
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <div style={{ fontSize:11, color:era.color, fontWeight:700, textTransform:'uppercase', letterSpacing:1 }}>{era.label}</div>
+                <div style={{ fontSize:11, color:'var(--li-accent-lt)', fontWeight:700, textTransform:'uppercase', letterSpacing:1 }}>{era.label}</div>
                 {(gs.awards||[]).length>0 && (
                   <div style={{ display:'flex', alignItems:'center', gap:3, background:'rgba(255,215,0,0.12)', borderRadius:20, padding:'2px 8px' }}>
                     <svg viewBox="0 0 24 24" style={{width:10,height:10,fill:'#FFD700'}}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -116,19 +125,19 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
           <div style={{ marginBottom:16 }}>
             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
               <span style={{ fontSize:11, color:'var(--text-muted)' }}>{fmt(gs.fans)} fans</span>
-              {nextEra && <span style={{ fontSize:11, color:nextEra.color }}>→ {fmt(nextEra.minFans)} · {nextEra.label}</span>}
+              {nextEra && <span style={{ fontSize:11, color:'var(--li-accent-lt)' }}>→ {fmt(nextEra.minFans)} · {nextEra.label}</span>}
             </div>
             <div style={{ height:4, background:'rgba(255,255,255,0.08)', borderRadius:4, overflow:'hidden' }}>
-              <div style={{ height:'100%', width:`${progress}%`, background:`linear-gradient(90deg,${era.color},${nextEra?.color||era.color})`, borderRadius:4, transition:'width 600ms var(--li-ease-smooth)' }}/>
+              <div style={{ height:'100%', width:`${progress}%`, background:'var(--li-accent)', borderRadius:4, transition:'width 600ms var(--li-ease-smooth)' }}/>
             </div>
           </div>
 
           {/* END WEEK button */}
-          <Magnetic strength={6} onClick={isEndingWeek ? undefined : endWeek} disabled={isEndingWeek}
-            className="soc-fab"
-            style={{ width:'100%', padding:'14px 0', borderRadius:16, background:isEndingWeek?'var(--surface-2)':`linear-gradient(90deg,${era.color},${era.color}cc)`, color:isEndingWeek?'var(--text-muted)':'#000', fontFamily:'var(--li-font-display)', fontSize:17, fontWeight:700, letterSpacing:1, display:'flex', alignItems:'center', justifyContent:'center', gap:10, boxShadow: isEndingWeek?'none':`0 8px 24px ${era.color}44` }}>
+          <Magnetic strength={4} onClick={isEndingWeek ? undefined : endWeek} disabled={isEndingWeek}
+            className={`home-end-week-action${isEndingWeek ? ' is-ending' : ''}`}
+            style={{ width:'100%', padding:'14px 0', borderRadius:8, fontFamily:'var(--font-display)', fontSize:15, fontWeight:700, letterSpacing:1, display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
             {isEndingWeek ? 'PROCESSING...' : 'END WEEK'}
-            {!isEndingWeek && <svg viewBox="0 0 24 24" style={{width:18,height:18,fill:'none',stroke:'#000',strokeWidth:2.5}}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>}
+            {!isEndingWeek && <svg viewBox="0 0 24 24" style={{width:18,height:18,fill:'none',stroke:'currentColor',strokeWidth:2.5}}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>}
           </Magnetic>
         </div>
       </div>
@@ -161,7 +170,7 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
               <div style={{ width:`${Math.max(0,Math.min(100,(objective.progress || 0) * 100))}%`, height:'100%', background:'var(--accent-gold)', borderRadius:2 }} />
             </div>
           </div>
-          <Magnetic strength={4} onClick={() => patch({ tab:objectiveTab })} className="soc-glass-btn" style={{ padding:'9px 11px', whiteSpace:'nowrap', fontSize:10, fontWeight:700 }}>
+          <Magnetic strength={4} onClick={() => goTo(objectiveTab, objectiveRoute[1])} className="soc-glass-btn" style={{ padding:'9px 11px', whiteSpace:'nowrap', fontSize:10, fontWeight:700 }}>
             {objectiveTab.toUpperCase()} →
           </Magnetic>
           <div style={{ gridColumn:'1 / -1', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--li-glass-border)', paddingTop:9 }}>
@@ -206,7 +215,7 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
         {/* ── LATEST RELEASE ────────────────────────────────────────── */}
         {latestTrack && (
           <>
-            <SectionLabel action={topChartEntry ? `#${topChartEntry.position} on chart` : null}>Latest Drop</SectionLabel>
+            <SectionLabel action={topChartEntry ? `#${topChartEntry.position} · PERFORMANCE →` : 'Performance →'} onAction={() => goTo('create','performance')}>Latest Drop</SectionLabel>
             <div className="li-glass li-stagger" style={{ '--i':2, display:'flex', gap:14, padding:14, marginBottom:20 }}>
               <div style={{ width:60, height:60, borderRadius:12, overflow:'hidden', background:'var(--surface-2)', flexShrink:0 }}>
                 {latestTrack.coverArt
@@ -230,14 +239,15 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
           <div className="li-glass li-stagger" style={{ '--i':2, padding:'20px', textAlign:'center', marginBottom:20 }}>
             <svg viewBox="0 0 24 24" style={{width:32,height:32,fill:'none',stroke:'var(--text-muted)',strokeWidth:1.5,margin:'0 auto 10px',display:'block'}}><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
             <div style={{ fontSize:13, color:'var(--text-muted)' }}>No tracks released yet</div>
-            <div style={{ fontSize:11, color:'var(--text-disabled)', marginTop:4 }}>Head to Create → Record to make your first song</div>
+            <div style={{ fontSize:11, color:'var(--text-disabled)', marginTop:4 }}>Start in the recording room; choose a producer and make the first track.</div>
+            <button type="button" className="text-link-button" style={{ marginTop:10 }} onClick={() => goTo('create','record')}>OPEN THE STUDIO →</button>
           </div>
         )}
 
         {/* ── CHART PREVIEW ────────────────────────────────────────── */}
         {chartTop5.length > 0 && (
           <>
-            <SectionLabel action="See All →" onAction={()=>patch({tab:'profile'})}>Chart Top 5</SectionLabel>
+            <SectionLabel action="See All →" onAction={()=>goTo('profile','charts')}>Chart Top 5</SectionLabel>
             <div className="li-glass li-stagger" style={{ '--i':3, overflow:'hidden', marginBottom:20 }}>
               {chartTop5.map((entry, i) => (
                 <div key={entry.id||i} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderBottom:i<4?'1px solid var(--li-glass-border)':'none', background:entry.isPlayer?'var(--li-accent-soft)':'transparent' }}>
@@ -273,7 +283,7 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
         )}
 
         {/* ── WHO'S BUZZING (NPC feed) ──────────────────────────────── */}
-        <SectionLabel action="Chirp →" onAction={()=>patch({tab:'social'})}>Who's Buzzing</SectionLabel>
+        <SectionLabel action="Chirp →" onAction={()=>goTo('social','community')}>Who's Buzzing</SectionLabel>
         <div className="soc-scroll-x" style={{ gap:8, paddingBottom:8, marginBottom:20 }}>
           {topNpcs.map(npc => {
             const song = (gs.npcCatalog||[]).find(s=>s.npcId===npc.id);
@@ -297,7 +307,7 @@ export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndi
         </div>
 
         {/* ── INDUSTRY NEWS ─────────────────────────────────────────── */}
-        <SectionLabel>Industry News</SectionLabel>
+        <SectionLabel action="All updates →" onAction={()=>goTo('social','wire')}>Industry News</SectionLabel>
         <div className="li-glass" style={{ overflow:'hidden', marginBottom:24 }}>
           {newsItems.length===0 ? (
             <div style={{ padding:'24px 16px', textAlign:'center', color:'var(--text-muted)', fontSize:13 }}>

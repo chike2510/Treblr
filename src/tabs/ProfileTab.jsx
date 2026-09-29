@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { GENRES, CITIES, CAREER_TYPES, MILESTONES } from '../data/constants';
-import { fmt, fmtN, getTier, getTalent, getTimeLabel } from '../engine/utils';
+import { GENRES, CITIES, CAREER_TYPES, MILESTONES, CURRENCIES } from '../data/constants';
+import { fmt, fmtN as formatCurrency, getTier, getTalent, getTimeLabel } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
 import { deleteSave, exportSaveText, getSaveSlots, importSaveText, saveGame } from '../engine/gameState';
 import { getAwardCategories } from '../engine/awards';
@@ -51,6 +51,7 @@ export default function ProfileTab({ gs, setGs, patch, patchFn, showToast }) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 function StatsView({ gs, patchFn }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const tier    = getTier(gs.fans);
   const talent  = getTalent(gs);
   const genre   = GENRES.find(g => g.id === gs.genre);
@@ -216,21 +217,21 @@ function StatsView({ gs, patchFn }) {
       <div className="li-glass" style={{ padding:'4px 16px 14px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid var(--li-glass-border)', fontSize:12 }}>
           <span>Manager</span>
-          <span style={{ color: gs.hasManager ? 'var(--accent-green)' : 'var(--text-muted)' }}>{gs.hasManager ? 'Hired · -₦200k/wk' : 'None'}</span>
+          <span style={{ color: gs.hasManager ? 'var(--accent-green)' : 'var(--text-muted)' }}>{gs.hasManager ? `Hired · -${fmtN(200_000)}/wk` : 'None'}</span>
         </div>
         <div style={{ display:'flex', justifyContent:'space-between', padding:'10px 0', fontSize:12, borderBottom: (!gs.hasManager || !gs.hasLawyer) ? '1px solid var(--li-glass-border)' : 'none' }}>
           <span>Entertainment Lawyer</span>
-          <span style={{ color: gs.hasLawyer ? 'var(--accent-green)' : 'var(--text-muted)' }}>{gs.hasLawyer ? 'On retainer · -₦100k/wk' : 'None'}</span>
+          <span style={{ color: gs.hasLawyer ? 'var(--accent-green)' : 'var(--text-muted)' }}>{gs.hasLawyer ? `On retainer · -${fmtN(100_000)}/wk` : 'None'}</span>
         </div>
         {!gs.hasManager && (
           <Magnetic strength={4} disabled={gs.money < 1000000 || !canHireTeam} onClick={() => {
             patchFn(prev => {
               if (prev.hasManager || prev.money < 1000000) return prev;
               const acted = spendActionPoints(prev);
-              return acted ? { ...acted, hasManager:true, money:prev.money - 1000000, news:addNews(prev.news, 'Hired a manager. -₦200k/week.', 'pos', prev.totalWeeks) } : prev;
+              return acted ? { ...acted, hasManager:true, money:prev.money - 1000000, news:addNews(prev.news, `Hired a manager. -${fmtN(200_000)}/week.`, 'pos', prev.totalWeeks) } : prev;
             });
           }} className="soc-glass-btn" style={{ display:'block', textAlign:'center', width:'100%', padding:'10px 0', marginTop:10, fontSize:12, fontWeight:700 }}>
-            Hire Manager · 1 AP · ₦1M deposit
+            Hire Manager · 1 AP · {fmtN(1_000_000)} deposit
           </Magnetic>
         )}
         {!gs.hasLawyer && (
@@ -238,10 +239,10 @@ function StatsView({ gs, patchFn }) {
             patchFn(prev => {
               if (prev.hasLawyer || prev.money < 500000) return prev;
               const acted = spendActionPoints(prev);
-              return acted ? { ...acted, hasLawyer:true, money:prev.money - 500000, news:addNews(prev.news, 'Hired an entertainment lawyer. -₦100k/week retainer.', 'pos', prev.totalWeeks) } : prev;
+              return acted ? { ...acted, hasLawyer:true, money:prev.money - 500000, news:addNews(prev.news, `Hired an entertainment lawyer. -${fmtN(100_000)}/week retainer.`, 'pos', prev.totalWeeks) } : prev;
             });
           }} className="soc-glass-btn" style={{ display:'block', textAlign:'center', width:'100%', padding:'10px 0', marginTop:10, fontSize:12, fontWeight:700 }}>
-            Hire Lawyer · 1 AP · ₦500k deposit
+            Hire Lawyer · 1 AP · {fmtN(500_000)} deposit
           </Magnetic>
         )}
       </div>
@@ -401,6 +402,7 @@ function SettingsView({ gs, setGs, patch, showToast }) {
   const career  = CAREER_TYPES.find(c => c.id === gs.careerType);
   const timeStr = getTimeLabel(gs.totalWeeks, gs.startYear);
   const ageNow  = (gs.startAge || 22) + Math.floor((gs.totalWeeks || 0) / 48);
+  const currency = CURRENCIES.find(item => item.code === gs.currency) || CURRENCIES[0];
 
   const handleReset = () => {
     if (window.confirm('Delete this career and start fresh? This cannot be undone.')) {
@@ -473,7 +475,8 @@ function SettingsView({ gs, setGs, patch, showToast }) {
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
           {[
             ['Genre', genre?.label || '—'], ['City', city?.label || '—'],
-            ['Career', career?.label || '—'], ['Weeks', gs.totalWeeks || 0],
+            ['Career', career?.label || '—'], ['Currency', `${currency.label} (${currency.code})`],
+            ['Weeks', gs.totalWeeks || 0],
             ['Time', timeStr?.split('·')[0]?.trim() || '—'], ['Fans', fmt(gs.fans || 0)],
           ].map(([label, val]) => (
             <div key={label} className="li-glass" style={{ padding:'8px 10px' }}>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { GENRES, JOBS, PRODUCERS, ROLLOUT_PLANS } from '../data/constants';
 import { NPC_ARTISTS, NPC_TIERS } from '../data/artists';
 import { calcSongQuality } from '../engine/qualityCalc';
-import { clamp, fmt, fmtN, uid } from '../engine/utils';
+import { clamp, fmt, fmtN as formatCurrency, uid } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
 import { canSpendActionPoint, getActionPoints, spendActionPoints } from '../engine/actionPoints';
 import { getCollaborationPrice, getProducerPrice, hasPremiumProducerAccess } from '../engine/careerPerks';
@@ -77,6 +77,7 @@ const SUB_NAV = [
 ];
 
 export default function CreateTab({ gs, patch, patchFn, showToast }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const [section, setSection] = useState(gs.pendingFeatureRequest ? 'record' : (gs.appRoutes?.music || 'catalog'));
   useEffect(() => {
     const route = gs.appRoutes?.music;
@@ -691,7 +692,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                       {!ok && <div style={{display:'flex',alignItems:'center',gap:3,fontSize:10,color:'var(--text-muted)'}}><LockIcon/><span>{fmt(t.minFansToFeature)} fans</span></div>}
                       {ok && <>
                         {sel.length>0 && <span style={{fontSize:11,color:t.color,fontFamily:'var(--font-mono)'}}>{sel.length}</span>}
-                        <span style={{fontSize:10,color:'var(--text-muted)'}}>{t.feeRange}</span>
+                        <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtN(t.feeRange[0])}–{fmtN(t.feeRange[1])}</span>
                         <ChevronDown open={isOpen}/>
                       </>}
                     </button>
@@ -975,7 +976,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                       </div>
                     )}
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,marginTop:12}}>
-                      <span style={{fontSize:10,color:'var(--text-muted)'}}>{proj.deluxeCount?'Deluxe edition released':deluxeCandidates.length<2?'Record 2 new songs to unlock a deluxe reissue':'Adds your next 2 vault tracks · ₦500k'}</span>
+                      <span style={{fontSize:10,color:'var(--text-muted)'}}>{proj.deluxeCount?'Deluxe edition released':deluxeCandidates.length<2?'Record 2 new songs to unlock a deluxe reissue':`Adds your next 2 vault tracks · ${fmtN(500_000)}`}</span>
                       <button className="soc-glass-btn" disabled={deluxeLocked} onClick={()=>releaseDeluxe(proj.id)} style={{padding:'7px 10px',fontSize:9,whiteSpace:'nowrap',color:deluxeLocked?'var(--text-muted)':'var(--accent-gold-lt)'}}>{proj.deluxeCount?'DELUXE OUT':'DELUXE · 1 AP'}</button>
                     </div>
                   </div>

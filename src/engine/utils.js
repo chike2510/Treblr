@@ -1,4 +1,4 @@
-import { MILESTONES, MONTH_SHORT, ERAS } from '../data/constants';
+import { CURRENCIES, MILESTONES, MONTH_SHORT, ERAS } from '../data/constants';
 
 export const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 export const roll  = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -14,9 +14,10 @@ export const fmt = (n) => {
   return String(Math.round(n));
 };
 
-export const fmtN = (n) => {
-  if (n == null || isNaN(n)) return '₦0';
-  return (n < 0 ? `-₦${fmt(Math.abs(n))}` : `₦${fmt(n)}`);
+export const fmtN = (n, currency = 'NGN') => {
+  const symbol = CURRENCIES.find(item => item.code === currency)?.symbol || CURRENCIES[0].symbol;
+  if (n == null || isNaN(n)) return `${symbol}0`;
+  return (n < 0 ? `-${symbol}${fmt(Math.abs(n))}` : `${symbol}${fmt(n)}`);
 };
 
 export const getTimeInfo = (totalWeeks, startYear = 2024) => {

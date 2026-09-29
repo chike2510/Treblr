@@ -1,6 +1,6 @@
 import { LABELS, LABEL_EVENTS, RANDOM_EVENTS } from '../data/constants';
 import { NPC_ARTISTS } from '../data/artists';
-import { clamp, roll, getTier, getTimeLabel } from './utils';
+import { clamp, fmtN, roll, getTier, getTimeLabel } from './utils';
 import { calculateCatalogWeek, artistShare } from './incomeCalc';
 import { tickNPCReleases, buildCharts } from './npcEngine';
 import { evaluateAwards, getAwardCategories } from './awards';
@@ -15,7 +15,6 @@ export const addNews = (items, msg, type = '', week = 0) => [
   ...(Array.isArray(items) ? items : []),
 ].slice(0, 100);
 
-const formatMoney = (value) => Math.round(value || 0).toLocaleString('en-NG');
 const statCaps = { sw:100, vc:100, pd:100, lp:100, hustle:25, charisma:25, network:20, reputation:100, clout:100, energy:100, fans:999_000_000, money:999_000_000_000 };
 
 const applyEffects = (state, effects = {}) => {
@@ -194,7 +193,7 @@ export const endWeek = (prev, showToast, setModal) => {
       campaignFanGain = Math.max(1, Math.round(campaignSpend / 25_000 * (0.85 + Number(next.ownLabel.reputation || 20) / 200)));
       next.ownLabel = { ...next.ownLabel, reputation: clamp((next.ownLabel.reputation || 20) + campaignFanGain / 2500, 0, 100), lastSpend:campaignSpend };
       next.ownLabelCampaigns = [{ week:next.totalWeeks, spend:campaignSpend, reach:campaignSpend * 14, fanGain:campaignFanGain }, ...(next.ownLabelCampaigns || [])].slice(0, 52);
-      next.news = addNews(next.news, `${next.ownLabel.name} campaign spent ₦${formatMoney(campaignSpend)} and added ${campaignFanGain.toLocaleString()} fans.`, 'pos', next.totalWeeks);
+      next.news = addNews(next.news, `${next.ownLabel.name} campaign spent ${fmtN(campaignSpend, next.currency)} and added ${campaignFanGain.toLocaleString()} fans.`, 'pos', next.totalWeeks);
     }
   }
 
@@ -246,7 +245,7 @@ export const endWeek = (prev, showToast, setModal) => {
   if (next.totalWeeks > 0 && next.totalWeeks % 12 === 0 && next.taxAccum > 0) {
     taxPaid = Math.min(next.taxAccum, next.money);
     next.money -= taxPaid;
-    next.news = addNews(next.news, `Quarterly tax paid: ₦${formatMoney(taxPaid)}.`, 'neg', next.totalWeeks);
+    next.news = addNews(next.news, `Quarterly tax paid: ${fmtN(taxPaid, next.currency)}.`, 'neg', next.totalWeeks);
     next.taxAccum = 0;
   }
 
@@ -342,12 +341,12 @@ export const endWeek = (prev, showToast, setModal) => {
 
   const timeStr = getTimeLabel(next.totalWeeks, next.startYear);
   const tourText = tourStop ? ` · ${tourStop.city} ${tourStop.attendance} attended` : '';
-  next.feed = [{ msg:`${timeStr} — ${trackWeek.weeklyStreams.toLocaleString()} streams · ₦${formatMoney(totalIncome)} income${tourText}`, type:'', week:next.totalWeeks }, ...(next.feed || []).slice(0, 49)];
+  next.feed = [{ msg:`${timeStr} — ${trackWeek.weeklyStreams.toLocaleString()} streams · ${fmtN(totalIncome, next.currency)} income${tourText}`, type:'', week:next.totalWeeks }, ...(next.feed || []).slice(0, 49)];
   const reportEvents = [
-    tourStop ? `${tourStop.city} show drew ${tourStop.attendance.toLocaleString()} fans for ₦${formatMoney(tourIncome)}.` : null,
-    campaignSpend ? `${next.ownLabel?.name || 'Your label'} spent ₦${formatMoney(campaignSpend)} and reached ${formatMoney(campaignFanGain)} new fans.` : null,
-    jobIncome ? `${prev.activeJob?.label || 'Your job'} paid ₦${formatMoney(jobIncome)}.` : null,
-    taxPaid ? `Quarterly tax paid: ₦${formatMoney(taxPaid)}.` : null,
+    tourStop ? `${tourStop.city} show drew ${tourStop.attendance.toLocaleString()} fans for ${fmtN(tourIncome, next.currency)}.` : null,
+    campaignSpend ? `${next.ownLabel?.name || 'Your label'} spent ${fmtN(campaignSpend, next.currency)} and reached ${campaignFanGain.toLocaleString()} new fans.` : null,
+    jobIncome ? `${prev.activeJob?.label || 'Your job'} paid ${fmtN(jobIncome, next.currency)}.` : null,
+    taxPaid ? `Quarterly tax paid: ${fmtN(taxPaid, next.currency)}.` : null,
   ].filter(Boolean);
   next.weekReport = {
     week:next.totalWeeks,

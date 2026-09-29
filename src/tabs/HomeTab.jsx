@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ERAS } from '../data/constants';
-import { fmt, fmtN, getEra } from '../engine/utils';
+import { fmt, fmtN as formatCurrency, getEra } from '../engine/utils';
 import { NPC_ARTISTS } from '../data/artists';
 import { CITIES } from '../data/constants';
 import { getNextObjective } from '../engine/objectives';
@@ -49,6 +49,7 @@ const COVER_POOL = Array.from({length:27},(_,i)=>{
 });
 
 export default function HomeTab({ gs, patch, patchFn, showToast, endWeek, isEndingWeek }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const era     = getEra(gs.fans);
   const eraIdx  = ERA_ORDER.findIndex(e => e.label===era.label);
   const nextEra = ERA_ORDER[eraIdx+1];

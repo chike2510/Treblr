@@ -9,6 +9,7 @@ import { getAwardCategories, evaluateAwards } from './awards';
 import { getCityDemand, getCityEvents, buildTourRoute } from './cityScene';
 import { getCollaborationPrice, getJobPay, getProducerPrice, getSocialReachMultiplier, getWeeklySocialEnergy } from './careerPerks';
 import { progressJobWeek } from './jobProgress';
+import { fmtN } from './utils';
 import { getNextObjective } from './objectives';
 import { MAX_IMAGE_BYTES, isStorageQuotaError, optimizeArtwork } from './coverArt';
 
@@ -58,15 +59,21 @@ describe('versioned, multi-career saves', () => {
     expect(migrated.socialPlatforms.wavelog).toBe(28);
     expect(migrated.catalog[0].lifetimeStreams).toBe(400);
     expect(getWeeklySocialEnergy(migrated)).toBe(10);
+    expect(migrated.currency).toBe('NGN');
   });
 
   it('keeps the old legacy career when creating a new slot, and exports/imports into a separate slot', () => {
     const storage = installStorage();
     storage.setItem('treblr_v3_save', JSON.stringify({ screen:'game', stageName:'Legacy Star', totalWeeks:4, fans:900, money:250000, careerType:'broke_underground' }));
-    const fresh = createCareerSlot({ ...makeDefault(), screen:'game', stageName:'New Star', genre:'pop', city:'london' });
+    const fresh = createCareerSlot({ ...makeDefault(), screen:'game', stageName:'New Star', genre:'pop', city:'london', currency:'USD', money:2_500_000 });
     expect(fresh).toBeTruthy();
+    expect(fresh.currency).toBe('USD');
+    expect(fresh.money).toBe(2_500_000);
+    expect(loadGame(fresh._slotId).currency).toBe('USD');
+    expect(loadGame(fresh._slotId).money).toBe(2_500_000);
     expect(getSaveSlots().map(slot => slot.name)).toEqual(expect.arrayContaining(['Legacy Star', 'New Star']));
     expect(getSaveSlots()).toHaveLength(2);
+    expect(getSaveSlots().find(slot => slot.name === 'Legacy Star').money).toBe(250000);
 
     const imported = importSaveText(exportSaveText({ ...fresh, money:1234567, fans:2345 }));
     expect(imported._slotId).not.toBe(fresh._slotId);
@@ -78,6 +85,15 @@ describe('versioned, multi-career saves', () => {
     installStorage();
     expect(() => importSaveText('{not valid')).toThrow();
     expect(getSaveSlots()).toHaveLength(0);
+  });
+});
+
+describe('display currency', () => {
+  it('changes the displayed symbol only and supports the selected currency consistently', () => {
+    expect(fmtN(2_500_000, 'USD')).toBe('$2.5M');
+    expect(fmtN(2_500_000, 'GBP')).toBe('£2.5M');
+    expect(fmtN(-1_000, 'EUR')).toBe('-€1.0k');
+    expect(fmtN(2_500_000, 'NGN')).toBe('₦2.5M');
   });
 });
 

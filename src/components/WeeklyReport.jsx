@@ -1,6 +1,7 @@
-import { fmtN, fmt } from '../engine/utils';
+import { fmtN as formatCurrency, fmt } from '../engine/utils';
 
-export default function WeeklyReport({ report, onContinue }) {
+export default function WeeklyReport({ report, currency = 'NGN', onContinue }) {
+  const fmtN = (amount) => formatCurrency(amount, currency);
   if (!report) return null;
 
   const week = report.week || 0;

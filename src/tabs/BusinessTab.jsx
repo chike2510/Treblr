@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { MERCH_TYPES, LABELS, LABEL_AESTHETICS, TOUR_TIERS, CITIES, GENRES, ERAS } from '../data/constants';
 import { NPC_ARTISTS } from '../data/artists';
-import { clamp, fmt, fmtN, uid, getEra } from '../engine/utils';
+import { clamp, fmt, fmtN as formatCurrency, uid, getEra } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
 import { canSpendActionPoint, getActionPoints, spendActionPoints, WEEKLY_ACTION_POINTS } from '../engine/actionPoints';
 import { buildTourRoute, getCityDemand, getCityScene, getCityCollaboratorAffinity } from '../engine/cityScene';
@@ -86,6 +86,7 @@ export default function BusinessTab({ gs, patch, patchFn, showToast }) {
 }
 
 function CareerOverview({ gs, onSelect }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const era = getEra(gs.fans);
   const releases = (gs.catalog || []).filter(track => track.released);
   const report = gs.lastWeekReport || gs.weekReport;
@@ -119,6 +120,7 @@ function CareerOverview({ gs, onSelect }) {
 }
 
 function MoneyView({ gs }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const report = gs.lastWeekReport || gs.weekReport;
   const incomeRows = report ? [
     ['Streaming', report.streamIncome], ['Shows', report.tourIncome], ['Merchandise', report.merchIncome], ['Contract / job', report.jobIncome],
@@ -168,6 +170,7 @@ function MoneyView({ gs }) {
 }
 
 function CollaboratorsView({ gs, patch, showToast, query, onQuery, selectedArtistId, onSelectArtist }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const artists = NPC_ARTISTS.filter(artist => Number(artist.minFansToFeature || 0) <= Number(gs.fans || 0))
     .filter(artist => `${artist.name} ${artist.genre}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a,b) => Number(b.genre === gs.genre) - Number(a.genre === gs.genre) || Number(a.collabCost || 0) - Number(b.collabCost || 0))
@@ -206,6 +209,7 @@ function CollaboratorsView({ gs, patch, showToast, query, onQuery, selectedArtis
 }
 
 function MarketsView({ gs }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const markets = [...CITIES].map(city => ({ city, demand:getCityDemand(city.id, gs.genre), scene:getCityScene(city.id) }))
     .sort((a,b) => b.demand - a.demand);
   return <>
@@ -224,6 +228,7 @@ function MarketsView({ gs }) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 function MerchView({ gs, patchFn, showToast }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const [selectedType, setSelectedType] = useState('tshirt');
   const [quantity, setQuantity]         = useState(500);
   const [price, setPrice]               = useState(25000);
@@ -253,7 +258,7 @@ function MerchView({ gs, patchFn, showToast }) {
         ...(prev.activeMerchDrops || []),
         { id: uid(), type: type.label, qty: quantity, price, cost: productionCost, revenue: estimatedRevenue, weeksLeft: 4, weekStarted: prev.totalWeeks }
       ],
-      news: addNews(prev.news, `Merch drop! ${quantity} ${type.label}s at ₦${(price/1000).toFixed(0)}k. Revenue streams over 4 weeks.`, 'pos', prev.totalWeeks),
+      news: addNews(prev.news, `Merch drop! ${quantity} ${type.label}s at ${fmtN(price)} each. Revenue streams over 4 weeks.`, 'pos', prev.totalWeeks),
       };
     });
     showToast(`${type.label} merch launched!`);
@@ -345,6 +350,7 @@ function MerchView({ gs, patchFn, showToast }) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 function BrandsView({ gs, patchFn, showToast }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const doBrand = (deal) => {
     if (gs.fans < deal.minFans) { showToast(`Need ${fmt(deal.minFans)} fans`); return; }
     if (gs.inPrison) { showToast('You cannot sign a brand deal while in prison'); return; }
@@ -399,6 +405,7 @@ function BrandsView({ gs, patchFn, showToast }) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 function LabelView({ gs, patchFn, showToast }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const [view, setView]             = useState('deals'); // 'deals' | 'own'
   const [ownLabelName, setName]     = useState('');
   const [ownAesthetic, setAesthet]  = useState('indie');
@@ -575,7 +582,7 @@ function LabelView({ gs, patchFn, showToast }) {
             <div className="li-glass" style={{ padding:'4px 16px', marginBottom:16 }}>
               {[
                 { label:'50,000+ fans',        met: gs.fans >= OWN_LABEL_MIN_FANS,   val: `${fmt(gs.fans)} fans` },
-                { label:'₦20M startup capital', met: gs.money >= OWN_LABEL_COST,      val: fmtN(gs.money) },
+                { label:`${fmtN(OWN_LABEL_COST)} startup capital`, met: gs.money >= OWN_LABEL_COST,      val: fmtN(gs.money) },
                 { label:'Currently independent',met: gs.labelId === 'independent',    val: '' },
                 { label:'At least 1 EP/Album',  met: (gs.projects || []).length >= 1, val: `${(gs.projects||[]).length} projects` },
               ].map(req => (
@@ -620,6 +627,7 @@ function LabelView({ gs, patchFn, showToast }) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 function TourView({ gs, patchFn, showToast }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const bookTour = (tier) => {
     if (gs.fans < tier.minFans) { showToast(`Need ${fmt(tier.minFans)} fans`); return; }
     if (gs.money < tier.cost) { showToast('Not enough money'); return; }

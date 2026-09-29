@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { fmtN, getEra, getTimeLabel } from './engine/utils';
+import { fmtN as formatCurrency, getEra, getTimeLabel } from './engine/utils';
 import { endWeek as doEndWeek, handleModalChoice } from './engine/weekEngine';
 import { getActionPoints, WEEKLY_ACTION_POINTS } from './engine/actionPoints';
 import { PlayerAvatar } from './components/Living';
@@ -79,6 +79,7 @@ function DesktopSidebar({ gs, navigate }) {
 }
 
 export default function Game({ gs, setGs }) {
+  const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null);
   const [showReport, setShowReport] = useState(false);
@@ -176,7 +177,7 @@ export default function Game({ gs, setGs }) {
           {gs.tab === 'profile' && <ProfileTab {...tabProps}/>}
         </main>
 
-        <nav className="tab-bar" aria-label="Primary navigation">
+        <nav className="tab-bar" aria-label="Primary navigation" style={{ backdropFilter:'blur(16px) saturate(135%)', WebkitBackdropFilter:'blur(16px) saturate(135%)' }}>
           {TABS.map(tab => {
             const Icon = tab.Icon;
             return <button type="button" key={tab.id} className={`tab-btn${gs.tab === tab.id ? ' on' : ''}`} aria-current={gs.tab === tab.id ? 'page' : undefined} onClick={() => navigate(tab.id)}>
@@ -187,7 +188,7 @@ export default function Game({ gs, setGs }) {
         </nav>
       </div>
 
-      {showReport && gs.weekReport && <WeeklyReport report={gs.weekReport} stageName={gs.stageName} genre={gs.genre} onContinue={handleReportClose}/>}
+      {showReport && gs.weekReport && <WeeklyReport report={gs.weekReport} currency={gs.currency} stageName={gs.stageName} genre={gs.genre} onContinue={handleReportClose}/>}
 
       {modal && (
         <div className="overlay" onClick={() => !modal.event?.choice && setModal(null)}>

@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-async function startCareer(page, stageName = 'Smoke Artist') {
+async function startCareer(page, stageName = 'Smoke Artist', currency = 'NGN') {
   await page.goto('/');
   await expect(page.locator('#root')).toContainText('TREBLR');
   await page.getByRole('button', { name:'START CAREER' }).click();
   await page.getByLabel('Stage Name').fill(stageName);
   await page.getByLabel('Real Name').fill('Test Player');
+  await page.getByLabel('Display Currency').selectOption(currency);
   await page.getByRole('button', { name:'NEXT →' }).click();
   await page.getByRole('radio', { name:/Afrobeats/ }).click();
   await page.getByRole('button', { name:'NEXT →' }).click();
@@ -16,6 +17,40 @@ async function startCareer(page, stageName = 'Smoke Artist') {
   await expect(page.getByText('Next Objective')).toBeVisible();
   await expect(page.getByLabel('3 of 3 weekly action points remaining')).toBeVisible();
 }
+
+test('mobile glass navigation stays readable and every primary destination remains reachable', async ({ page }) => {
+  await page.setViewportSize({ width:430, height:900 });
+  await startCareer(page, 'Glass Nav Artist');
+  const nav = page.locator('.tab-bar');
+  await expect(nav).toBeVisible();
+  await expect(nav.getByRole('button')).toHaveCount(5);
+  for (const name of ['Home', 'Music', 'Career', 'News', 'Profile']) {
+    const button = nav.getByRole('button', { name, exact:true });
+    await expect(button).toBeVisible();
+    await button.click();
+  }
+  expect(await nav.evaluate(element => getComputedStyle(element).backdropFilter)).toContain('blur(16px)');
+});
+
+test('chosen display currency persists without converting the simulation balance', async ({ page }) => {
+  await page.setViewportSize({ width:430, height:900 });
+  await startCareer(page, 'Currency Artist', 'USD');
+  await expect(page.locator('.li-topbar-money')).toHaveText('$2.5M');
+  const saved = await page.evaluate(() => Object.keys(localStorage)
+    .filter(key => key.startsWith('treblr_v4_slot_'))
+    .map(key => JSON.parse(localStorage.getItem(key)))
+    .find(slot => slot.stageName === 'Currency Artist'));
+  expect(saved.currency).toBe('USD');
+  expect(saved.money).toBe(2_500_000);
+
+  await page.getByRole('button', { name:'Profile', exact:true }).click();
+  await page.getByRole('tab', { name:'Settings', exact:true }).click();
+  await expect(page.getByText('US Dollar (USD)', { exact:true })).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.save-card')).toContainText('$2.5M');
+  await page.getByRole('button', { name:'CONTINUE', exact:true }).click();
+  await expect(page.locator('.li-topbar-money')).toHaveText('$2.5M');
+});
 
 test('app boots, primary nav works, and Chirp compose persists an in-game post without runtime errors', async ({ page }) => {
   const browserErrors = [];

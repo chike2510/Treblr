@@ -2,6 +2,15 @@
 export const MONTH_NAMES  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 export const MONTH_SHORT  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+export const CURRENCIES = [
+  { code:'NGN', label:'Nigerian Naira', symbol:'₦' },
+  { code:'USD', label:'US Dollar', symbol:'$' },
+  { code:'GBP', label:'Pound Sterling', symbol:'£' },
+  { code:'EUR', label:'Euro', symbol:'€' },
+  { code:'GHS', label:'Ghanaian Cedi', symbol:'GH₵' },
+  { code:'CAD', label:'Canadian Dollar', symbol:'CA$' },
+];
+
 // ─── GENRES ──────────────────────────────────────────────────────────────────
 export const GENRES = [
   { id:'afrobeats', label:'Afrobeats',   initials:'AF', color:'#E07020', swBonus:0, vcBonus:1, pdBonus:2, lpBonus:2, desc:'Percussion-driven global sound' },

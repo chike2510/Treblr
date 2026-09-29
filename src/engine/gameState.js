@@ -1,5 +1,5 @@
 import { WEEKLY_ACTION_POINTS } from './actionPoints';
-import { LABELS } from '../data/constants';
+import { CURRENCIES, LABELS } from '../data/constants';
 
 export const SAVE_VERSION = 4;
 export const MAX_CAREER_SLOTS = 8;
@@ -15,6 +15,7 @@ export const makeDefault = () => ({
   stageName: '',
   realName: '',
   startAge: 22,
+  currency: 'NGN',
   genre: null,
   city: null,
   careerType: null,
@@ -111,6 +112,7 @@ export const migrateSave = (input) => {
   if (!saved || typeof saved !== 'object' || Array.isArray(saved)) throw new Error('Invalid Treblr save file.');
   const defaults = makeDefault();
   const merged = { ...defaults, ...saved };
+  merged.currency = CURRENCIES.some(({ code }) => code === saved.currency) ? saved.currency : 'NGN';
   const social = { ...defaults.socialPlatforms, ...(saved.socialPlatforms || {}) };
   if (social.soundstream !== undefined && saved.socialPlatforms?.soundify === undefined) social.soundify = social.soundstream;
   if (social.soundcloud !== undefined && saved.socialPlatforms?.wavelog === undefined) social.wavelog = social.soundcloud;
@@ -146,6 +148,7 @@ const saveMetadata = (state, id) => ({
   name: (state.stageName || '').trim() || 'Untitled career',
   genre: state.genre || null,
   city: state.city || null,
+  currency: state.currency || 'NGN',
   totalWeeks: Number(state.totalWeeks || 0),
   fans: Number(state.fans || 0),
   money: Number(state.money || 0),

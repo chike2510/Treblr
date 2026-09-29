@@ -2513,8 +2513,13 @@ body { font-family:var(--font-ui); background:var(--bg-sunken); }
 .tab-bar {
   height:calc(62px + env(safe-area-inset-bottom, 0px));
   padding:0 4px env(safe-area-inset-bottom, 0px);
-  background:#111315;
-  border-top:1px solid rgba(245,241,232,0.12);
+  position:relative;
+  z-index:20;
+  background:rgba(17,19,21,0.88);
+  border-top:1px solid rgba(245,241,232,0.19);
+  box-shadow:0 -8px 24px rgba(0,0,0,0.2);
+  backdrop-filter:blur(16px) saturate(135%);
+  -webkit-backdrop-filter:blur(16px) saturate(135%);
 }
 .tab-btn { min-width:0; padding:0 2px; gap:3px; }
 .tab-btn.on { color:#E4B35D; }

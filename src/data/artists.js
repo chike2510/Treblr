@@ -1,10 +1,10 @@
 // ── NPC TIER SYSTEM ───────────────────────────────────────────────────────────
 export const NPC_TIERS = {
-  S: { label: 'S-Tier', desc: 'Global Icons',  color: '#FFD700', minFansToFeature: 500_000, feeRange: '₦10M–₦50M' },
-  A: { label: 'A-Tier', desc: 'Major Stars',   color: '#C084FC', minFansToFeature: 100_000, feeRange: '₦2M–₦12M'  },
-  B: { label: 'B-Tier', desc: 'Rising Acts',   color: '#60A5FA', minFansToFeature: 15_000,  feeRange: '₦300K–₦3M'  },
-  C: { label: 'C-Tier', desc: 'Underground',   color: '#34D399', minFansToFeature: 2_000,   feeRange: '₦30K–₦300K' },
-  D: { label: 'D-Tier', desc: 'Local Scene',   color: '#9CA3AF', minFansToFeature: 0,        feeRange: '₦5K–₦30K'   },
+  S: { label: 'S-Tier', desc: 'Global Icons',  color: '#FFD700', minFansToFeature: 500_000, feeRange: [10_000_000, 50_000_000] },
+  A: { label: 'A-Tier', desc: 'Major Stars',   color: '#C084FC', minFansToFeature: 100_000, feeRange: [2_000_000, 12_000_000] },
+  B: { label: 'B-Tier', desc: 'Rising Acts',   color: '#60A5FA', minFansToFeature: 15_000,  feeRange: [300_000, 3_000_000] },
+  C: { label: 'C-Tier', desc: 'Underground',   color: '#34D399', minFansToFeature: 2_000,   feeRange: [30_000, 300_000] },
+  D: { label: 'D-Tier', desc: 'Local Scene',   color: '#9CA3AF', minFansToFeature: 0,        feeRange: [5_000, 30_000] },
 };
 
 export const NPC_ARTISTS = [

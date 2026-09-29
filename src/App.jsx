@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { GENRES, CITIES, CAREER_TYPES } from './data/constants';
+import { GENRES, CITIES, CAREER_TYPES, CURRENCIES } from './data/constants';
 import { NPC_ARTISTS } from './data/artists';
 import { makeDefault, loadGame, getSaveSlots, createCareerSlot, deleteSave } from './engine/gameState';
 import { fmt, fmtN, getTier, getEra } from './engine/utils';
@@ -26,7 +26,7 @@ function StartScreen({ onNew, onContinue, saveSlots, onDelete }) {
             <div className="save-info">{GENRES.find(g => g.id === slot.genre)?.label || 'Genre TBD'} · {CITIES.find(c => c.id === slot.city)?.label || 'City TBD'}</div>
             <div style={{ display:'flex', gap:12, fontSize:12, fontWeight:700, marginTop:8, marginBottom:10 }}>
               <span style={{ color:'var(--accent-cyan)' }}>{fmt(slot.fans || 0)} fans</span>
-              <span style={{ color:'var(--text-muted)' }}>{slot.money ? fmtN(slot.money) : 'Career save'}</span>
+              <span style={{ color:'var(--text-muted)' }}>{slot.money ? fmtN(slot.money, slot.currency) : 'Career save'}</span>
             </div>
             <div style={{ display:'flex', gap:8 }}>
               <button className="btn btn-primary" style={{ flex:1 }} onClick={() => onContinue(slot.id)}>CONTINUE</button>
@@ -50,6 +50,7 @@ function OnboardScreen({ onStart }) {
   const [stageName, setStageName]     = useState('');
   const [realName, setRealName]       = useState('');
   const [startAge, setStartAge]       = useState(22);
+  const [currency, setCurrency]       = useState('NGN');
   const [genre, setGenre]             = useState(null);
   const [city, setCity]               = useState(null);
   const [careerType, setCareerType]   = useState(null);
@@ -67,7 +68,7 @@ function OnboardScreen({ onStart }) {
 
   const handleStart = () => {
     if (!canStart) return;
-    onStart({ stageName: stageName.trim(), realName: realName.trim(), startAge, genre, city, careerType });
+    onStart({ stageName: stageName.trim(), realName: realName.trim(), startAge, currency, genre, city, careerType });
   };
 
   return (
@@ -115,18 +116,36 @@ function OnboardScreen({ onStart }) {
               <input id="real-name" className="ob-input" placeholder="Given name" value={realName} onChange={e => setRealName(e.target.value)} maxLength={24} />
             </div>
           </div>
-          <div>
-            <label className="form-label">Starting Age</label>
-            <select
-              className="ob-input"
-              value={startAge}
-              onChange={e => setStartAge(Number(e.target.value))}
-              style={{ appearance:'none' }}
-            >
-              {Array.from({ length: 20 }, (_, i) => 16 + i).map(a => (
-                <option key={a} value={a}>{a} years old</option>
-              ))}
-            </select>
+          <div className="ob-input-row">
+            <div>
+              <label className="form-label" htmlFor="starting-age">Starting Age</label>
+              <select
+                id="starting-age"
+                className="ob-input"
+                value={startAge}
+                onChange={e => setStartAge(Number(e.target.value))}
+                style={{ appearance:'none' }}
+              >
+                {Array.from({ length: 20 }, (_, i) => 16 + i).map(a => (
+                  <option key={a} value={a}>{a} years old</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="form-label" htmlFor="display-currency">Display Currency</label>
+              <select
+                id="display-currency"
+                className="ob-input"
+                value={currency}
+                onChange={e => setCurrency(e.target.value)}
+                style={{ appearance:'none' }}
+              >
+                {CURRENCIES.map(item => <option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ marginTop:-4, fontSize:10, lineHeight:1.45, color:'var(--text-muted)' }}>
+            Display only. Existing game amounts stay the same; no exchange conversion is applied.
           </div>
           <button className="btn btn-primary btn-full" style={{ marginTop:16 }} disabled={!stageName.trim() || !realName.trim()} onClick={() => setStep(1)}>
             NEXT →
@@ -224,7 +243,7 @@ function OnboardScreen({ onStart }) {
             <div style={{ background:'var(--surface-1)', borderRadius:'var(--r)', padding:'12px 14px', marginTop:12 }}>
               <div style={{ fontSize:9, letterSpacing:2, textTransform:'uppercase', color:'var(--text-muted)', marginBottom:6 }}>Starting Stats</div>
               <div style={{ display:'flex', gap:16, fontSize:13, fontWeight:700 }}>
-                <span style={{ color:'var(--accent-gold-lt)' }}>{fmtN(career.money)}</span>
+                <span style={{ color:'var(--accent-gold-lt)' }}>{fmtN(career.money, currency)}</span>
                 <span style={{ color:'var(--accent-cyan)' }}>{fmt(career.fans)} fans</span>
                 <span style={{ color:'var(--text-muted)', fontSize:11 }}>SE: {career.se}/wk</span>
               </div>
@@ -257,7 +276,7 @@ export default function App() {
     }
   };
 
-  const handleBegin = ({ stageName, realName, startAge, genre, city, careerType }) => {
+  const handleBegin = ({ stageName, realName, startAge, currency, genre, city, careerType }) => {
     const career    = CAREER_TYPES.find(c => c.id === careerType);
     const genreData = GENRES.find(g => g.id === genre);
 
@@ -280,7 +299,7 @@ export default function App() {
     const newState = {
       ...makeDefault(),
       screen: 'game',
-      stageName, realName, startAge, genre, city, careerType, startYear: 2024,
+      stageName, realName, startAge, currency, genre, city, careerType, startYear: 2024,
       money:    career.money,
       fans:     career.fans,
       socialPlatforms: platforms,

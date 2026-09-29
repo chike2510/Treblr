@@ -37,7 +37,10 @@ test('production app boots, starts a career, and uses Chirp compose without runt
   await page.getByRole('button', { name:'Social', exact:true }).click();
   await page.getByRole('button', { name:/Chirp/ }).click();
   await expect(page.getByText('Chirp', { exact:true })).toBeVisible();
-  await page.locator('.soc-fab').click();
+  const composeButton = page.getByRole('button', { name:'Compose a post on Chirp', exact:true });
+  await expect(composeButton).toBeVisible();
+  await composeButton.focus();
+  await page.keyboard.press('Enter');
   const composer = page.getByPlaceholder("What's happening?");
   await expect(composer).toBeVisible();
   await composer.fill('Smoke test post — the feed is alive.');

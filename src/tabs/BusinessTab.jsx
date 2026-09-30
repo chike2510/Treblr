@@ -46,6 +46,8 @@ export default function BusinessTab({ gs, patch, patchFn, showToast }) {
   const [industrySection, setIndustrySection] = useState('label');
   const [collabSearch, setCollabSearch] = useState('');
   const [selectedArtistId, setSelectedArtistId] = useState(null);
+  const careerEra = getEra(gs.fans);
+  const homeCity = CITIES.find(city => city.id === gs.city) || CITIES[0];
   useEffect(() => {
     const route = gs.appRoutes?.career;
     if (route && route !== section) setSection(route);
@@ -58,10 +60,12 @@ export default function BusinessTab({ gs, patch, patchFn, showToast }) {
   return (
     <div className={`tab-content li-scene career-screen career-screen-${section}`}>
       <div className="li-scene-content">
-      <div className="editorial-page-head" style={{ padding:'0 0 12px' }}>
-        <div className="page-kicker">CAREER DESK</div>
+      <header className="career-desk-head">
+        <div className="career-desk-meta"><span>CAREER OPERATIONS</span><span>{homeCity.label.toUpperCase()} <i>·</i> WEEK {Number(gs.totalWeeks || 0) + 1}</span></div>
+        <div className="page-kicker">THE LONG GAME <i>/</i> {careerEra.label.replace(' Era', '').toUpperCase()}</div>
         <h1>{section === 'overview' ? 'The work behind the music' : SUB_NAV.find(item => item.id === section)?.label}</h1>
-      </div>
+        <p>Progress is earned in the room, on the road and on the books.</p>
+      </header>
       <SubNav items={SUB_NAV} active={section} onChange={changeSection} />
       {section === 'overview' && <CareerOverview gs={gs} onSelect={changeSection} />}
       {section === 'money' && <MoneyView gs={gs} />}
@@ -80,45 +84,51 @@ export default function BusinessTab({ gs, patch, patchFn, showToast }) {
 }
 
 function CareerOverview({ gs, onSelect }) {
-  const fmtN = (amount) => formatCurrency(amount, gs.currency);
+  const fmtN = amount => formatCurrency(amount, gs.currency);
   const era = getEra(gs.fans);
   const report = gs.lastWeekReport || gs.weekReport;
   const nextEra = ERAS.find(item => item.minFans > Number(gs.fans || 0));
   const nextGoal = nextEra ? nextEra.minFans - Number(gs.fans || 0) : 0;
   const progress = nextEra ? Math.max(0, Math.min(100, Math.round(((Number(gs.fans || 0) - era.minFans) / Math.max(1, nextEra.minFans - era.minFans)) * 100))) : 100;
+  const eraIndex = Math.max(0, ERAS.findIndex(item => item.label === era.label));
   return <>
-    <section className="career-stage">
-      <div className="career-stage-copy">
-        <span>FAN-BASED PROGRESSION</span>
-        <strong style={{ color:'var(--accent-gold-lt)' }}>{era.label.replace(' Era','')}</strong>
-        <small>{nextEra ? `${fmt(nextGoal)} more fans to ${nextEra.label}` : 'Highest fan-based career era reached'}</small>
+    <section className="career-rankboard" aria-label="Career progression">
+      <div className="career-rankboard-top"><span>CAREER LADDER <i>·</i> FAN MILESTONES</span><span>LEVEL {String(eraIndex + 1).padStart(2, '0')} / {String(ERAS.length).padStart(2, '0')}</span></div>
+      <div className="career-rankboard-core">
+        <div><small>YOU ARE HERE</small><strong>{era.label.replace(' Era', '')}</strong><span>{nextEra ? `${fmt(nextGoal)} more fans to ${nextEra.label.replace(' Era', '')}` : 'Highest fan-based career era reached'}</span></div>
+        <div className="career-fan-count"><strong>{fmt(gs.fans || 0)}</strong><span>FANS</span></div>
       </div>
-      <div className="career-stage-value"><strong>{fmt(gs.fans || 0)}</strong><span>current fans</span></div>
-      {nextEra && <div className="career-stage-track" role="progressbar" aria-label={`Progress to ${nextEra.label}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><span style={{ width:`${progress}%` }} /></div>}
+      <div className="career-era-path" role="progressbar" aria-label={`Progress to ${nextEra?.label || 'the highest era'}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}>
+        {ERAS.map((step, index) => <span key={step.label} className={index < eraIndex ? 'is-past' : index === eraIndex ? 'is-current' : ''} title={step.label} />)}
+        {nextEra && <i style={{ left:`${((eraIndex + progress / 100) / Math.max(1, ERAS.length - 1)) * 100}%` }} />}
+      </div>
+      <div className="career-rankboard-foot"><span>{era.label.replace(' Era', '').toUpperCase()}</span><span>{nextEra ? nextEra.label.replace(' Era', '').toUpperCase() : 'CEILING'}</span></div>
     </section>
 
     <section className="career-week-ledger">
-      <SectionLabel action={report ? `WEEK ${report.week}` : 'NO WEEK CLOSED'}>Last settled week</SectionLabel>
-      {report ? <>
-        <div className="ledger-row"><span>Income recorded</span><strong style={{ color:'var(--accent-green)' }}>{fmtN(report.revenue || 0)}</strong></div>
-        <div className="ledger-row"><span>Streams · career-wide</span><strong>{fmt(report.streamCount || 0)}</strong></div>
-        <div className="ledger-row"><span>Fan change</span><strong>{fmt(report.fansDelta || 0)}</strong></div>
-      </> : <div className="finance-note">The first weekly statement appears after you close an in-game week.</div>}
-      {gs.tourActive && gs.tourData && <div className="career-obligation"><span>TOUR</span><strong>{gs.tourData.label} · {gs.tourWeeksLeft} weeks left</strong></div>}
+      <div className="career-section-head"><div><span>THE SETTLEMENT</span><strong>Last week’s statement</strong></div><b>{report ? `WEEK ${report.week}` : 'NOT YET FILED'}</b></div>
+      {report ? <div className="career-statement">
+        <div className="career-statement-primary"><span>RECORDED INCOME</span><strong>{fmtN(report.revenue || 0)}</strong></div>
+        <div><span>STREAMS</span><strong>{fmt(report.streamCount || 0)}</strong></div>
+        <div><span>FAN CHANGE</span><strong className={Number(report.fansDelta || 0) >= 0 ? 'is-positive' : 'is-negative'}>{Number(report.fansDelta || 0) > 0 ? '+' : ''}{fmt(report.fansDelta || 0)}</strong></div>
+      </div> : <div className="career-empty-statement">The first weekly statement appears after you close an in-game week.</div>}
+      {(gs.tourActive && gs.tourData) && <div className="career-obligation"><span>TOUR</span><strong>{gs.tourData.label} · {gs.tourWeeksLeft} weeks left</strong></div>}
       {gs.activeJob && <div className="career-obligation"><span>WORK</span><strong>{gs.activeJob.label} · {fmtN(gs.activeJob.weeklyPay)}/week</strong></div>}
       {gs.labelId !== 'independent' && <div className="career-obligation"><span>CONTRACT</span><strong>{gs.contractWeeksLeft || 0} weeks · {gs.contractObligations?.postsDue || 0} posts due this week</strong></div>}
     </section>
 
-    <SectionLabel>Choose your next move</SectionLabel>
-    <div className="career-shortcut-list">
-      {[
-        ['money','Review finances','Actual income, bills and tax liability'],
-        ['tour','Plan a tour','Book one of the modeled tour tiers'],
-        ['network','Find a collaborator','Choose an eligible feature for a track'],
-        ['industry','Industry deals','Labels, brand offers and merchandise'],
-        ['world','Explore markets','Compare the five cities in the simulation'],
-      ].map(([id,title,desc]) => <button key={id} type="button" className="career-shortcut" onClick={() => onSelect(id)}><span><strong>{title}</strong><small>{desc}</small></span><span aria-hidden="true">›</span></button>)}
-    </div>
+    <section className="career-control-room">
+      <div className="career-section-head"><div><span>THE NEXT DECISION</span><strong>Choose a desk</strong></div><b>OPEN A ROUTE ↗</b></div>
+      <div className="career-shortcut-list">
+        {[
+          ['money','01','Cash & obligations','Open the modeled weekly income, costs and tax ledger.'],
+          ['tour','02','Stages & touring','Compare venues and the actual cost of going on tour.'],
+          ['network','03','Collaboration desk','Find an eligible feature for an upcoming track.'],
+          ['industry','04','Industry terms','Review label offers, brand deals and merchandise.'],
+          ['world','05','Markets','Compare the five cities available in this simulation.'],
+        ].map(([id,number,title,desc]) => <button key={id} type="button" className="career-shortcut" onClick={() => onSelect(id)}><span className="career-shortcut-number">{number}</span><span className="career-shortcut-copy"><strong>{title}</strong><small>{desc}</small></span><span className="career-shortcut-arrow" aria-hidden="true">↗</span></button>)}
+      </div>
+    </section>
   </>;
 }
 

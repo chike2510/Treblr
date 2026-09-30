@@ -140,13 +140,13 @@ export default function Game({ gs, setGs }) {
   const tabProps = { gs, setGs, patch, patchFn, showToast, endWeek:handleEndWeek, isEndingWeek };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-scene={gs.tab}>
       <DesktopSidebar gs={gs} navigate={navigate}/>
       <div className="app-workspace">
         <header className="li-topbar">
           <div className="li-topbar-row">
             <div className="li-topbar-identity">
-              <PlayerAvatar gs={gs} size={36} ring="#C8922A"/>
+              <PlayerAvatar gs={gs} size={36} ring="var(--scene-accent)"/>
               <div className="li-topbar-copy">
                 <div className="li-topbar-name">{gs.stageName}</div>
                 <div className="li-topbar-era">{era.label.replace(' Era','')} · {(gs.genre || 'Music').replace('afrobeats','Afrobeats').replace('hiphop','Hip-Hop').replace('rnb','R&B')}</div>

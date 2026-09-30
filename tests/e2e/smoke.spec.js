@@ -14,7 +14,7 @@ async function startCareer(page, stageName = 'Smoke Artist', currency = 'NGN') {
   await page.getByRole('button', { name:'NEXT →' }).click();
   await page.getByRole('radio', { name:/Social Media Star/ }).click();
   await page.getByRole('button', { name:'BEGIN CAREER →' }).click();
-  await expect(page.getByRole('heading', { name:'The week in your career' })).toBeVisible();
+  await expect(page.getByRole('heading', { name:'The week you make the move.' })).toBeVisible();
   await expect(page.getByLabel('3 of 3 weekly action points remaining')).toBeVisible();
 }
 
@@ -138,6 +138,11 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await page.getByRole('button', { name:'RECORD TRACK · 1 AP' }).click();
   await expect(page.getByRole('heading', { name:'Catalog' })).toBeVisible();
   await expect(page.getByText(title, { exact:true })).toBeVisible();
+  if (process.env.CAPTURE_ARTIFACTS === '1') {
+    await expect(page.locator('.toast')).toBeHidden({ timeout:5_000 });
+    await page.waitForTimeout(750);
+    await page.screenshot({ path:testInfo.outputPath('redesign-music-catalog-with-artwork.png'), fullPage:true });
+  }
 
   await page.getByRole('tab', { name:'Release', exact:true }).click();
   await expect(page.getByRole('heading', { name:'Release' })).toBeVisible();

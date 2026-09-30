@@ -440,10 +440,10 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   return (
     <div className={`tab-content li-scene music-screen music-screen-${section}`}>
       <div className="li-scene-content">
-      <div className="editorial-page-head" style={{ padding:'0 0 12px' }}>
-        <div className="page-kicker">MUSIC & STUDIO</div>
-        <h1>{SUB_NAV.find(item => item.id === section)?.label || 'Catalog'}</h1>
-      </div>
+      <header className="studio-masthead">
+        <div><div className="page-kicker">RECORD ROOM <i>/</i> MUSIC DESK</div><h1>{SUB_NAV.find(item => item.id === section)?.label || 'Catalog'}</h1><p>{section === 'catalog' ? 'The work, in sleeve form.' : 'Build the next part of the catalog.'}</p></div>
+        <div className="studio-masthead-index"><strong>{String((gs.catalog || []).length).padStart(2, '0')}</strong><span>TRACKS<br/>IN FILE</span></div>
+      </header>
       <SubNav items={SUB_NAV} active={section} onChange={changeSection} />
       {gs.inPrison && (
         <div className="li-glass" style={{ borderColor:'rgba(220,38,38,0.3)', background:'rgba(220,38,38,0.08)', padding:'12px 14px', marginBottom:16, textAlign:'center' }}>
@@ -762,59 +762,38 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
       {/* ════════════════════════════ CATALOG ════════════════════════════ */}
       {section === 'catalog' && (
         <>
-          <SectionLabel action="Plan a release" onAction={() => changeSection('release')}>{released.length} out · {unreleased.length} in the vault</SectionLabel>
-          {currentRelease && <div className="featured-release">
-            <div className="featured-release-cover">{currentRelease.coverArt ? <img src={currentRelease.coverArt} alt={`${currentRelease.title} cover art`} /> : <span>{currentRelease.title.slice(0,1).toUpperCase()}</span>}</div>
-            <div className="featured-release-copy"><div className="page-kicker">CURRENT RELEASE</div><strong>{currentRelease.title}</strong><span>{genreData?.label} · Week {currentRelease.releaseWeek ?? '—'}</span><div className="featured-release-stats"><b>{fmt(currentRelease.lifetimeStreams || currentRelease.streams || 0)} streams</b><b>{currentRelease.chartPos ? `#${currentRelease.chartPos}` : 'Not charting'}</b></div><button type="button" className="text-link-button" onClick={() => openPerformance(currentRelease)}>OPEN PERFORMANCE →</button></div>
-          </div>}
+          <div className="catalog-ledger-head"><span>{released.length} LIVE <i>·</i> {unreleased.length} IN THE VAULT</span><button type="button" onClick={() => changeSection('release')}>PLAN A RELEASE <b aria-hidden="true">↗</b></button></div>
+          {currentRelease && <button type="button" className="catalog-featured-release" onClick={() => openPerformance(currentRelease)} aria-label={`Open performance for ${currentRelease.title}`}>
+            <span className="catalog-featured-cover">{currentRelease.coverArt ? <img src={currentRelease.coverArt} alt={`${currentRelease.title} cover art`} /> : <span>{currentRelease.title.slice(0,1).toUpperCase()}</span>}</span>
+            <span className="catalog-featured-copy"><span className="page-kicker">CURRENT RELEASE <i>·</i> WEEK {currentRelease.releaseWeek ?? '—'}</span><strong>{currentRelease.title}</strong><span>{genreData?.label || currentRelease.genre} <i>·</i> Quality {currentRelease.quality}</span><span className="catalog-featured-stat">{fmt(currentRelease.lifetimeStreams || currentRelease.streams || 0)} streams <i>·</i> {currentRelease.chartPos ? `#${currentRelease.chartPos}` : 'No chart position recorded'}</span><span className="catalog-open-performance">OPEN PERFORMANCE <b aria-hidden="true">↗</b></span></span>
+          </button>}
           {(gs.catalog||[]).length === 0 ? (
-            <div className="li-glass" style={{ padding:'30px 16px', textAlign:'center', marginBottom:16 }}>
-              <svg viewBox="0 0 24 24" style={{width:36,height:36,stroke:'var(--text-muted)',fill:'none',strokeWidth:1.5,margin:'0 auto 10px',display:'block'}}>
-                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-              </svg>
-              <div style={{ color:'var(--text-muted)', fontSize:13 }}>No tracks yet. Head to Record.</div>
+            <div className="studio-first-cut">
+              <div className="studio-cut-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"/><circle cx="24" cy="24" r="3"/><path d="M24 4v17M42 24H27M24 44V27M6 24h15"/></svg></div>
+              <div><span>THE FIRST CUT</span><strong>No recordings in the archive.</strong><p>Start with a session; your cover art and release history will live here.</p></div>
+              <button type="button" onClick={() => changeSection('record')}>OPEN THE STUDIO <b aria-hidden="true">↗</b></button>
             </div>
           ) : (
-            <div className="li-glass" style={{ padding:'4px 16px', marginBottom:16 }}>
+            <div className="release-gallery">
               {(gs.catalog||[]).map((track, i) => (
-                <div key={track.id} className="li-stagger" style={{ '--i':i, display:'flex', gap:10, alignItems:'flex-start', paddingTop:10, paddingBottom:10, borderBottom:i<gs.catalog.length-1?'1px solid var(--li-glass-border)':'none' }}>
-                  <label style={{flexShrink:0,cursor:'pointer'}}>
-                    <div style={{width:40,height:40,borderRadius:8,background:'var(--surface-2)',border:'1px solid var(--li-glass-border)',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      {track.coverArt
-                        ? <img src={track.coverArt} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                        : <span style={{fontFamily:'var(--font-mono)',fontSize:9,color:'var(--text-muted)'}}>+IMG</span>
-                      }
-                    </div>
-                    <input type="file" accept="image/*" style={{display:'none'}} onChange={e => handleCoverUpload(e, url => assignTrackCover(track.id, url))}/>
-                  </label>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:700,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{track.title}</div>
-                    <div style={{fontSize:11,color:'var(--text-muted)',marginTop:1}}>
-                      {genreData?.label}
-                      {track.featNpcs?.length > 0 && ' ft. '+track.featNpcs.map(id=>NPC_ARTISTS.find(n=>n.id===id)?.name||id).join(', ')}
-                      {track.released && track.chartPos ? ' · #'+track.chartPos : track.released ? ' · Live' : ' · Unreleased'}
-                    </div>
-                    <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:qColor(track.quality),marginTop:2}}>Q{track.quality}</div>
-                    {track.released && <button type="button" className="text-link-button" onClick={() => openPerformance(track)}>View performance →</button>}
+                <article key={track.id} className={`release-art-card li-stagger${track.released ? ' is-released' : ' is-vault'}`} style={{ '--i':i }}>
+                  <div className="release-art-cover">
+                    {track.coverArt ? <img src={track.coverArt} alt={`${track.title} cover`} /> : <span className="release-art-monogram">{track.title?.slice(0,1) || 'T'}</span>}
+                    <span className="release-art-edition">{track.released ? 'SIDE A' : 'DEMO'}</span>
+                    <label className="release-art-edit"><input type="file" accept="image/*" aria-label={`Upload cover for ${track.title}`} onChange={e => handleCoverUpload(e, url => assignTrackCover(track.id, url))}/><span>EDIT SLEEVE</span></label>
                   </div>
-                  {!track.released && (
-                    <Magnetic strength={4} onClick={() => { setSelectedReleaseTrackId(track.id); changeSection('release'); }}
-                      className="soc-pill" style={{ padding:'7px 12px', background:'var(--li-accent-soft)', color:'var(--li-accent-lt)', fontSize:11, flexShrink:0 }}>
-                      PLAN →
-                    </Magnetic>
-                  )}
-                  {track.released && (
-                    <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-                      <div style={{textAlign:'right'}}>
-                        <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--accent-green)'}}>LIVE</div>
-                        {track.chartPos && <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--accent-gold-lt)'}}>#{track.chartPos}</div>}
-                      </div>
-                      <button className="soc-glass-btn" disabled={!canAct||gs.inPrison||gs.money<750000||Number(track.videoThroughWeek||-1)>=gs.totalWeeks} onClick={()=>shootVideo(track.id)} style={{padding:'6px 8px',fontSize:9,whiteSpace:'nowrap',color:canAct&&gs.money>=750000?'var(--li-accent-lt)':'var(--text-muted)'}}>
-                        {Number(track.videoThroughWeek||-1)>=gs.totalWeeks ? 'VIDEO LIVE' : 'VIDEO · 1 AP'}
+                  <div className="release-art-meta"><span>{track.released ? `RELEASED · WK ${track.releaseWeek ?? '—'}` : 'UNRELEASED · IN THE VAULT'}</span><span>Q{track.quality}</span></div>
+                  <strong className="release-art-title">{track.title}</strong>
+                  <span className="release-art-genre">{GENRES.find(item => item.id === track.genre)?.label || track.genre || genreData?.label}{track.featNpcs?.length > 0 ? ' · ft. ' + track.featNpcs.map(id => NPC_ARTISTS.find(n => n.id === id)?.name || id).join(', ') : ''}</span>
+                  <div className="release-art-actions">
+                    {track.released ? <>
+                      <button type="button" className="release-open-button" onClick={() => openPerformance(track)}>PERFORMANCE <b aria-hidden="true">↗</b></button>
+                      <button type="button" className="release-video-button" aria-label={`Shoot video for ${track.title}`} disabled={!canAct || gs.inPrison || gs.money < 750000 || Number(track.videoThroughWeek || -1) >= gs.totalWeeks} onClick={() => shootVideo(track.id)}>
+                        {Number(track.videoThroughWeek || -1) >= gs.totalWeeks ? 'VIDEO LIVE' : 'VIDEO · 1 AP'}
                       </button>
-                    </div>
-                  )}
-                </div>
+                    </> : <button type="button" className="release-open-button" onClick={() => { setSelectedReleaseTrackId(track.id); changeSection('release'); }}>PLAN RELEASE <b aria-hidden="true">↗</b></button>}
+                  </div>
+                </article>
               ))}
             </div>
           )}

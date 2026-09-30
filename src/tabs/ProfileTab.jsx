@@ -82,21 +82,18 @@ function StatsView({ gs, patchFn }) {
 
   return (
     <>
-      {/* Artist card */}
-      <div className="li-glass li-stagger" style={{ '--i':0, padding:16, marginBottom:16 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:12 }}>
-          <PlayerAvatar gs={gs} size={56} ring="var(--li-accent)" />
-          <div>
-            <div style={{ fontFamily:'var(--li-font-display)', fontSize:22, fontWeight:700, letterSpacing:-0.5 }}>{gs.stageName}</div>
-            <div style={{ fontSize:12, color:'var(--text-muted)' }}>{gs.realName} · Age {(gs.startAge || 22) + Math.floor((gs.totalWeeks || 0) / 48)}</div>
+      <section className="profile-artist-sheet" aria-label="Artist profile">
+        <div className="profile-sheet-label"><span>ARTIST FILE</span><span>NO. {String(Number(gs.totalWeeks || 0) + 1).padStart(2, '0')}</span></div>
+        <div className="profile-sheet-main">
+          <PlayerAvatar gs={gs} size={74} ring="var(--scene-accent)" />
+          <div className="profile-sheet-identity">
+            <span>{tier.tier} <i>·</i> {genre?.label || 'Independent'}</span>
+            <h2>{gs.stageName}</h2>
+            <p>{gs.realName} <i>·</i> Age {(gs.startAge || 22) + Math.floor((gs.totalWeeks || 0) / 48)}</p>
           </div>
         </div>
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-          <span className="tag tag-purple">{tier.tier}</span>
-          {genre && <span className="tag tag-orange">{genre.label}</span>}
-          {city && <span className="tag tag-cyan">{city.label}</span>}
-        </div>
-      </div>
+        <div className="profile-sheet-colophon"><span>{city?.label || '—'} <i>/</i> HOME SCENE</span><span>{getTimeLabel(gs.totalWeeks || 0, gs.startYear)}</span></div>
+      </section>
 
       {/* The core identity block — fans/clout/talent/social lives HERE now, not on every page */}
       <div className="li-glass li-stagger" style={{ '--i':1, padding:0, overflow:'hidden', marginBottom:16 }}>

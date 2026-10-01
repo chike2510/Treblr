@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { GENRES, JOBS, PRODUCERS, ROLLOUT_PLANS } from '../data/constants';
+import { GENRES, JOBS, MASTER_OPTIONS, MIX_OPTIONS, PRODUCERS, ROLLOUT_PLANS } from '../data/constants';
 import { NPC_ARTISTS, NPC_TIERS } from '../data/artists';
-import { calcSongQuality } from '../engine/qualityCalc';
 import { clamp, fmt, fmtN as formatCurrency, uid } from '../engine/utils';
 import { addNews } from '../engine/weekEngine';
 import { canSpendActionPoint, spendActionPoints } from '../engine/actionPoints';
-import { getCollaborationPrice, getProducerPrice, hasPremiumProducerAccess } from '../engine/careerPerks';
+import { hasPremiumProducerAccess } from '../engine/careerPerks';
 import { optimizeArtwork } from '../engine/coverArt';
+import { getStudioQuote, recordTrack, releaseSingle } from '../engine/studioEngine';
 import { Magnetic, SectionLabel, SubNav, ResourcePill } from '../components/Living';
 
 const RELEASE_COOLDOWN = { single: 2, ep: 6, album: 12 };
@@ -30,17 +30,6 @@ const COVER_POOL = Array.from({ length:27 }, (_, index) => {
   const column = (index % 9) + 1;
   return `cov_${String(row).padStart(2, '0')}_${String(column).padStart(2, '0')}.png`;
 });
-
-const LockIcon = () => (
-  <svg viewBox="0 0 24 24" style={{ width:12, height:12, fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round' }}>
-    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-  </svg>
-);
-const ChevronDown = ({ open }) => (
-  <svg viewBox="0 0 24 24" style={{ width:14, height:14, fill:'none', stroke:'var(--text-muted)', strokeWidth:2, transform: open ? 'rotate(180deg)' : 'none', transition:'transform 300ms var(--li-ease-spring)' }}>
-    <polyline points="6 9 12 15 18 9"/>
-  </svg>
-);
 
 const TRAINING_COST = 15; // energy per session
 const TRAINING_GAIN = 3;  // skill points per session
@@ -74,6 +63,13 @@ const SUB_NAV = [
   { id:'performance', label:'Performance' },
   { id:'train',   label:'Train' },
   { id:'jobs',    label:'Jobs' },
+];
+
+const STUDIO_STEPS = [
+  { id:'track', label:'Track' },
+  { id:'producer', label:'Producer' },
+  { id:'voice', label:'Voice & feature' },
+  { id:'finish', label:'Mix & master' },
 ];
 
 export default function CreateTab({ gs, patch, patchFn, showToast }) {
@@ -211,10 +207,14 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   const [title, setTitle]           = useState('');
   const [producerId, setProducerId] = useState('bedroom');
   const [featNpcs, setFeatNpcs]     = useState(() => NPC_ARTISTS.some(npc => npc.id === gs.pendingFeatureRequest) ? [gs.pendingFeatureRequest] : []);
+  const [mixId, setMixId]           = useState('diy');
+  const [masterId, setMasterId]     = useState('reference');
+  const [studioStep, setStudioStep] = useState(0);
   const [openTier, setOpenTier]     = useState(null);
   const [rolloutId, setRolloutId]   = useState('organic');
   const [projectLeadId, setProjectLeadId] = useState(null);
   const [selectedReleaseTrackId, setSelectedReleaseTrackId] = useState(gs.focusedTrackId || '');
+  const [expandedTrackId, setExpandedTrackId] = useState(null);
 
   const released   = (gs.catalog || []).filter(t => t.released);
   const unreleased = (gs.catalog || []).filter(t => !t.released);
@@ -228,77 +228,28 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   const weeklyStreamGrowth = performanceHistory.length > 1 && previousWeeklyStreams > 0
     ? Math.round((latestWeeklyStreams - previousWeeklyStreams) / previousWeeklyStreams * 100)
     : null;
-  const producer   = PRODUCERS.find(p => p.id === producerId) || PRODUCERS[0];
-  const previewQ   = calcSongQuality(gs, producerId, featNpcs);
+  const studioQuote = getStudioQuote(gs, { producerId, featuredArtistIds:featNpcs, mixId, masterId });
+  const producer   = studioQuote.producer;
+  const previewQ   = studioQuote.quality;
   const weeksUntilRelease = Math.max(0, (gs.lastReleaseWeek ?? -99) + RELEASE_COOLDOWN.single - gs.totalWeeks);
 
-  const featCost = featNpcs.reduce((total, npcId) => {
-    const npc = NPC_ARTISTS.find(n => n.id === npcId);
-    return total + getCollaborationPrice(gs, npc?.collabCost || 0, npcId);
-  }, 0);
-  const producerCost = getProducerPrice(gs, producer.cost);
-  const totalCost = producerCost + featCost;
   const rolloutPlan = ROLLOUT_PLANS.find(plan => plan.id === rolloutId) || ROLLOUT_PLANS[0];
 
   const doRecord = () => {
-    if (!title.trim()) { showToast('Name your track'); return; }
-    if (gs.money < totalCost) { showToast('Need ' + fmtN(totalCost) + ' total'); return; }
-    if (gs.energy < 25) { showToast('Too exhausted to record'); return; }
-    if (gs.inPrison) { showToast('You can only rest while in prison'); return; }
-    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
-    if (producer.minFans > gs.fans && !hasPremiumProducerAccess(gs)) { showToast('Need ' + fmt(producer.minFans) + ' fans for this producer'); return; }
-    const snap = totalCost;
-    patchFn(prev => {
-      const acted = spendActionPoints(prev);
-      if (!acted) return prev;
-      const quality = calcSongQuality(prev, producerId, featNpcs);
-      const coverFile = COVER_POOL[(prev.catalog || []).length % COVER_POOL.length];
-      const track = { id:uid(), title:title.trim(), genre:prev.genre, quality, producerId, featNpcs:[...featNpcs], coverArt:`/assets/covers/${coverFile}`, released:false, releaseWeek:null, chartPos:null, recordWeek:prev.totalWeeks, lifetimeStreams:0, videoViews:0 };
-      const npcRelations = { ...(prev.npcRelations || {}) };
-      featNpcs.forEach(npcId => {
-        const relation = Number(npcRelations[npcId]?.value ?? npcRelations[npcId] ?? 0);
-        npcRelations[npcId] = { ...(typeof npcRelations[npcId] === 'object' ? npcRelations[npcId] : {}), value:clamp(relation + 8, 0, 100), collaborations:Number(npcRelations[npcId]?.collaborations || 0) + 1 };
-      });
-      return {
-        ...acted,
-        catalog: [...(prev.catalog || []), track],
-        pendingFeatureRequest:null,
-        npcRelations,
-        collaborationCount: Number(prev.collaborationCount || 0) + featNpcs.length,
-        money: clamp(prev.money - snap, 0, 999_000_000_000),
-        energy: clamp(prev.energy - 25, 0, 100),
-        news: addNews(prev.news, 'Recorded "' + title.trim() + '" · Quality ' + quality + '/100', 'pos', prev.totalWeeks),
-      };
-    });
-    showToast('Recorded "' + title + '" · Q' + previewQ);
-    setTitle(''); setFeatNpcs([]); setOpenTier(null); setSection('catalog');
+    const selection = { title, producerId, featuredArtistIds:featNpcs, mixId, masterId, coverArt:`/assets/covers/${COVER_POOL[(gs.catalog || []).length % COVER_POOL.length]}` };
+    const result = recordTrack(gs, selection);
+    if (!result.ok) { showToast(result.error); return; }
+    patch(result.state);
+    showToast(`Recorded “${result.track.title}” · Q${result.track.quality}`);
+    setTitle(''); setFeatNpcs([]); setOpenTier(null); setStudioStep(0); setMixId('diy'); setMasterId('reference');
+    setSection('catalog');
     patch({ pendingFeatureRequest:null, appRoutes:{ ...(gs.appRoutes || {}), music:'catalog' } });
   };
 
   const doRelease = (trackId) => {
-    const candidate = (gs.catalog || []).find(track => track.id === trackId);
-    if (!candidate || candidate.released) { showToast('Select an unreleased track'); return; }
-    if (weeksUntilRelease > 0) { showToast('Cooldown: ' + weeksUntilRelease + 'w'); return; }
-    if (gs.inPrison) { showToast('You can only rest while in prison'); return; }
-    if (!canSpendActionPoint(gs)) { showToast('No action points left this week'); return; }
-    if (gs.fans < rolloutPlan.minFans) { showToast(`This rollout needs ${fmt(rolloutPlan.minFans)} fans`); return; }
-    if (gs.money < rolloutPlan.cost) { showToast(`Need ${fmtN(rolloutPlan.cost)} for this rollout`); return; }
-    patchFn(prev => {
-      const acted = spendActionPoints(prev);
-      if (!acted) return prev;
-      const track = prev.catalog.find(t => t.id === trackId);
-      return {
-        ...acted,
-        catalog: prev.catalog.map(t => t.id === trackId ? { ...t, released:true, releaseType:'single', releaseWeek:prev.totalWeeks, rollout:{ ...rolloutPlan, startWeek:prev.totalWeeks } } : t),
-        focusedTrackId:trackId,
-        appRoutes:{ ...(prev.appRoutes || {}), music:'performance' },
-        money: clamp(prev.money - rolloutPlan.cost, 0, 999_000_000_000),
-        lastReleaseWeek: prev.totalWeeks,
-        fans: clamp(prev.fans + rolloutPlan.fanLift + Math.round(Math.sqrt(prev.fans||1)*0.5+50), 0, 999_000_000),
-        clout: clamp(prev.clout + 1, 0, 100),
-        news: addNews(prev.news, 'Dropped "' + (track?.title||'') + '" — the charts await.', 'pos', prev.totalWeeks),
-      };
-    });
+    const result = releaseSingle(gs, trackId, rolloutPlan);
+    if (!result.ok) { showToast(result.error); return; }
+    patch(result.state);
     showToast('Single dropped!');
     setSelectedReleaseTrackId(trackId);
     setSection('performance');
@@ -630,133 +581,91 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
 
       {/* ════════════════════════════ RECORD ════════════════════════════ */}
       {section === 'record' && (
-        <>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-            <SectionLabel>New Track</SectionLabel>
-            <div style={{ fontFamily:'var(--font-mono)', fontSize:14, fontWeight:700, color:qColor(previewQ), marginTop:-10 }}>Q{previewQ}</div>
+        <section className="studio-workflow" aria-label="Studio recording session">
+          <div className="studio-session-lead">
+            <div><span className="studio-step-kicker">SESSION FILE · {String((gs.catalog || []).length + 1).padStart(2, '0')}</span><h2>{title.trim() || 'A new cut'}</h2><p>Shape the record, review the bill, then commit once.</p></div>
+            <div className="studio-quality-stamp" style={{ '--quality-color':previewQ >= 80 ? '#a8c872' : previewQ >= 55 ? '#dfc177' : '#d38f70' }}><span>QUALITY</span><strong>Q{previewQ}</strong><small>/99</small></div>
           </div>
-          <div className="li-glass" style={{ padding:16, marginBottom:16 }}>
-            <label className="form-label">Track Title</label>
-            <input className="ob-input" placeholder="e.g. No Mercy, Levels, Timeless..." value={title} onChange={e=>setTitle(e.target.value)} maxLength={40} style={{marginBottom:16}}/>
 
-            <label className="form-label">Producer</label>
-            <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:16}}>
-              {PRODUCERS.filter(p=>p.minFans<=gs.fans || hasPremiumProducerAccess(gs)).map(p => (
-                <button type="button" key={p.id} aria-pressed={producerId===p.id} onClick={()=>setProducerId(p.id)} className="li-row"
-                  style={{appearance:'none',color:'inherit',font:'inherit',width:'100%',textAlign:'left',display:'flex',justifyContent:'space-between',alignItems:'center', padding:'10px 12px', borderRadius:12, border:'1px solid '+(producerId===p.id?'var(--li-accent)':'var(--li-glass-border)'), background:producerId===p.id?'var(--li-accent-soft)':'transparent', cursor:'pointer'}}>
-                  <div>
-                    <div style={{fontWeight:700,fontSize:13}}>{p.name}</div>
-                    <div style={{fontSize:11,color:'var(--text-muted)'}}>{p.desc} · +{p.qBonus} quality</div>
-                  </div>
-                  <div style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--accent-gold-lt)',flexShrink:0,marginLeft:8}}>
-                    {getProducerPrice(gs,p.cost)>0?fmtN(getProducerPrice(gs,p.cost)):'FREE'}
-                  </div>
-                </button>
-              ))}
+          <div className="studio-step-rail" role="tablist" aria-label="Recording steps">
+            {STUDIO_STEPS.map((step, index) => <button key={step.id} type="button" role="tab" aria-selected={studioStep === index} onClick={() => setStudioStep(index)} className={studioStep === index ? 'is-current' : studioStep > index ? 'is-done' : ''}>
+              <span>{String(index + 1).padStart(2, '0')}</span><strong>{step.label}</strong>
+            </button>)}
+          </div>
+
+          {studioStep === 0 && <div className="studio-step-panel">
+            <div className="studio-step-heading"><span>01 / TRACK SETUP</span><h3>Give the session a name.</h3><p>One song enters the vault. EP and album formats are built from tracks in the Catalog.</p></div>
+            <div className="studio-track-identity">
+              <div className="studio-track-sleeve"><img src={`/assets/covers/${COVER_POOL[(gs.catalog || []).length % COVER_POOL.length]}`} alt="Selected bundled cover art"/><span>SESSION ART</span></div>
+              <div className="studio-track-fields">
+                <label className="form-label" htmlFor="studio-track-title">Track title</label>
+                <input id="studio-track-title" className="ob-input" placeholder="e.g. No Mercy, Levels, Timeless..." value={title} onChange={event => setTitle(event.target.value)} maxLength={40}/>
+                <div className="studio-fixed-choice"><span>Release shape</span><strong>Single track</strong><small>Record now; choose a Grassroots, Targeted, or Global rollout after.</small></div>
+                <div className="studio-fixed-choice"><span>Genre</span><strong>{GENRES.find(item => item.id === gs.genre)?.label || gs.genre || 'Not set'}</strong><small>Genre follows your career and its existing market-demand rules.</small></div>
+              </div>
             </div>
+            <p className="studio-model-note">Mood, runtime, lyrics, and audio capture are not modeled, so they do not change this record.</p>
+          </div>}
 
-            <label className="form-label">
-              Features
-              {featNpcs.length>0 && <span style={{marginLeft:8,color:'var(--accent-gold-lt)',fontFamily:'var(--font-mono)',fontSize:11}}>{featNpcs.length} · {fmtN(featCost)}</span>}
-            </label>
-            <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:16}}>
-              {['S','A','B','C','D'].map(tid => {
-                const t = NPC_TIERS[tid];
-                const ok = canFeature(tid);
-                const isOpen = openTier === tid;
-                const sel = featNpcs.filter(id => NPC_ARTISTS.find(n=>n.id===id&&n.tier===tid));
-                return (
-                  <div key={tid}>
-                    <button type="button" aria-expanded={isOpen} disabled={!ok}
-                      onClick={() => setOpenTier(isOpen ? null : tid)}
-                      className="li-row"
-                      style={{
-                        appearance:'none',color:'inherit',font:'inherit',width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:8,padding:'9px 10px',borderRadius:12,
-                        background: isOpen?'var(--li-glass-bg-hi)':'transparent',
-                        border:'1px solid '+(isOpen?t.color+'60':'var(--li-glass-border)'),
-                        cursor:ok?'pointer':'default', opacity:ok?1:0.45,
-                      }}
-                    >
-                      <div style={{width:8,height:8,borderRadius:'50%',background:t.color,flexShrink:0}}/>
-                      <div style={{flex:1}}>
-                        <span style={{fontSize:12,fontWeight:700,color:t.color}}>{t.label}</span>
-                        <span style={{fontSize:11,color:'var(--text-muted)',marginLeft:6}}>{t.desc}</span>
-                      </div>
-                      {!ok && <div style={{display:'flex',alignItems:'center',gap:3,fontSize:10,color:'var(--text-muted)'}}><LockIcon/><span>{fmt(t.minFansToFeature)} fans</span></div>}
-                      {ok && <>
-                        {sel.length>0 && <span style={{fontSize:11,color:t.color,fontFamily:'var(--font-mono)'}}>{sel.length}</span>}
-                        <span style={{fontSize:10,color:'var(--text-muted)'}}>{fmtN(t.feeRange[0])}–{fmtN(t.feeRange[1])}</span>
-                        <ChevronDown open={isOpen}/>
-                      </>}
-                    </button>
-                    {isOpen && ok && (
-                      <div style={{display:'flex',flexWrap:'wrap',gap:5,padding:'8px 4px 4px'}}>
-                        {npcByTier(tid).map(npc => {
-                          const on = featNpcs.includes(npc.id);
-                          const aCl = npc.attitude==='hostile'?'var(--accent-red)':npc.attitude==='selective'?'var(--accent-orange)':'var(--accent-green)';
-                          return (
-                            <button key={npc.id} onClick={()=>toggleFeat(npc.id)} style={{
-                              display:'flex',flexDirection:'column',alignItems:'flex-start',padding:'6px 8px',borderRadius:8,
-                              border:'1px solid '+(on?t.color:'var(--li-glass-border)'),
-                              background:on?t.color+'18':'transparent',cursor:'pointer',
-                            }}>
-                              <div style={{display:'flex',alignItems:'center',gap:5}}>
-                                <div style={{width:18,height:18,borderRadius:4,background:npc.color+'30',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                  <span style={{fontSize:7,fontWeight:900,color:npc.color}}>{npc.initials}</span>
-                                </div>
-                                <span style={{fontSize:12,fontWeight:700,color:on?'var(--text-primary)':'var(--text-secondary)'}}>{npc.name}</span>
-                              </div>
-                              <div style={{display:'flex',gap:5,marginTop:2}}>
-                                <span style={{fontSize:9,fontFamily:'var(--font-mono)',color:on?t.color:'var(--text-muted)'}}>{fmtN(npc.collabCost)}</span>
-                                <span style={{fontSize:8,color:aCl,textTransform:'uppercase',letterSpacing:'0.4px'}}>{npc.attitude}</span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
+          {studioStep === 1 && <div className="studio-step-panel">
+            <div className="studio-step-heading"><span>02 / PRODUCTION</span><h3>Choose the beatmaker.</h3><p>The producer’s existing quality bonus and career-adjusted fee feed the final track score and record bill.</p></div>
+            <div className="studio-option-list">
+              {PRODUCERS.filter(item => item.minFans <= gs.fans || hasPremiumProducerAccess(gs)).map(item => {
+                const selected = producerId === item.id;
+                const cost = getStudioQuote(gs, { producerId:item.id, featuredArtistIds:featNpcs, mixId, masterId }).producerCost;
+                return <button type="button" key={item.id} aria-pressed={selected} className={`studio-option-row${selected ? ' is-selected' : ''}`} onClick={() => setProducerId(item.id)}>
+                  <span className="studio-option-marker" aria-hidden="true">{selected ? '●' : '○'}</span><span className="studio-option-copy"><strong>{item.name}</strong><small>{item.desc}</small></span><span className="studio-option-result"><b>{cost ? fmtN(cost) : 'FREE'}</b><small>+{item.qBonus} quality</small></span>
+                </button>;
               })}
             </div>
+            <p className="studio-model-note">Higher-tier producers unlock at their listed fan threshold; the Rich Kid career has its existing premium access.</p>
+          </div>}
 
-            <div style={{background:'var(--li-glass-bg-hi)',borderRadius:14,padding:'10px 12px',marginBottom:16}}>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
-                <span style={{color:'var(--text-muted)'}}>Producer</span>
-                <span>{producerCost>0?fmtN(producerCost):'FREE'}{producerCost<producer.cost?' · career discount':''}</span>
-              </div>
-              {featCost>0 && (
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginTop:4}}>
-                  <span style={{color:'var(--text-muted)'}}>Feature fees ({featNpcs.length})</span>
-                  <span style={{color:'var(--accent-gold-lt)'}}>{fmtN(featCost)}</span>
-                </div>
-              )}
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginTop:4}}>
-                <span style={{color:'var(--text-muted)'}}>Energy</span>
-                <span style={{color:gs.energy>=25?'var(--text-primary)':'var(--accent-red)'}}>-25</span>
-              </div>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:13,fontWeight:700,marginTop:8,borderTop:'1px solid var(--li-glass-border)',paddingTop:8}}>
-                <span>Total</span>
-                <span style={{color:gs.money>=totalCost?'var(--accent-gold-lt)':'var(--accent-red)'}}>{fmtN(totalCost)}</span>
-              </div>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginTop:4}}>
-                <span style={{color:'var(--text-muted)'}}>Est. Quality</span>
-                <span style={{color:qColor(previewQ),fontWeight:700}}>Q{previewQ}/99</span>
-              </div>
-              <div className="quality-breakdown">
-                {[
-                  ['Writing',gs.sw || 0,'35%'], ['Vocals',gs.vc || 0,'30%'],
-                  ['Production',gs.pd || 0,'25%'], ['Live',gs.lp || 0,'10%'],
-                ].map(([label,value,weight]) => <div key={label}><span>{label} · {weight}</span><strong>{value}</strong></div>)}
-              </div>
-              <p className="finance-note">These are the engine's weighted base-skill inputs. Your producer, genre, selected features and low-energy penalty modify the final score (capped at Q99). Mood, BPM and audio recording are not simulated.</p>
+          {studioStep === 2 && <div className="studio-step-panel">
+            <div className="studio-step-heading"><span>03 / VOCAL SESSION</span><h3>Who is on the record?</h3><p>Choose a solo session or an eligible in-game featured artist. Feature fees use the existing career and relationship discounts.</p></div>
+            <button type="button" aria-pressed={featNpcs.length === 0} className={`studio-solo-choice${featNpcs.length === 0 ? ' is-selected' : ''}`} onClick={() => setFeatNpcs([])}><span><strong>Solo session</strong><small>Your own vocals · no feature fee</small></span><b>{featNpcs.length === 0 ? 'SELECTED' : 'FREE'}</b></button>
+            <div className="studio-feature-selections">{featNpcs.length > 0 && featNpcs.map(id => {
+              const artist = NPC_ARTISTS.find(item => item.id === id);
+              const fee = studioQuote.features.find(item => item.id === id)?.cost || 0;
+              return <button type="button" key={id} onClick={() => toggleFeat(id)}><span>{artist?.name || id}</span><b>{fmtN(fee)} · REMOVE</b></button>;
+            })}</div>
+            <div className="studio-tier-list">
+              {['S','A','B','C','D'].map(tierId => {
+                const tier = NPC_TIERS[tierId];
+                const eligible = canFeature(tierId);
+                const open = openTier === tierId;
+                return <div key={tierId} className="studio-tier-group">
+                  <button type="button" aria-expanded={open} disabled={!eligible} className="studio-tier-toggle" onClick={() => setOpenTier(open ? null : tierId)}><span><strong>{tier.label}</strong><small>{tier.desc}</small></span><b>{eligible ? `${fmtN(tier.feeRange[0])}–${fmtN(tier.feeRange[1])}` : `At ${fmt(tier.minFansToFeature)} fans`}</b><i>{open ? '−' : '+'}</i></button>
+                  {open && eligible && <div className="studio-tier-artists">{npcByTier(tierId).map(artist => {
+                    const selected = featNpcs.includes(artist.id);
+                    const fee = getStudioQuote(gs, { producerId, featuredArtistIds:[artist.id], mixId, masterId }).features[0]?.cost || 0;
+                    return <button type="button" key={artist.id} aria-pressed={selected} className={selected ? 'is-selected' : ''} onClick={() => toggleFeat(artist.id)}><span><strong>{artist.name}</strong><small>{artist.attitude} · {fmt(artist.fans)} fans in-game</small></span><b>{fmtN(fee)}</b></button>;
+                  })}</div>}
+                </div>;
+              })}
             </div>
-              <Magnetic strength={6} disabled={!title.trim()||gs.money<totalCost||gs.energy<25||!canAct||gs.inPrison} onClick={doRecord}
-              className="soc-pill" style={{ width:'100%', textAlign:'center', padding:'13px 0', background:(!title.trim()||gs.money<totalCost||gs.energy<25||!canAct||gs.inPrison)?'var(--li-glass-bg)':'var(--li-accent)', color:(!title.trim()||gs.money<totalCost||gs.energy<25||!canAct||gs.inPrison)?'var(--text-muted)':'#fff', fontSize:14 }}>
-              RECORD TRACK · 1 AP
-            </Magnetic>
+            <p className="studio-model-note">The game models the collaborator, relationship, and fee—not audience overlap or vocal-session sub-scores.</p>
+          </div>}
+
+          {studioStep === 3 && <div className="studio-step-panel">
+            <div className="studio-step-heading"><span>04 / FINAL PASS</span><h3>Mix it. Master it.</h3><p>These bounded finishing bonuses modify the same overall quality score the game already uses for modeled streams.</p></div>
+            <div className="studio-choice-section"><div className="studio-choice-label">MIX ENGINEER</div><div className="studio-finish-grid">{MIX_OPTIONS.map(option => <button type="button" key={option.id} aria-pressed={mixId === option.id} className={`studio-finish-card${mixId === option.id ? ' is-selected' : ''}`} onClick={() => setMixId(option.id)}><span>{option.label}</span><small>{option.desc}</small><b>{option.cost ? fmtN(option.cost) : 'NO SPEND'}</b><i>+{option.qBonus} quality</i></button>)}</div></div>
+            <div className="studio-choice-section"><div className="studio-choice-label">MASTERING</div><div className="studio-finish-grid">{MASTER_OPTIONS.map(option => <button type="button" key={option.id} aria-pressed={masterId === option.id} className={`studio-finish-card${masterId === option.id ? ' is-selected' : ''}`} onClick={() => setMasterId(option.id)}><span>{option.label}</span><small>{option.desc}</small><b>{option.cost ? fmtN(option.cost) : 'NO SPEND'}</b><i>+{option.qBonus} quality</i></button>)}</div></div>
+
+            <div className="studio-final-credits"><div className="studio-choice-label">RECORD CREDIT SHEET</div>{studioQuote.credits.map((credit, index) => <div key={`${credit.role}-${credit.id}-${index}`}><span>{credit.role} · {credit.name}</span><b>{credit.cost ? fmtN(credit.cost) : 'FREE'}</b></div>)}<div className="studio-credit-total"><span>Charged only when you record</span><b>{fmtN(studioQuote.cashCost)}</b></div></div>
+          </div>}
+
+          <div className="studio-live-estimate" aria-label="Current recording estimate">
+            <div><span>Cash now</span><strong>{fmtN(gs.money)}</strong></div><div><span>Session total</span><strong>{fmtN(studioQuote.cashCost)}</strong></div><div><span>Energy</span><strong>−{studioQuote.energyCost}</strong></div><div><span>Action</span><strong>{studioQuote.actionPointCost} AP</strong></div><div className="studio-estimate-quality"><span>Estimated overall quality</span><strong>Q{previewQ}/99</strong></div>
+            <p>No balance, energy, or action point is spent while choosing. All selected fees are charged once at the final Record action.</p>
           </div>
-        </>
+
+          <div className="studio-flow-actions">
+            {studioStep > 0 ? <button type="button" className="studio-back-button" onClick={() => setStudioStep(step => Math.max(0, step - 1))}>← BACK</button> : <button type="button" className="studio-back-button" onClick={() => changeSection('catalog')}>CANCEL</button>}
+            {studioStep < STUDIO_STEPS.length - 1 ? <button type="button" className="studio-next-button" onClick={() => setStudioStep(step => Math.min(STUDIO_STEPS.length - 1, step + 1))}>NEXT · {STUDIO_STEPS[studioStep + 1].label.toUpperCase()} <span>→</span></button> : <button type="button" className="studio-record-button" disabled={!title.trim() || gs.money < studioQuote.cashCost || gs.energy < studioQuote.energyCost || !canAct || gs.inPrison || (producer.minFans > gs.fans && !hasPremiumProducerAccess(gs))} onClick={doRecord}>RECORD “{title.trim() || 'UNTITLED'}” <span>· 1 AP</span></button>}
+          </div>
+          {(gs.money < studioQuote.cashCost || gs.energy < studioQuote.energyCost || !canAct || gs.inPrison || (producer.minFans > gs.fans && !hasPremiumProducerAccess(gs))) && <p className="studio-blocked-note">{gs.money < studioQuote.cashCost ? `Short ${fmtN(studioQuote.cashCost - gs.money)} for these choices. ` : ''}{gs.energy < studioQuote.energyCost ? `Need ${studioQuote.energyCost} energy. ` : ''}{!canAct ? 'No action points remain this week. ' : ''}{gs.inPrison ? 'You can only rest while in prison. ' : ''}{producer.minFans > gs.fans && !hasPremiumProducerAccess(gs) ? `This producer unlocks at ${fmt(producer.minFans)} fans.` : ''}</p>}
+        </section>
       )}
 
       {/* ════════════════════════════ CATALOG ════════════════════════════ */}
@@ -793,6 +702,15 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                       </button>
                     </> : <button type="button" className="release-open-button" onClick={() => { setSelectedReleaseTrackId(track.id); changeSection('release'); }}>PLAN RELEASE <b aria-hidden="true">↗</b></button>}
                   </div>
+                  <button type="button" className="release-credit-toggle" aria-expanded={expandedTrackId === track.id} onClick={() => setExpandedTrackId(current => current === track.id ? null : track.id)}>{expandedTrackId === track.id ? 'HIDE' : 'VIEW'} PRODUCTION CREDITS <span>{expandedTrackId === track.id ? '−' : '+'}</span></button>
+                  {expandedTrackId === track.id && <div className="track-credit-panel">
+                    <div className="track-credit-heading">SESSION RECORD <b>Q{track.quality}/99</b></div>
+                    {track.production?.credits?.length ? <>
+                      {track.production.credits.map((credit, creditIndex) => <div key={`${credit.role}-${credit.id}-${creditIndex}`} className="track-credit-row"><span>{credit.role}<small>{credit.name}</small></span><b>{credit.cost ? fmtN(credit.cost) : 'FREE'}</b></div>)}
+                      <div className="track-credit-total"><span>Production paid at record</span><b>{fmtN(track.production.cashSpent || 0)}</b></div>
+                    </> : <p className="track-credit-legacy">This recording predates saved studio credits. Its original producer: {PRODUCERS.find(item => item.id === track.producerId)?.name || 'not recorded'}{track.featNpcs?.length ? ` · featuring ${track.featNpcs.map(id => NPC_ARTISTS.find(item => item.id === id)?.name || id).join(', ')}` : ''}. The exact fee was not retained.</p>}
+                    <p className="track-credit-note">The game stores one overall quality score. That score feeds the existing modeled stream calculation; separate vocal, mix, or listener analytics are not generated.</p>
+                  </div>}
                 </article>
               ))}
             </div>

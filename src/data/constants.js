@@ -82,6 +82,19 @@ export const PRODUCERS = [
   { id:'legend',  name:'Legendary Producer', tier:4, cost:30000000, qBonus:35, minFans:300000, desc:'Grammy-certified.' },
 ];
 
+// Studio finishing choices change only the existing overall track-quality score.
+export const MIX_OPTIONS = [
+  { id:'diy', label:'Artist mix', desc:'Mix it yourself with your production skill.', cost:0, qBonus:0 },
+  { id:'local', label:'Local room mix', desc:'A clean balance from a trusted city engineer.', cost:180000, qBonus:3 },
+  { id:'precision', label:'Precision studio mix', desc:'A detailed, polished mix for the full arrangement.', cost:650000, qBonus:6 },
+];
+
+export const MASTER_OPTIONS = [
+  { id:'reference', label:'Reference master', desc:'Keep the session print as-is.', cost:0, qBonus:0 },
+  { id:'balanced', label:'Balanced master', desc:'A measured final pass across playback systems.', cost:120000, qBonus:2 },
+  { id:'club', label:'Club-ready master', desc:'A firmer, louder finish for big speakers.', cost:350000, qBonus:4 },
+];
+
 export const ROLLOUT_PLANS = [
   { id:'organic', label:'Grassroots', cost:0, minFans:0, streamLift:1.08, fanLift:90, weeks:3, desc:'Community-first release. No cash spend; steady local lift.' },
   { id:'targeted', label:'Targeted Campaign', cost:400000, minFans:0, streamLift:1.32, fanLift:360, weeks:4, desc:'Focused playlist, press, and short-form push.' },

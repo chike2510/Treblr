@@ -1,10 +1,10 @@
-import { PRODUCERS } from '../data/constants';
+import { MASTER_OPTIONS, MIX_OPTIONS, PRODUCERS } from '../data/constants';
 import { NPC_ARTISTS } from '../data/artists';
 import { getCityCollaboratorAffinity } from './cityScene';
 import { getCreativeControlMultiplier } from './careerPerks';
 
 // Skill-weighted base contribution leaves headroom for production, genre, and feature bonuses.
-export const calcSongQuality = (gs, producerId, featuredNpcIds = []) => {
+export const calcSongQuality = (gs, producerId, featuredNpcIds = [], finishing = {}) => {
   const sw = gs.sw || 0;
   const vc = gs.vc || 0;
   const pd = gs.pd || 0;
@@ -12,6 +12,8 @@ export const calcSongQuality = (gs, producerId, featuredNpcIds = []) => {
   const base = sw * 0.35 + vc * 0.30 + pd * 0.25 + lp * 0.10;
   const baseQ = (base / 100) * 55;
   const producer = PRODUCERS.find((item) => item.id === producerId) || PRODUCERS[0];
+  const mix = MIX_OPTIONS.find((item) => item.id === finishing.mixId) || MIX_OPTIONS[0];
+  const master = MASTER_OPTIONS.find((item) => item.id === finishing.masterId) || MASTER_OPTIONS[0];
   const genreSpecBonus = Math.min(10, ((gs.genreBonus || {})[gs.genre] || 0) * 0.2);
   const featureBonus = featuredNpcIds.reduce((sum, npcId) => {
     const artist = NPC_ARTISTS.find((item) => item.id === npcId);
@@ -23,5 +25,6 @@ export const calcSongQuality = (gs, producerId, featuredNpcIds = []) => {
   }, 0);
   const energyMult = gs.energy < 20 ? 0.7 : gs.energy < 40 ? 0.85 : 1;
   const controlMult = getCreativeControlMultiplier(gs);
-  return Math.min(99, Math.round((baseQ + producer.qBonus + genreSpecBonus + featureBonus) * energyMult * controlMult));
+  const finishedScore = baseQ + producer.qBonus + genreSpecBonus + featureBonus + mix.qBonus + master.qBonus;
+  return Math.max(0, Math.min(99, Math.round(finishedScore * energyMult * controlMult)));
 };

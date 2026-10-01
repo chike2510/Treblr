@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { RANDOM_EVENTS } from '../data/constants';
+import { RANDOM_EVENTS, ROLLOUT_PLANS } from '../data/constants';
+import { NPC_ARTISTS } from '../data/artists';
 import { makeDefault, migrateSave, getSaveSlots, createCareerSlot, loadGame, exportSaveText, importSaveText } from './gameState';
 import { WEEKLY_ACTION_POINTS, spendActionPoints } from './actionPoints';
 import { endWeek, handleModalChoice } from './weekEngine';
@@ -12,6 +13,8 @@ import { progressJobWeek } from './jobProgress';
 import { fmtN } from './utils';
 import { getNextObjective } from './objectives';
 import { MAX_IMAGE_BYTES, isStorageQuotaError, optimizeArtwork } from './coverArt';
+import { calcSongQuality } from './qualityCalc';
+import { getStudioQuote, recordTrack, releaseSingle } from './studioEngine';
 
 class MemoryStorage {
   data = new Map();
@@ -197,6 +200,101 @@ describe('music economy, charts, and awards', () => {
     };
     expect(getAwardCategories(state).filter(category => category.eligible).length).toBeGreaterThanOrEqual(5);
     expect(evaluateAwards(state).length).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe('studio production and release loop', () => {
+  const baseCareer = () => ({
+    ...makeDefault(), screen:'game', stageName:'Studio Test', genre:'afrobeats', city:'lagos',
+    money:30_000_000, fans:25_000, energy:82, sp:3, totalWeeks:0,
+    sw:42, vc:44, pd:40, lp:36,
+  });
+
+  it('applies producer, collaborator, mix, and master selections deterministically to one bounded quality score', () => {
+    const state = baseCareer();
+    const localArtist = NPC_ARTISTS.find((artist) => artist.tier === 'D');
+    expect(localArtist).toBeTruthy();
+    const base = calcSongQuality(state, 'bedroom', []);
+    const finished = calcSongQuality(state, 'local', [localArtist.id], { mixId:'precision', masterId:'club' });
+    expect(finished).toBeGreaterThan(base);
+    expect(calcSongQuality(state, 'local', [localArtist.id], { mixId:'precision', masterId:'club' })).toBe(finished);
+
+    const maximum = { ...state, sw:100, vc:100, pd:100, lp:100, energy:100, fans:1_000_000 };
+    const capped = calcSongQuality(maximum, 'legend', NPC_ARTISTS.filter((artist) => artist.tier === 'D').map((artist) => artist.id), { mixId:'precision', masterId:'club' });
+    expect(capped).toBeLessThanOrEqual(99);
+    expect(capped).toBeGreaterThanOrEqual(0);
+  });
+
+  it('shows an exact cash quote and charges producer, feature, mix, master, energy, and one action only on Record', () => {
+    const state = baseCareer();
+    const localArtist = NPC_ARTISTS.find((artist) => artist.tier === 'D');
+    const selection = { id:'studio-song', title:'After Hours', producerId:'local', featuredArtistIds:[localArtist.id], mixId:'local', masterId:'balanced' };
+    const quote = getStudioQuote(state, selection);
+    expect(quote.cashCost).toBe(quote.credits.reduce((sum, credit) => sum + credit.cost, 0));
+    expect(quote.credits.map((credit) => credit.role)).toEqual(['Producer', 'Featured artist', 'Mix engineer', 'Mastering']);
+
+    const result = recordTrack(state, selection);
+    expect(result.ok).toBe(true);
+    expect(result.state.money).toBe(state.money - quote.cashCost);
+    expect(result.state.energy).toBe(state.energy - 25);
+    expect(result.state.sp).toBe(state.sp - 1);
+    expect(result.state.catalog).toHaveLength(1);
+    expect(result.track.production.cashSpent).toBe(quote.cashCost);
+    expect(result.track.production.credits).toEqual(quote.credits);
+    expect(result.track.quality).toBe(quote.quality);
+  });
+
+  it('blocks insufficient cash, energy, actions, prison status, and locked producers without mutating the career', () => {
+    const state = baseCareer();
+    const selection = { title:'Blocked Session', producerId:'local', mixId:'local', masterId:'balanced' };
+    const quote = getStudioQuote(state, selection);
+    for (const blocked of [
+      { ...state, money:quote.cashCost - 1 },
+      { ...state, energy:24 },
+      { ...state, sp:0 },
+      { ...state, inPrison:true },
+      { ...state, fans:0, producerId:'mid' },
+    ]) {
+      const blockedSelection = blocked.producerId === 'mid' ? { ...selection, producerId:'mid' } : selection;
+      const before = JSON.stringify(blocked);
+      expect(recordTrack(blocked, blockedSelection).ok).toBe(false);
+      expect(JSON.stringify(blocked)).toBe(before);
+    }
+  });
+
+  it('preserves new production credits through v4 save/load and legacy migration', () => {
+    const storage = installStorage();
+    const result = recordTrack(baseCareer(), { id:'saved-studio-song', title:'Saved Mix', producerId:'local', mixId:'precision', masterId:'club' });
+    expect(result.ok).toBe(true);
+    const slot = createCareerSlot({ ...result.state, currency:'USD' });
+    const restored = loadGame(slot._slotId);
+    expect(restored.currency).toBe('USD');
+    expect(restored.money).toBe(result.state.money);
+    expect(restored.catalog[0].production).toEqual(result.track.production);
+    expect(migrateSave({ stageName:'Old Career', catalog:[{ id:'old', title:'Legacy cut', producerId:'bedroom', released:false }] }).catalog[0].production).toBeUndefined();
+    expect(storage.getItem('treblr_v4_slot_' + slot._slotId)).toContain('Saved Mix');
+  });
+
+  it('records, releases, then stores the real stream result when the first week closes', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
+    const source = { ...baseCareer(), fans:5_000, money:3_000_000 };
+    const recorded = recordTrack(source, { id:'week-one-single', title:'Week One', producerId:'local', mixId:'local', masterId:'balanced' });
+    expect(recorded.ok).toBe(true);
+    const targetedPlan = ROLLOUT_PLANS.find((plan) => plan.id === 'targeted');
+    const beforeReleaseCash = recorded.state.money;
+    const released = releaseSingle(recorded.state, recorded.track.id, targetedPlan);
+    expect(released.ok).toBe(true);
+    expect(released.state.money).toBe(beforeReleaseCash - targetedPlan.cost);
+    expect(released.state.sp).toBe(recorded.state.sp - 1);
+    expect(released.track.released).toBe(true);
+    expect(released.track.rollout.streamLift).toBe(targetedPlan.streamLift);
+
+    const closed = endWeek(released.state, () => {}, () => {});
+    const liveTrack = closed.catalog.find((track) => track.id === recorded.track.id);
+    expect(liveTrack.weeklyStreams).toBeGreaterThan(0);
+    expect(liveTrack.weeklyHistory).toEqual([{ week:1, streams:liveTrack.weeklyStreams }]);
+    expect(closed.lastReleaseWeek).toBe(0);
+    expect(closed.catalog[0].production.credits).toEqual(recorded.track.production.credits);
   });
 });
 

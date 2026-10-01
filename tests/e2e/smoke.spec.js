@@ -120,6 +120,7 @@ test('app boots, primary nav works, and Chirp compose persists an in-game post w
 });
 
 test('mobile studio records a track, releases it and opens the modeled performance page', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width:390, height:844 });
   const browserErrors = [];
   page.on('pageerror', error => browserErrors.push(error.message));
   page.on('console', message => {
@@ -131,13 +132,50 @@ test('mobile studio records a track, releases it and opens the modeled performan
   });
 
   await startCareer(page, 'Studio Artist');
+  const captureStudio = async (name, position = 'top') => {
+    if (process.env.CAPTURE_ARTIFACTS === '1') {
+      await page.locator('.music-screen').evaluate((element, scrollPosition) => {
+        element.scrollTop = scrollPosition === 'bottom' ? element.scrollHeight : 0;
+      }, position);
+      await page.waitForTimeout(400);
+      await page.screenshot({ path:testInfo.outputPath(`${name}.png`), fullPage:true });
+    }
+  };
   await page.getByRole('button', { name:'Music', exact:true }).click();
   await page.getByRole('tab', { name:'Record', exact:true }).click();
   const title = 'One More Night';
   await page.getByPlaceholder('e.g. No Mercy, Levels, Timeless...').fill(title);
-  await page.getByRole('button', { name:'RECORD TRACK · 1 AP' }).click();
+  await captureStudio('studio-390-track-setup');
+  await page.setViewportSize({ width:430, height:900 });
+  await captureStudio('studio-430-track-setup');
+  await page.setViewportSize({ width:390, height:844 });
+  await page.getByRole('tab', { name:/Producer/ }).click();
+  await page.getByRole('button', { name:/Local Producer/ }).click();
+  await page.getByRole('tab', { name:/Voice & feature/ }).click();
+  await page.getByRole('button', { name:/D-Tier/ }).click();
+  const featureChoice = page.locator('.studio-tier-artists button').first();
+  const featureName = (await featureChoice.innerText()).split('\n')[0];
+  await featureChoice.click();
+  await page.getByRole('tab', { name:/Mix & master/ }).click();
+  await page.getByRole('button', { name:/Local room mix/ }).click();
+  await page.getByRole('button', { name:/Balanced master/ }).click();
+  await captureStudio('studio-390-production-choices');
+  await page.setViewportSize({ width:430, height:900 });
+  await captureStudio('studio-430-production-choices');
+  await page.setViewportSize({ width:390, height:844 });
+  await captureStudio('studio-390-production-cost-review', 'bottom');
+  await page.getByRole('tab', { name:/Track/ }).click();
+  await expect(page.getByLabel('Track title')).toHaveValue(title);
+  await page.getByRole('tab', { name:/Mix & master/ }).click();
+  await expect(page.getByText('Charged only when you record')).toBeVisible();
+  await page.getByRole('button', { name:/RECORD.*ONE MORE NIGHT.*1 AP/i }).click();
   await expect(page.getByRole('heading', { name:'Catalog' })).toBeVisible();
   await expect(page.getByText(title, { exact:true })).toBeVisible();
+  await page.getByRole('button', { name:/VIEW PRODUCTION CREDITS/ }).click();
+  await expect(page.getByText('Production paid at record')).toBeVisible();
+  await expect(page.getByText(featureName, { exact:true })).toBeVisible();
+  if (process.env.CAPTURE_ARTIFACTS === '1') await expect(page.locator('.toast')).toBeHidden({ timeout:5_000 });
+  await captureStudio('studio-390-catalog-credits');
   if (process.env.CAPTURE_ARTIFACTS === '1') {
     await expect(page.locator('.toast')).toBeHidden({ timeout:5_000 });
     await page.waitForTimeout(750);
@@ -147,6 +185,8 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await page.getByRole('tab', { name:'Release', exact:true }).click();
   await expect(page.getByRole('heading', { name:'Release' })).toBeVisible();
   await expect(page.getByText('Modeled release effects')).toBeVisible();
+  await page.getByRole('button', { name:/Targeted Campaign/ }).click();
+  await captureStudio('studio-390-rollout-choice', 'bottom');
   await page.getByRole('button', { name:/RELEASE.*ONE MORE NIGHT.*1 AP/i }).click();
   await expect(page.getByRole('heading', { name:'Performance' })).toBeVisible();
   await expect(page.getByRole('heading', { name:title })).toBeVisible();
@@ -155,6 +195,7 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await expect.poll(() => coverArt.evaluate(image => image.naturalWidth)).toBeGreaterThan(0);
   await expect(page.getByText('Listeners by country or city', { exact:false })).toBeVisible();
   await expect(page.locator('.toast')).toBeHidden({ timeout:5_000 });
+  await captureStudio('studio-390-release-live');
 
   await page.getByRole('button', { name:'Home', exact:true }).click();
   await page.getByRole('button', { name:'END WEEK', exact:true }).click();

@@ -7,6 +7,7 @@ import { canSpendActionPoint, spendActionPoints } from '../engine/actionPoints';
 import { hasPremiumProducerAccess } from '../engine/careerPerks';
 import { optimizeArtwork } from '../engine/coverArt';
 import { getStudioQuote, recordTrack, releaseSingle } from '../engine/studioEngine';
+import { COVER_POOL, FEATURE_AVATAR_BY_ARTIST } from '../data/studioArt';
 import { Magnetic, SectionLabel, SubNav, ResourcePill } from '../components/Living';
 
 const RELEASE_COOLDOWN = { single: 2, ep: 6, album: 12 };
@@ -24,12 +25,6 @@ const SKILL_ICONS = {
   pd: () => <svg viewBox="0 0 24 24" style={{width:16,height:16,fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round'}}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
   lp: () => <svg viewBox="0 0 24 24" style={{width:16,height:16,fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round'}}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>,
 };
-
-const COVER_POOL = Array.from({ length:27 }, (_, index) => {
-  const row = Math.floor(index / 9) + 1;
-  const column = (index % 9) + 1;
-  return `cov_${String(row).padStart(2, '0')}_${String(column).padStart(2, '0')}.png`;
-});
 
 const TRAINING_COST = 15; // energy per session
 const TRAINING_GAIN = 3;  // skill points per session
@@ -56,6 +51,22 @@ function StreamSparkline({ track }) {
   </div>;
 }
 
+function StudioSessionSleeve({ cover, trackNumber, title, genre, compact }) {
+  return <div className={`studio-session-artwork${compact ? ' is-compact' : ''}`}>
+    <div className="studio-session-sleeve">
+      <img src={cover} alt={`Bundled cover artwork for ${title}`} />
+      <span>TAKE {trackNumber}</span>
+    </div>
+    <div className="studio-session-art-copy">
+      <span className="studio-session-art-kicker">TREBLR PRESSING · SIDE A</span>
+      <strong>{title}</strong>
+      <span className="studio-session-art-genre">{genre} <i>·</i> SINGLE</span>
+      <div className="studio-session-wave" aria-hidden="true">{[18,31,12,24,39,16,28,11,34,20,14,30,18,37,13,25,10,29,17,22,34,13,27,16].map((height, index) => <i key={index} style={{ '--wave-height':`${height}px` }} />)}</div>
+      <span className="studio-session-art-foot">SESSION ART · DECORATIVE WAVEFORM</span>
+    </div>
+  </div>;
+}
+
 const SUB_NAV = [
   { id:'record',  label:'Record' },
   { id:'catalog', label:'Catalog' },
@@ -75,10 +86,19 @@ const STUDIO_STEPS = [
 export default function CreateTab({ gs, patch, patchFn, showToast }) {
   const fmtN = (amount) => formatCurrency(amount, gs.currency);
   const [section, setSection] = useState(gs.pendingFeatureRequest ? 'record' : (gs.appRoutes?.music || 'catalog'));
+  const [studioArtCompact, setStudioArtCompact] = useState(false);
   useEffect(() => {
     const route = gs.appRoutes?.music;
     if (route && route !== section) setSection(route);
   }, [gs.appRoutes?.music, section]);
+  useEffect(() => {
+    const scroller = document.querySelector('.tab-content.music-screen');
+    if (!scroller) return undefined;
+    const syncArtwork = () => setStudioArtCompact(section === 'record' && scroller.scrollTop > 230);
+    syncArtwork();
+    scroller.addEventListener('scroll', syncArtwork, { passive:true });
+    return () => scroller.removeEventListener('scroll', syncArtwork);
+  }, [section]);
   const genreData = GENRES.find(g => g.id === gs.genre);
   const canAct = canSpendActionPoint(gs);
   const changeSection = (id) => {
@@ -229,6 +249,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
     ? Math.round((latestWeeklyStreams - previousWeeklyStreams) / previousWeeklyStreams * 100)
     : null;
   const studioQuote = getStudioQuote(gs, { producerId, featuredArtistIds:featNpcs, mixId, masterId });
+  const sessionCover = `/assets/covers/${COVER_POOL[(gs.catalog || []).length % COVER_POOL.length]}`;
   const producer   = studioQuote.producer;
   const previewQ   = studioQuote.quality;
   const weeksUntilRelease = Math.max(0, (gs.lastReleaseWeek ?? -99) + RELEASE_COOLDOWN.single - gs.totalWeeks);
@@ -236,7 +257,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
   const rolloutPlan = ROLLOUT_PLANS.find(plan => plan.id === rolloutId) || ROLLOUT_PLANS[0];
 
   const doRecord = () => {
-    const selection = { title, producerId, featuredArtistIds:featNpcs, mixId, masterId, coverArt:`/assets/covers/${COVER_POOL[(gs.catalog || []).length % COVER_POOL.length]}` };
+    const selection = { title, producerId, featuredArtistIds:featNpcs, mixId, masterId, coverArt:sessionCover };
     const result = recordTrack(gs, selection);
     if (!result.ok) { showToast(result.error); return; }
     patch(result.state);
@@ -593,10 +614,11 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
             </button>)}
           </div>
 
+          <StudioSessionSleeve cover={sessionCover} trackNumber={String((gs.catalog || []).length + 1).padStart(2, '0')} title={title.trim() || 'Untitled session'} genre={GENRES.find(item => item.id === gs.genre)?.label || gs.genre || 'GENRE TBD'} compact={studioArtCompact} />
+
           {studioStep === 0 && <div className="studio-step-panel">
             <div className="studio-step-heading"><span>01 / TRACK SETUP</span><h3>Give the session a name.</h3><p>One song enters the vault. EP and album formats are built from tracks in the Catalog.</p></div>
             <div className="studio-track-identity">
-              <div className="studio-track-sleeve"><img src={`/assets/covers/${COVER_POOL[(gs.catalog || []).length % COVER_POOL.length]}`} alt="Selected bundled cover art"/><span>SESSION ART</span></div>
               <div className="studio-track-fields">
                 <label className="form-label" htmlFor="studio-track-title">Track title</label>
                 <input id="studio-track-title" className="ob-input" placeholder="e.g. No Mercy, Levels, Timeless..." value={title} onChange={event => setTitle(event.target.value)} maxLength={40}/>
@@ -627,7 +649,8 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
             <div className="studio-feature-selections">{featNpcs.length > 0 && featNpcs.map(id => {
               const artist = NPC_ARTISTS.find(item => item.id === id);
               const fee = studioQuote.features.find(item => item.id === id)?.cost || 0;
-              return <button type="button" key={id} onClick={() => toggleFeat(id)}><span>{artist?.name || id}</span><b>{fmtN(fee)} · REMOVE</b></button>;
+              const avatar = FEATURE_AVATAR_BY_ARTIST[id];
+              return <button type="button" key={id} onClick={() => toggleFeat(id)}>{avatar && <img src={avatar} alt=""/>}<span>{artist?.name || id}</span><b>{fmtN(fee)} · REMOVE</b></button>;
             })}</div>
             <div className="studio-tier-list">
               {['S','A','B','C','D'].map(tierId => {
@@ -639,7 +662,8 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
                   {open && eligible && <div className="studio-tier-artists">{npcByTier(tierId).map(artist => {
                     const selected = featNpcs.includes(artist.id);
                     const fee = getStudioQuote(gs, { producerId, featuredArtistIds:[artist.id], mixId, masterId }).features[0]?.cost || 0;
-                    return <button type="button" key={artist.id} aria-pressed={selected} className={selected ? 'is-selected' : ''} onClick={() => toggleFeat(artist.id)}><span><strong>{artist.name}</strong><small>{artist.attitude} · {fmt(artist.fans)} fans in-game</small></span><b>{fmtN(fee)}</b></button>;
+                    const avatar = FEATURE_AVATAR_BY_ARTIST[artist.id];
+                    return <button type="button" key={artist.id} aria-pressed={selected} className={selected ? 'is-selected' : ''} onClick={() => toggleFeat(artist.id)}><span className="studio-artist-avatar" aria-hidden="true">{avatar ? <img src={avatar} alt=""/> : <i>{artist.initials}</i>}</span><span className="studio-artist-copy"><strong>{artist.name}</strong><small>{artist.attitude} · {fmt(artist.fans)} fans in-game</small></span><b>{fmtN(fee)}</b></button>;
                   })}</div>}
                 </div>;
               })}
@@ -652,7 +676,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
             <div className="studio-choice-section"><div className="studio-choice-label">MIX ENGINEER</div><div className="studio-finish-grid">{MIX_OPTIONS.map(option => <button type="button" key={option.id} aria-pressed={mixId === option.id} className={`studio-finish-card${mixId === option.id ? ' is-selected' : ''}`} onClick={() => setMixId(option.id)}><span>{option.label}</span><small>{option.desc}</small><b>{option.cost ? fmtN(option.cost) : 'NO SPEND'}</b><i>+{option.qBonus} quality</i></button>)}</div></div>
             <div className="studio-choice-section"><div className="studio-choice-label">MASTERING</div><div className="studio-finish-grid">{MASTER_OPTIONS.map(option => <button type="button" key={option.id} aria-pressed={masterId === option.id} className={`studio-finish-card${masterId === option.id ? ' is-selected' : ''}`} onClick={() => setMasterId(option.id)}><span>{option.label}</span><small>{option.desc}</small><b>{option.cost ? fmtN(option.cost) : 'NO SPEND'}</b><i>+{option.qBonus} quality</i></button>)}</div></div>
 
-            <div className="studio-final-credits"><div className="studio-choice-label">RECORD CREDIT SHEET</div>{studioQuote.credits.map((credit, index) => <div key={`${credit.role}-${credit.id}-${index}`}><span>{credit.role} · {credit.name}</span><b>{credit.cost ? fmtN(credit.cost) : 'FREE'}</b></div>)}<div className="studio-credit-total"><span>Charged only when you record</span><b>{fmtN(studioQuote.cashCost)}</b></div></div>
+            <div className="studio-final-credits"><div className="studio-choice-label">PACKAGE NOTES · RECORD CREDITS</div>{studioQuote.credits.map((credit, index) => <div key={`${credit.role}-${credit.id}-${index}`}><span>{credit.role} · {credit.name}</span><b>{credit.cost ? fmtN(credit.cost) : 'FREE'}</b></div>)}<div className="studio-credit-total"><span>One charge · only when you record</span><b>{fmtN(studioQuote.cashCost)}</b></div></div>
           </div>}
 
           <div className="studio-live-estimate" aria-label="Current recording estimate">

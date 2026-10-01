@@ -134,40 +134,49 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await startCareer(page, 'Studio Artist');
   const captureStudio = async (name, position = 'top') => {
     if (process.env.CAPTURE_ARTIFACTS === '1') {
-      await page.locator('.music-screen').evaluate((element, scrollPosition) => {
-        element.scrollTop = scrollPosition === 'bottom' ? element.scrollHeight : 0;
-      }, position);
+      if (position === 'bottom') {
+        await page.locator('.music-screen').evaluate(element => { element.scrollTop = element.scrollHeight; });
+      } else if (position === 'top') {
+        await page.locator('.music-screen').evaluate(element => { element.scrollTop = 0; });
+      } else if (position !== 'keep') {
+        await page.locator(position).first().evaluate(element => element.scrollIntoView({ block:'center', inline:'nearest' }));
+      }
       await page.waitForTimeout(400);
-      await page.screenshot({ path:testInfo.outputPath(`${name}.png`), fullPage:true });
+      await page.screenshot({ path:testInfo.outputPath(`${name}.png`), fullPage:false });
     }
   };
   await page.getByRole('button', { name:'Music', exact:true }).click();
   await page.getByRole('tab', { name:'Record', exact:true }).click();
   const title = 'One More Night';
   await page.getByPlaceholder('e.g. No Mercy, Levels, Timeless...').fill(title);
-  await captureStudio('studio-390-track-setup');
+  await captureStudio('studio-390-track-setup', '#studio-track-title');
   await page.setViewportSize({ width:430, height:900 });
   await captureStudio('studio-430-track-setup');
   await page.setViewportSize({ width:390, height:844 });
   await page.getByRole('tab', { name:/Producer/ }).click();
   await page.getByRole('button', { name:/Local Producer/ }).click();
+  await captureStudio('studio-390-producer-choices', '.studio-option-list');
   await page.getByRole('tab', { name:/Voice & feature/ }).click();
   await page.getByRole('button', { name:/D-Tier/ }).click();
+  await captureStudio('studio-390-vocal-choices', '.studio-tier-artists button');
+  await expect.poll(() => page.locator('.studio-tier-artists .studio-artist-avatar img').first().evaluate(image => image.naturalWidth)).toBeGreaterThan(0);
   const featureChoice = page.locator('.studio-tier-artists button').first();
   const featureName = (await featureChoice.innerText()).split('\n')[0];
   await featureChoice.click();
   await page.getByRole('tab', { name:/Mix & master/ }).click();
   await page.getByRole('button', { name:/Local room mix/ }).click();
   await page.getByRole('button', { name:/Balanced master/ }).click();
-  await captureStudio('studio-390-production-choices');
+  await captureStudio('studio-390-mix-choices', '.studio-choice-section');
+  await page.locator('.studio-choice-section').nth(1).scrollIntoViewIfNeeded();
+  await captureStudio('studio-390-master-choices', 'keep');
   await page.setViewportSize({ width:430, height:900 });
   await captureStudio('studio-430-production-choices');
   await page.setViewportSize({ width:390, height:844 });
-  await captureStudio('studio-390-production-cost-review', 'bottom');
+  await captureStudio('studio-390-production-cost-review', '.studio-final-credits');
   await page.getByRole('tab', { name:/Track/ }).click();
   await expect(page.getByLabel('Track title')).toHaveValue(title);
   await page.getByRole('tab', { name:/Mix & master/ }).click();
-  await expect(page.getByText('Charged only when you record')).toBeVisible();
+  await expect(page.getByText(/One charge.*only when you record/i)).toBeVisible();
   await page.getByRole('button', { name:/RECORD.*ONE MORE NIGHT.*1 AP/i }).click();
   await expect(page.getByRole('heading', { name:'Catalog' })).toBeVisible();
   await expect(page.getByText(title, { exact:true })).toBeVisible();
@@ -175,11 +184,11 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await expect(page.getByText('Production paid at record')).toBeVisible();
   await expect(page.getByText(featureName, { exact:true })).toBeVisible();
   if (process.env.CAPTURE_ARTIFACTS === '1') await expect(page.locator('.toast')).toBeHidden({ timeout:5_000 });
-  await captureStudio('studio-390-catalog-credits');
+  await captureStudio('studio-390-catalog-credits', '.track-credit-panel');
   if (process.env.CAPTURE_ARTIFACTS === '1') {
     await expect(page.locator('.toast')).toBeHidden({ timeout:5_000 });
     await page.waitForTimeout(750);
-    await page.screenshot({ path:testInfo.outputPath('redesign-music-catalog-with-artwork.png'), fullPage:true });
+    await page.screenshot({ path:testInfo.outputPath('redesign-music-catalog-with-artwork.png'), fullPage:false });
   }
 
   await page.getByRole('tab', { name:'Release', exact:true }).click();
@@ -211,9 +220,10 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await page.getByRole('tab', { name:'Performance', exact:true }).click();
   await expect(page.getByRole('img', { name:/1 closed weeks/ })).toBeVisible();
   await expect(page.getByRole('heading', { name:title })).toBeVisible();
+  await page.locator('.stream-chart-wrap').scrollIntoViewIfNeeded();
 
   if (process.env.CAPTURE_ARTIFACTS === '1') {
-    await page.screenshot({ path:testInfo.outputPath('treblr-mobile-performance.png'), fullPage:true });
+    await page.screenshot({ path:testInfo.outputPath('treblr-mobile-performance.png'), fullPage:false });
   }
 
   await page.getByRole('button', { name:'Career', exact:true }).click();

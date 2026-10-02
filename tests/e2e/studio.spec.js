@@ -26,7 +26,7 @@ for (const viewport of [{ width:390, height:844 }, { width:430, height:900 }]) {
 
     const nav=page.locator('.tab-bar');
     await expect(nav.getByRole('button')).toHaveCount(7);
-    await expect(nav).toHaveCSS('backdrop-filter', /blur\(16px\)/);
+    await expect(nav).toHaveCSS('backdrop-filter', /blur\(18px\)/);
     await expect(page.getByRole('heading', { name:'New song', exact:true })).toBeVisible();
 
     await page.getByRole('tab', { name:/Producer/ }).click();

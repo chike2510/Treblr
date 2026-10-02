@@ -53,7 +53,56 @@ test('mobile task navigation exposes all seven named destinations and captures e
   const widths = await nav.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().width));
   expect(widths.every(width => width >= 44)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
-  expect(await nav.evaluate(element => getComputedStyle(element).backdropFilter)).toContain('blur(16px)');
+  expect(await nav.evaluate(element => getComputedStyle(element).backdropFilter)).toContain('blur(18px)');
+  expect(await nav.evaluate(element => getComputedStyle(element).backdropFilter)).toContain('saturate(1.45)');
+});
+
+test('mobile glass navigation keeps seven labels readable and clear of content at 390px and 430px', async ({ page }) => {
+  await page.setViewportSize({ width:430, height:900 });
+  await startCareer(page, 'Glass Readability Artist');
+  const expectedLabels = ['Home','Music','Studio','Contracts','Social','Discover','Settings'];
+
+  for (const viewport of [{ width:390, height:844 }, { width:430, height:900 }]) {
+    await page.setViewportSize(viewport);
+    const nav = page.locator('.tab-bar');
+    await expect(nav).toBeVisible();
+    await expect(nav.getByRole('button')).toHaveCount(expectedLabels.length);
+    for (const label of expectedLabels) {
+      const button = nav.getByRole('button', { name:label, exact:true });
+      await expect(button).toBeVisible();
+      await expect(button.locator('.tab-btn-label')).toHaveText(label);
+      expect(await button.locator('.tab-btn-label').evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    }
+
+    const material = await nav.evaluate(element => {
+      const style = getComputedStyle(element);
+      const match = style.backgroundColor.match(/[\d.]+/g) || [];
+      const box = element.getBoundingClientRect();
+      const shell = document.querySelector('.app-shell').getBoundingClientRect();
+      const main = document.querySelector('.app-main').getBoundingClientRect();
+      return {
+        backgroundColor:style.backgroundColor,
+        alpha:Number(match[3]),
+        backdropFilter:style.backdropFilter,
+        left:box.left,
+        top:box.top,
+        bottom:box.bottom,
+        shellBottom:shell.bottom,
+        mainBottom:main.bottom,
+        scrollWidth:element.scrollWidth,
+        clientWidth:element.clientWidth,
+      };
+    });
+    expect(material.alpha).toBeGreaterThan(0.5);
+    expect(material.alpha).toBeLessThan(0.9);
+    expect(material.backdropFilter).toContain('blur(18px)');
+    expect(material.backdropFilter).toContain('saturate(1.45)');
+    expect(material.left).toBeGreaterThanOrEqual(0);
+    expect(material.bottom).toBeCloseTo(material.shellBottom, 0);
+    expect(material.mainBottom).toBeLessThanOrEqual(material.top + 1);
+    expect(material.scrollWidth).toBeLessThanOrEqual(material.clientWidth + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  }
 });
 
 test('mobile Home shows the modular career dashboard, scrolls fully, and opens each live widget destination', async ({ page }) => {

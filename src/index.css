@@ -2514,12 +2514,23 @@ body { font-family:var(--font-ui); background:var(--bg-sunken); }
   height:calc(62px + env(safe-area-inset-bottom, 0px));
   padding:0 4px env(safe-area-inset-bottom, 0px);
   position:relative;
+  isolation:isolate;
   z-index:20;
-  background:rgba(17,19,21,0.88);
-  border-top:1px solid rgba(245,241,232,0.19);
-  box-shadow:0 -8px 24px rgba(0,0,0,0.2);
-  backdrop-filter:blur(16px) saturate(135%);
-  -webkit-backdrop-filter:blur(16px) saturate(135%);
+  background:rgba(21,23,25,0.74);
+  border-top:1px solid rgba(245,241,232,0.22);
+  box-shadow:0 -10px 26px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.045);
+  backdrop-filter:blur(18px) saturate(145%);
+  -webkit-backdrop-filter:blur(18px) saturate(145%);
+}
+.tab-bar::before {
+  content:'';
+  position:absolute;
+  top:0;
+  left:14px;
+  right:14px;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.38) 22%,rgba(255,255,255,0.16) 78%,transparent);
+  pointer-events:none;
 }
 .tab-btn { min-width:0; padding:0 2px; gap:3px; }
 .tab-btn.on { color:#E4B35D; }
@@ -3100,11 +3111,11 @@ body { font-family:var(--font-ui); background:var(--bg-sunken); }
 .app-shell[data-scene] .li-action-dots { gap:4px; margin-top:4px; }
 .app-shell[data-scene] .li-action-dots span { width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.14); }
 .app-shell[data-scene] .li-action-dots span.is-ready { background:var(--scene-accent); }
-.app-shell[data-scene] .tab-bar { height:64px; background:rgba(17,18,19,.96); border-top:1px solid rgba(255,255,255,.12); }
+.app-shell[data-scene] .tab-bar { height:calc(64px + env(safe-area-inset-bottom, 0px)); padding:0 4px env(safe-area-inset-bottom, 0px); background:rgba(21,23,25,.74); border-top:1px solid rgba(255,255,255,.22); }
 .app-shell[data-scene] .tab-btn { color:#85837d; }
 .app-shell[data-scene] .tab-btn.on { color:var(--scene-accent); }
 .app-shell[data-scene] .tab-btn.on::before { background:var(--scene-accent); box-shadow:none; }
-.app-shell[data-scene] .tab-btn-label { font-size:9px; letter-spacing:.7px; }
+.app-shell[data-scene] .tab-btn-label { font-size:8px; letter-spacing:0; }
 .app-shell[data-scene] .tab-btn-icon { font-size:17px; }
 @media (min-width:760px) {
   .app-shell[data-scene] { background:var(--scene-bg); }

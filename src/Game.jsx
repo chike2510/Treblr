@@ -201,7 +201,7 @@ export default function Game({ gs, setGs }) {
           {gs.tab === 'more' && <MoreTab {...tabProps}/>}
         </main>
 
-        <nav className="tab-bar" aria-label="Primary navigation" style={{ backdropFilter:'blur(16px) saturate(135%)', WebkitBackdropFilter:'blur(16px) saturate(135%)' }}>
+        <nav className="tab-bar" aria-label="Primary navigation" style={{ backdropFilter:'blur(18px) saturate(145%)', WebkitBackdropFilter:'blur(18px) saturate(145%)' }}>
           {TABS.map(tab => {
             const Icon = tab.Icon;
             const isActive = tab.id === 'social-home' ? ['social-home','social','more'].includes(gs.tab) : gs.tab === tab.id;

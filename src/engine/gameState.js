@@ -113,6 +113,24 @@ export const migrateSave = (input) => {
   const defaults = makeDefault();
   const merged = { ...defaults, ...saved };
   merged.currency = CURRENCIES.some(({ code }) => code === saved.currency) ? saved.currency : 'NGN';
+  if (merged.tab === 'contracts') merged.tab = 'business';
+  if (merged.tab === 'create' && ['record','train'].includes(saved.appRoutes?.music)) {
+    merged.tab = 'studio';
+    merged.appRoutes = { ...(saved.appRoutes || {}), studio:saved.appRoutes.music };
+  }
+  if (merged.tab === 'create' && saved.appRoutes?.music === 'jobs') {
+    merged.tab = 'business';
+    merged.appRoutes = { ...(saved.appRoutes || {}), career:'jobs' };
+  }
+  if (merged.tab === 'more') {
+    const moreRoute = saved.appRoutes?.more || 'social';
+    merged.tab = moreRoute.startsWith('discover') ? 'discover' : moreRoute === 'settings' ? 'settings' : 'social-home';
+    merged.appRoutes = { ...(saved.appRoutes || {}), more:moreRoute };
+  }
+  if (merged.tab === 'profile' && saved.appRoutes?.profile === 'settings') {
+    merged.tab = 'settings';
+    merged.appRoutes = { ...(saved.appRoutes || {}), more:'settings' };
+  }
   const social = { ...defaults.socialPlatforms, ...(saved.socialPlatforms || {}) };
   if (social.soundstream !== undefined && saved.socialPlatforms?.soundify === undefined) social.soundify = social.soundstream;
   if (social.soundcloud !== undefined && saved.socialPlatforms?.wavelog === undefined) social.wavelog = social.soundcloud;

@@ -9,6 +9,7 @@ import CreateTab   from './tabs/CreateTab';
 import NewsTab     from './tabs/NewsTab';
 import BusinessTab from './tabs/BusinessTab';
 import ProfileTab  from './tabs/ProfileTab';
+import MoreTab     from './tabs/MoreTab';
 import WeeklyReport from './components/WeeklyReport';
 
 const Icons = {
@@ -18,26 +19,38 @@ const Icons = {
   career: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><path d="M2 12h20"/></svg>,
   profile: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
   city: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-5h6v5M8 10h.01M12 10h.01M16 10h.01"/></svg>,
+  studio: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6m9 3h-6m-3 9v-6m-9-3h6"/></svg>,
   tour: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M3 7h18M3 12h18M3 17h18"/><circle cx="7" cy="7" r="2"/><circle cx="17" cy="12" r="2"/><circle cx="10" cy="17" r="2"/></svg>,
   collab: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v1"/></svg>,
+  more: () => <svg viewBox="0 0 24 24" className="tab-icon-svg"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>,
 };
 
 const TABS = [
   { id:'home', label:'Home', Icon:Icons.home },
   { id:'create', label:'Music', Icon:Icons.music },
-  { id:'business', label:'Career', Icon:Icons.career },
-  { id:'social', label:'News', Icon:Icons.news },
-  { id:'profile', label:'Profile', Icon:Icons.profile },
+  { id:'studio', label:'Studio', Icon:Icons.studio },
+  { id:'business', label:'Contracts', Icon:Icons.career },
+  { id:'social-home', label:'Social', Icon:Icons.news },
+  { id:'discover', label:'Discover', Icon:Icons.city },
+  { id:'settings', label:'Settings', Icon:Icons.profile },
 ];
 
 const DESKTOP_LINKS = [
-  { label:'Career', tab:'business', route:'overview', Icon:Icons.career },
-  { label:'Music', tab:'create', route:'record', Icon:Icons.music },
-  { label:'Releases', tab:'create', route:'release', Icon:Icons.news },
-  { label:'Shows', tab:'business', route:'tour', Icon:Icons.tour },
-  { label:'Collabs', tab:'business', route:'network', Icon:Icons.collab },
-  { label:'Industry', tab:'business', route:'industry', Icon:Icons.career },
+  { label:'Music', tab:'create', route:'catalog', Icon:Icons.music },
+  { label:'Charts', tab:'create', route:'charts', Icon:Icons.news },
+  { label:'Studio', tab:'studio', route:'record', Icon:Icons.music },
+  { label:'Projects', tab:'studio', route:'catalog', Icon:Icons.collab },
+  { label:'Training', tab:'studio', route:'train', Icon:Icons.career },
+  { label:'Contracts', tab:'business', route:'overview', Icon:Icons.career },
+  { label:'Jobs', tab:'business', route:'jobs', Icon:Icons.career },
   { label:'Finances', tab:'business', route:'money', Icon:Icons.career },
+  { label:'Labels', tab:'business', route:'industry', Icon:Icons.career },
+  { label:'Collabs', tab:'business', route:'network', Icon:Icons.collab },
+  { label:'Markets', tab:'business', route:'world', Icon:Icons.city },
+  { label:'Tour', tab:'business', route:'tour', Icon:Icons.tour },
+  { label:'Festivals', tab:'business', route:'festivals', Icon:Icons.tour },
+  { label:'Social', tab:'social-home', route:'social', Icon:Icons.news },
+  { label:'Discover', tab:'discover', route:'discover', Icon:Icons.city },
   { label:'News', tab:'social', route:'wire', Icon:Icons.news },
   { label:'Inbox', tab:'social', route:'inbox', Icon:Icons.news },
 ];
@@ -51,6 +64,7 @@ const ModalIcon = ({ ev }) => {
 };
 
 function DesktopSidebar({ gs, navigate }) {
+  const routeKey = { create:'music', studio:'studio', business:'career', more:'more', 'social-home':'more', discover:'more', settings:'more', social:'news' };
   return (
     <aside className="desktop-sidebar" aria-label="Main navigation">
       <div className="sidebar-brand"><span className="sidebar-mark">T</span><span>TREBLR</span></div>
@@ -61,7 +75,7 @@ function DesktopSidebar({ gs, navigate }) {
         </button>
         {DESKTOP_LINKS.map((link) => {
           const Icon = link.Icon;
-          const active = gs.tab === link.tab && gs.appRoutes?.[{ create:'music', business:'career', social:'news' }[link.tab]] === link.route;
+          const active = gs.tab === link.tab && gs.appRoutes?.[routeKey[link.tab]] === link.route;
           return <div key={link.label}>
             {link.group && <div className="sidebar-group-label">{link.group}</div>}
             <button type="button" className={`desktop-nav-item${active ? ' is-active' : ''}`} aria-current={active ? 'page' : undefined} onClick={() => navigate(link.tab, link.route)}>
@@ -71,8 +85,7 @@ function DesktopSidebar({ gs, navigate }) {
         })}
       </nav>
       <div className="sidebar-bottom">
-        <button type="button" className={`desktop-nav-item${gs.tab === 'profile' && gs.appRoutes?.profile !== 'settings' ? ' is-active' : ''}`} onClick={() => navigate('profile','stats')}><span className="desktop-nav-icon"><Icons.profile/></span><span>Profile</span></button>
-        <button type="button" className={`desktop-nav-item${gs.tab === 'profile' && gs.appRoutes?.profile === 'settings' ? ' is-active' : ''}`} onClick={() => navigate('profile','settings')}><span className="desktop-nav-icon"><Icons.career/></span><span>Settings</span></button>
+        <button type="button" className={`desktop-nav-item${gs.tab === 'settings' || (gs.tab === 'profile' && gs.appRoutes?.profile === 'settings') ? ' is-active' : ''}`} onClick={() => navigate('settings','settings')}><span className="desktop-nav-icon"><Icons.profile/></span><span>Settings</span></button>
       </div>
     </aside>
   );
@@ -95,12 +108,18 @@ export default function Game({ gs, setGs }) {
   }, []);
 
   const navigate = useCallback((tab, route) => {
-    const routeKey = { create:'music', business:'career', social:'news', profile:'profile' }[tab];
-    if (routeKey && route) {
-      setGs(prev => ({ ...prev, tab, appRoutes:{ ...(prev.appRoutes || {}), [routeKey]:route } }));
-    } else {
-      setGs(prev => ({ ...prev, tab }));
-    }
+    const routeKey = { create:'music', studio:'studio', business:'career', more:'more', 'social-home':'more', discover:'more', settings:'more', social:'news', profile:'profile' }[tab];
+    setGs(prev => {
+      const appRoutes = { ...(prev.appRoutes || {}) };
+      if (routeKey && route) appRoutes[routeKey] = route;
+      if (!route && tab === 'create' && ['record','train','jobs'].includes(appRoutes.music)) appRoutes.music = 'catalog';
+      if (!route && tab === 'studio' && !['record','train','catalog'].includes(appRoutes.studio)) appRoutes.studio = 'record';
+      if (!route && tab === 'more' && !appRoutes.more) appRoutes.more = 'index';
+      if (!route && tab === 'social-home') appRoutes.more = 'social';
+      if (!route && tab === 'discover') appRoutes.more = 'discover';
+      if (!route && tab === 'settings') appRoutes.more = 'settings';
+      return { ...prev, tab, appRoutes };
+    });
   }, [setGs]);
 
   useEffect(() => {
@@ -171,16 +190,22 @@ export default function Game({ gs, setGs }) {
 
         <main className="app-main" aria-label="Career simulation">
           {gs.tab === 'home' && <HomeTab {...tabProps}/>}
-          {gs.tab === 'create' && <CreateTab {...tabProps}/>}
+          {gs.tab === 'create' && <CreateTab {...tabProps} mode="music"/>}
+          {gs.tab === 'studio' && <CreateTab {...tabProps} mode="studio"/>}
+          {gs.tab === 'social-home' && <MoreTab {...tabProps}/>}
+          {gs.tab === 'discover' && <MoreTab {...tabProps}/>}
+          {gs.tab === 'settings' && <MoreTab {...tabProps}/>}
           {gs.tab === 'social' && <NewsTab {...tabProps}/>}
-          {gs.tab === 'business' && <BusinessTab {...tabProps}/>}
+          {(gs.tab === 'business' || gs.tab === 'contracts') && <BusinessTab {...tabProps}/>}
           {gs.tab === 'profile' && <ProfileTab {...tabProps}/>}
+          {gs.tab === 'more' && <MoreTab {...tabProps}/>}
         </main>
 
         <nav className="tab-bar" aria-label="Primary navigation" style={{ backdropFilter:'blur(16px) saturate(135%)', WebkitBackdropFilter:'blur(16px) saturate(135%)' }}>
           {TABS.map(tab => {
             const Icon = tab.Icon;
-            return <button type="button" key={tab.id} className={`tab-btn${gs.tab === tab.id ? ' on' : ''}`} aria-current={gs.tab === tab.id ? 'page' : undefined} onClick={() => navigate(tab.id)}>
+            const isActive = tab.id === 'social-home' ? ['social-home','social','more'].includes(gs.tab) : gs.tab === tab.id;
+            return <button type="button" key={tab.id} className={`tab-btn${isActive ? ' on' : ''}`} aria-current={isActive ? 'page' : undefined} onClick={() => navigate(tab.id)}>
               <span className="tab-btn-icon"><Icon/></span>
               <span className="tab-btn-label">{tab.label}</span>
             </button>;

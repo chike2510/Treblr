@@ -30,19 +30,19 @@ const PLATFORM_LABELS = [
 ];
 
 const MOVE_ROUTES = {
-  record: ['create', 'record'],
+  record: ['studio', 'record'],
   release: ['create', 'release'],
   catalog: ['create', 'catalog'],
   performance: ['create', 'performance'],
-  training: ['create', 'train'],
-  jobs: ['create', 'jobs'],
+  training: ['studio', 'train'],
+  jobs: ['business', 'jobs'],
   contracts: ['business', 'industry'],
   tour: ['business', 'tour'],
   money: ['business', 'money'],
   career: ['business', 'overview'],
 };
 
-const ROUTE_KEYS = { create: 'music', business: 'career', social: 'news', profile: 'profile' };
+const ROUTE_KEYS = { create: 'music', studio: 'studio', business: 'career', social: 'news', profile: 'profile' };
 
 const isJobEligible = (job, gs) => {
   if (!job.req) return true;
@@ -181,8 +181,8 @@ export default function HomeTab({ gs, patch, endWeek, isEndingWeek }) {
             </DashboardCard>
 
             <DashboardCard eyebrow="STUDIO WORKSHOP" title={draft ? 'A track is in the vault' : latest ? 'Latest release' : 'Start a session'} status={draft ? `${unreleased.length} UNRELEASED` : `${catalog.length} TRACK${catalog.length === 1 ? '' : 'S'}`} className="mod-studio-card" actionLabel={draft ? 'PLAN A RELEASE' : 'OPEN THE STUDIO'} onAction={() => goTo(draft ? 'release' : 'record')}>
-              <div className="mod-studio-record"><span className="mod-record-mark" aria-hidden="true">♫</span><div><strong>{draft?.title || latest?.title || 'Your first record'}</strong><span>{draft ? `Recorded · quality ${draft.quality}/100` : latest ? `${latest.releaseType || 'Single'} · quality ${latest.quality}/100` : 'Choose a producer and build your sound.'}</span></div></div>
-              <div className="mod-detail-pair"><span>Released projects</span><strong>{activeProjectCount}</strong></div>
+              <div className="mod-studio-record"><span className="mod-record-mark" aria-hidden="true">{(draft || latest)?.coverArt ? <img src={(draft || latest).coverArt} alt=""/> : '♫'}</span><div><strong>{draft?.title || latest?.title || 'Your first record'}</strong><span>{draft ? `Recorded · quality ${draft.quality}/100` : latest ? `${latest.releaseType || 'Single'} · quality ${latest.quality}/100` : 'Choose a producer and build your sound.'}</span></div></div>
+              <div className="mod-detail-pair"><span>Projects in the discography</span><strong>{activeProjectCount}</strong></div>
             </DashboardCard>
 
             <DashboardCard eyebrow="CONTRACTS & JOBS" title={gs.activeJob ? 'Work in progress' : 'Open job board'} status={gs.activeJob ? 'ACTIVE' : `${matchedJobs.length} MATCHING`} className="mod-jobs-card" actionLabel="VIEW AVAILABLE JOBS" onAction={() => goTo('jobs')}>

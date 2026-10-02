@@ -245,7 +245,7 @@ function StatsView({ gs, patchFn }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-function ChartsView({ gs }) {
+export function ChartsView({ gs }) {
   const [chartType, setChartType] = useState('Streams');
   const [genreFilter, setGenreFilter] = useState('All');
 
@@ -383,7 +383,7 @@ function CareerView({ gs }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-function SettingsView({ gs, setGs, patch, showToast }) {
+export function SettingsView({ gs, setGs, patch, showToast }) {
   const avatarInput = useRef(null);
   const genre   = GENRES.find(g => g.id === gs.genre);
   const city    = CITIES.find(c => c.id === gs.city);

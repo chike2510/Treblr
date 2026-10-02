@@ -9,6 +9,7 @@ import { optimizeArtwork } from '../engine/coverArt';
 import { getStudioQuote, recordTrack, releaseSingle } from '../engine/studioEngine';
 import { COVER_POOL, FEATURE_AVATAR_BY_ARTIST } from '../data/studioArt';
 import { Magnetic, SectionLabel, SubNav, ResourcePill } from '../components/Living';
+import { ChartsView } from './ProfileTab';
 
 const RELEASE_COOLDOWN = { single: 2, ep: 6, album: 12 };
 
@@ -67,13 +68,18 @@ function StudioSessionSleeve({ cover, trackNumber, title, genre, compact }) {
   </div>;
 }
 
-const SUB_NAV = [
-  { id:'record',  label:'Record' },
+const MUSIC_NAV = [
   { id:'catalog', label:'Catalog' },
+  { id:'charts', label:'Charts' },
+  { id:'stats', label:'Stats' },
   { id:'release', label:'Release' },
   { id:'performance', label:'Performance' },
-  { id:'train',   label:'Train' },
-  { id:'jobs',    label:'Jobs' },
+];
+
+const STUDIO_NAV = [
+  { id:'record', label:'New song' },
+  { id:'catalog', label:'Projects' },
+  { id:'train', label:'Training' },
 ];
 
 const STUDIO_STEPS = [
@@ -83,14 +89,18 @@ const STUDIO_STEPS = [
   { id:'finish', label:'Mix & master' },
 ];
 
-export default function CreateTab({ gs, patch, patchFn, showToast }) {
+export default function CreateTab({ gs, patch, patchFn, showToast, mode = 'studio' }) {
+  const isMusic = mode === 'music';
+  const navItems = isMusic ? MUSIC_NAV : STUDIO_NAV;
+  const validRoutes = navItems.map(item => item.id);
+  const routeKey = isMusic ? 'music' : 'studio';
   const fmtN = (amount) => formatCurrency(amount, gs.currency);
-  const [section, setSection] = useState(gs.pendingFeatureRequest ? 'record' : (gs.appRoutes?.music || 'catalog'));
+  const [section, setSection] = useState(() => gs.pendingFeatureRequest && !isMusic ? 'record' : validRoutes.includes(gs.appRoutes?.[routeKey]) ? gs.appRoutes[routeKey] : (isMusic ? 'catalog' : 'record'));
   const [studioArtCompact, setStudioArtCompact] = useState(false);
   useEffect(() => {
-    const route = gs.appRoutes?.music;
-    if (route && route !== section) setSection(route);
-  }, [gs.appRoutes?.music, section]);
+    const route = gs.appRoutes?.[routeKey];
+    if (validRoutes.includes(route) && route !== section) setSection(route);
+  }, [gs.appRoutes?.[routeKey], section, mode]);
   useEffect(() => {
     const scroller = document.querySelector('.tab-content.music-screen');
     if (!scroller) return undefined;
@@ -98,12 +108,12 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
     syncArtwork();
     scroller.addEventListener('scroll', syncArtwork, { passive:true });
     return () => scroller.removeEventListener('scroll', syncArtwork);
-  }, [section]);
+  }, [section, mode]);
   const genreData = GENRES.find(g => g.id === gs.genre);
   const canAct = canSpendActionPoint(gs);
   const changeSection = (id) => {
     setSection(id);
-    patch({ appRoutes:{ ...(gs.appRoutes || {}), music:id } });
+    patch({ appRoutes:{ ...(gs.appRoutes || {}), [routeKey]:id } });
   };
   const openPerformance = (track) => {
     setSelectedReleaseTrackId(track.id);
@@ -264,7 +274,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
     showToast(`Recorded “${result.track.title}” · Q${result.track.quality}`);
     setTitle(''); setFeatNpcs([]); setOpenTier(null); setStudioStep(0); setMixId('diy'); setMasterId('reference');
     setSection('catalog');
-    patch({ pendingFeatureRequest:null, appRoutes:{ ...(gs.appRoutes || {}), music:'catalog' } });
+    patch({ pendingFeatureRequest:null, appRoutes:{ ...(gs.appRoutes || {}), [routeKey]:'catalog' } });
   };
 
   const doRelease = (trackId) => {
@@ -274,6 +284,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
     showToast('Single dropped!');
     setSelectedReleaseTrackId(trackId);
     setSection('performance');
+    patch({ appRoutes:{ ...(gs.appRoutes || {}), [routeKey]:'performance' } });
   };
 
   const toggleFeat = id => setFeatNpcs(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
@@ -413,10 +424,10 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
     <div className={`tab-content li-scene music-screen music-screen-${section}`}>
       <div className="li-scene-content">
       <header className="studio-masthead">
-        <div><div className="page-kicker">RECORD ROOM <i>/</i> MUSIC DESK</div><h1>{SUB_NAV.find(item => item.id === section)?.label || 'Catalog'}</h1><p>{section === 'catalog' ? 'The work, in sleeve form.' : 'Build the next part of the catalog.'}</p></div>
+        <div><div className="page-kicker">{isMusic ? 'RELEASE ARCHIVE' : 'STUDIO WORKSHOP'} <i>/</i> {isMusic ? 'MUSIC DESK' : 'RECORD ROOM'}</div><h1>{section === 'catalog' ? (isMusic ? 'Music' : 'Projects') : navItems.find(item => item.id === section)?.label || 'Studio'}</h1><p>{section === 'catalog' && isMusic ? 'Released work, vault cuts and the actual history behind each sleeve.' : section === 'catalog' ? 'Sequence recorded songs into an EP or album.' : isMusic ? 'A working artist’s release desk. Every figure comes from this career save.' : 'Make new songs, shape projects and build the skills behind the sound.'}</p></div>
         <div className="studio-masthead-index"><strong>{String((gs.catalog || []).length).padStart(2, '0')}</strong><span>TRACKS<br/>IN FILE</span></div>
       </header>
-      <SubNav items={SUB_NAV} active={section} onChange={changeSection} />
+      <SubNav items={navItems} active={section} onChange={changeSection} />
       {gs.inPrison && (
         <div className="li-glass" style={{ borderColor:'rgba(220,38,38,0.3)', background:'rgba(220,38,38,0.08)', padding:'12px 14px', marginBottom:16, textAlign:'center' }}>
           <div style={{ fontSize:14, fontWeight:700, color:'var(--accent-red)', letterSpacing:2 }}>BEHIND BARS</div>
@@ -692,9 +703,34 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
         </section>
       )}
 
+      {section === 'charts' && isMusic && <section className="music-charts-view" aria-label="Simulated music charts"><div className="music-data-stamp">CAREER DATA <i>·</i> UPDATED AT WEEK CLOSE</div><ChartsView gs={gs}/></section>}
+      {section === 'stats' && isMusic && (() => {
+        const trackStreams = released.reduce((sum, track) => sum + Number(track.lifetimeStreams ?? track.streams ?? 0), 0);
+        const peak = released.map(track => Number(track.chartPos || 0)).filter(position => position > 0).sort((a, b) => a - b)[0] || null;
+        const report = gs.lastWeekReport || gs.weekReport;
+        return <section className="music-stats-view" aria-label="Music statistics">
+          <div className="music-data-stamp">CATALOG LEDGER <i>·</i> VALUES FROM THIS CAREER</div>
+          <div className="music-stat-feature"><span className="music-stat-glyph" aria-hidden="true">♫</span><div><small>RELEASED RECORDINGS</small><strong>{released.length}</strong><span>{unreleased.length} track{unreleased.length === 1 ? '' : 's'} in the vault</span></div></div>
+          <div className="music-stat-grid">
+            <div><span>Lifetime streams</span><strong>{fmt(trackStreams)}</strong></div>
+            <div><span>Last settled week</span><strong>{report ? `WEEK ${report.week}` : '—'}</strong></div>
+            <div><span>Streaming income · last week</span><strong>{report ? fmtN(report.streamIncome || 0) : '—'}</strong></div>
+            <div><span>Best recorded chart</span><strong>{peak ? `#${peak}` : '—'}</strong></div>
+          </div>
+          <div className="music-stats-note">Per-track chart positions and streams appear only after a release and week close. This ledger does not estimate future reach or unrecorded earnings.</div>
+          {released.length > 0 && <>
+            <SectionLabel>Release performance</SectionLabel>
+            <div className="music-stat-track-list">{released.map(track => <button type="button" key={track.id} onClick={() => openPerformance(track)}>
+              <span>{track.coverArt ? <img src={track.coverArt} alt=""/> : <i>{track.title.slice(0,1)}</i>}</span><strong>{track.title}<small>{track.releaseType || 'Single'} · Week {track.releaseWeek ?? '—'}</small></strong><b>{fmt(track.lifetimeStreams || track.streams || 0)}<small>{track.chartPos ? `#${track.chartPos}` : 'NO RANK'}</small></b>
+            </button>)}</div>
+          </>}
+        </section>;
+      })()}
+
       {/* ════════════════════════════ CATALOG ════════════════════════════ */}
       {section === 'catalog' && (
         <>
+          {isMusic && <>
           <div className="catalog-ledger-head"><span>{released.length} LIVE <i>·</i> {unreleased.length} IN THE VAULT</span><button type="button" onClick={() => changeSection('release')}>PLAN A RELEASE <b aria-hidden="true">↗</b></button></div>
           {currentRelease && <button type="button" className="catalog-featured-release" onClick={() => openPerformance(currentRelease)} aria-label={`Open performance for ${currentRelease.title}`}>
             <span className="catalog-featured-cover">{currentRelease.coverArt ? <img src={currentRelease.coverArt} alt={`${currentRelease.title} cover art`} /> : <span>{currentRelease.title.slice(0,1).toUpperCase()}</span>}</span>
@@ -744,7 +780,9 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
               Release cooldown: {weeksUntilRelease} week{weeksUntilRelease!==1?'s':''} left
             </div>
           )}
+          </>}
 
+          {mode === 'studio' && <>
           {/* EP / Album creator toggle */}
           <SectionLabel action={showProjectForm ? 'Cancel' : '+ New EP/Album'} onAction={()=>setShowProjectForm(v=>!v)}>EP / Album</SectionLabel>
 
@@ -898,6 +936,7 @@ export default function CreateTab({ gs, patch, patchFn, showToast }) {
               })}
             </>
           )}
+          </>}
         </>
       )}
 

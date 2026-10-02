@@ -65,6 +65,31 @@ describe('versioned, multi-career saves', () => {
     expect(migrated.currency).toBe('NGN');
   });
 
+  it('moves legacy primary routes into their new destinations without changing money or display currency', () => {
+    const oldStudio = migrateSave({ saveVersion:4, screen:'game', tab:'create', appRoutes:{ music:'record' }, currency:'USD', money:2_500_000 });
+    expect(oldStudio.tab).toBe('studio');
+    expect(oldStudio.appRoutes.studio).toBe('record');
+    expect(oldStudio.currency).toBe('USD');
+    expect(oldStudio.money).toBe(2_500_000);
+
+    const oldJobs = migrateSave({ saveVersion:4, screen:'game', tab:'create', appRoutes:{ music:'jobs' }, currency:'EUR', money:123_456 });
+    expect(oldJobs.tab).toBe('business');
+    expect(oldJobs.appRoutes.career).toBe('jobs');
+    expect(oldJobs.currency).toBe('EUR');
+    expect(oldJobs.money).toBe(123_456);
+
+    const oldDiscover = migrateSave({ saveVersion:4, screen:'game', tab:'more', appRoutes:{ more:'discover-awards' }, money:99 });
+    expect(oldDiscover.tab).toBe('discover');
+    expect(oldDiscover.appRoutes.more).toBe('discover-awards');
+    expect(oldDiscover.money).toBe(99);
+
+    const oldSettings = migrateSave({ saveVersion:4, screen:'game', tab:'profile', appRoutes:{ profile:'settings' }, currency:'USD', money:5_000 });
+    expect(oldSettings.tab).toBe('settings');
+    expect(oldSettings.appRoutes.more).toBe('settings');
+    expect(oldSettings.currency).toBe('USD');
+    expect(oldSettings.money).toBe(5_000);
+  });
+
   it('keeps the old legacy career when creating a new slot, and exports/imports into a separate slot', () => {
     const storage = installStorage();
     storage.setItem('treblr_v3_save', JSON.stringify({ screen:'game', stageName:'Legacy Star', totalWeeks:4, fans:900, money:250000, careerType:'broke_underground' }));

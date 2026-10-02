@@ -7,6 +7,7 @@ import { canSpendActionPoint, spendActionPoints } from '../engine/actionPoints';
 import { buildTourRoute, getCityDemand, getCityScene, getCityCollaboratorAffinity } from '../engine/cityScene';
 import { getCollaborationPrice } from '../engine/careerPerks';
 import { Magnetic, SectionLabel, SubNav } from '../components/Living';
+import { JobsView, FestivalView } from '../components/ContractsDesks';
 
 const MERCH_COOLDOWN = 4;
 const BRAND_COOLDOWN = 8;
@@ -23,11 +24,11 @@ const BRAND_DEALS = [
 
 const SUB_NAV = [
   { id:'overview', label:'Overview' },
-  { id:'money',    label:'Finances' },
+  { id:'jobs',     label:'Jobs' },
+  { id:'industry', label:'Labels' },
   { id:'tour',     label:'Tour' },
-  { id:'network',  label:'Collabs' },
-  { id:'industry', label:'Industry' },
-  { id:'world',    label:'Markets' },
+  { id:'festivals',label:'Festivals' },
+  { id:'money',    label:'Finances' },
 ];
 
 const INDUSTRY_NAV = [
@@ -63,13 +64,15 @@ export default function BusinessTab({ gs, patch, patchFn, showToast }) {
       <header className="career-desk-head">
         <div className="career-desk-meta"><span>CAREER OPERATIONS</span><span>{homeCity.label.toUpperCase()} <i>·</i> WEEK {Number(gs.totalWeeks || 0) + 1}</span></div>
         <div className="page-kicker">THE LONG GAME <i>/</i> {careerEra.label.replace(' Era', '').toUpperCase()}</div>
-        <h1>{section === 'overview' ? 'The work behind the music' : SUB_NAV.find(item => item.id === section)?.label}</h1>
+        <h1>{section === 'overview' ? 'The work behind the music' : SUB_NAV.find(item => item.id === section)?.label || ({ network:'Collabs', world:'Markets' }[section] || 'Contracts')}</h1>
         <p>Progress is earned in the room, on the road and on the books.</p>
       </header>
       <SubNav items={SUB_NAV} active={section} onChange={changeSection} />
       {section === 'overview' && <CareerOverview gs={gs} onSelect={changeSection} />}
       {section === 'money' && <MoneyView gs={gs} />}
+      {section === 'jobs' && <JobsView gs={gs} patchFn={patchFn} showToast={showToast} />}
       {section === 'tour' && <TourView gs={gs} patchFn={patchFn} showToast={showToast} />}
+      {section === 'festivals' && <FestivalView onOpenTour={() => changeSection('tour')} />}
       {section === 'network' && <CollaboratorsView gs={gs} patch={patch} showToast={showToast} query={collabSearch} onQuery={setCollabSearch} selectedArtistId={selectedArtistId} onSelectArtist={setSelectedArtistId} />}
       {section === 'industry' && <>
         <SubNav items={INDUSTRY_NAV} active={industrySection} onChange={setIndustrySection} />

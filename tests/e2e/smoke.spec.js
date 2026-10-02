@@ -30,7 +30,7 @@ async function dismissTestEventPrompt(page) {
   }
 }
 
-test('mobile task navigation stays readable and every primary destination remains reachable', async ({ page }, testInfo) => {
+test('mobile task navigation exposes all seven named destinations and captures each page', async ({ page }, testInfo) => {
   await page.setViewportSize({ width:430, height:900 });
   await startCareer(page, 'Glass Nav Artist');
   const capture = async (name) => {
@@ -42,13 +42,17 @@ test('mobile task navigation stays readable and every primary destination remain
   await capture('home');
   const nav = page.locator('.tab-bar');
   await expect(nav).toBeVisible();
-  await expect(nav.getByRole('button')).toHaveCount(5);
-  for (const [name, screenshot] of [['Music','music-catalog'], ['Career','career-overview'], ['News','news-wire'], ['Profile','profile-dossier']]) {
+  await expect(nav.getByRole('button')).toHaveCount(7);
+  for (const [name, screenshot] of [['Music','music'], ['Studio','studio'], ['Contracts','contracts'], ['Social','social'], ['Discover','discover'], ['Settings','settings']]) {
     const button = nav.getByRole('button', { name, exact:true });
     await expect(button).toBeVisible();
     await button.click();
-    if (name !== 'Home') await capture(screenshot);
+    await expect(page.locator('main[aria-label="Career simulation"]')).toBeVisible();
+    await capture(screenshot);
   }
+  const widths = await nav.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().width));
+  expect(widths.every(width => width >= 44)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   expect(await nav.evaluate(element => getComputedStyle(element).backdropFilter)).toContain('blur(16px)');
 });
 
@@ -65,7 +69,7 @@ test('mobile Home shows the modular career dashboard, scrolls fully, and opens e
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 
   await dashboard.getByRole('button', { name:/OPEN THE STUDIO/ }).click();
-  await expect(page.getByRole('heading', { name:'Record', exact:true })).toBeVisible();
+  await expect(page.getByRole('heading', { name:'New song', exact:true })).toBeVisible();
   await page.getByRole('button', { name:'Home', exact:true }).click();
   await page.locator('.mod-home-root').getByRole('button', { name:/OPEN FINANCES/ }).click();
   await expect(page.getByRole('heading', { name:'Finances', exact:true })).toBeVisible();
@@ -77,7 +81,7 @@ test('mobile Home shows the modular career dashboard, scrolls fully, and opens e
   await expect(page.getByRole('heading', { name:'Tour', exact:true })).toBeVisible();
   await page.getByRole('button', { name:'Home', exact:true }).click();
   await page.locator('.mod-home-root').getByRole('button', { name:/OPEN CONTRACTS/ }).click();
-  await expect(page.getByRole('heading', { name:'Industry', exact:true })).toBeVisible();
+  await expect(page.getByRole('heading', { name:'Labels', exact:true })).toBeVisible();
   await page.getByRole('button', { name:'Home', exact:true }).click();
   await page.locator('.mod-home-root').getByRole('button', { name:/MANAGE YOUR FEED/ }).click();
   await expect(page.getByRole('heading', { name:'Community', exact:true })).toBeVisible();
@@ -91,11 +95,24 @@ test('mobile Home shows the modular career dashboard, scrolls fully, and opens e
   await expect(page.getByRole('heading', { name:'Career log', exact:true })).toBeVisible();
 });
 
-test('390px phone task indexes expose every nested route without horizontal scrolling', async ({ page }) => {
+test('390px phone exposes all seven routes and their full first-level contents without horizontal scrolling', async ({ page }) => {
   await page.setViewportSize({ width:390, height:844 });
   await startCareer(page, 'Narrow Phone Artist');
-  for (const [primary, count] of [['Music', 6], ['Career', 6], ['News', 4], ['Profile', 4]]) {
-    await page.getByRole('button', { name:primary, exact:true }).click();
+  const nav = page.locator('.tab-bar');
+  await expect(nav.getByRole('button')).toHaveCount(7);
+  const primaryScreens = [
+    ['Home', 'Home'], ['Music', 'Music'], ['Studio', 'New song'],
+    ['Contracts', 'The work behind the music'], ['Social', 'Social desk'],
+    ['Discover', 'Discover'], ['Settings', 'Settings'],
+  ];
+  for (const [primary, heading] of primaryScreens) {
+    const button = nav.getByRole('button', { name:primary, exact:true });
+    await expect(button).toBeVisible();
+    await button.click();
+    await expect(page.getByRole('heading', { name:heading, exact:true })).toBeVisible();
+  }
+  for (const [primary, count] of [['Music', 5], ['Studio', 3], ['Contracts', 6]]) {
+    await nav.getByRole('button', { name:primary, exact:true }).click();
     const index = page.locator('.section-nav');
     await expect(index).toBeVisible();
     await expect(index.getByRole('tab')).toHaveCount(count);
@@ -103,6 +120,18 @@ test('390px phone task indexes expose every nested route without horizontal scro
     expect(await index.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   }
+  await nav.getByRole('button', { name:'Social', exact:true }).click();
+  await expect(page.locator('.social-directory-card')).toHaveCount(12);
+  for (const service of ['Instagram','YouTube','Spotify','TikTok','Twitter','Forbes','Wikipedia','Reddit','SoundCloud','Apple Music','iTunes','Tidal']) {
+    await expect(page.locator('.social-directory-card').filter({ hasText:service })).toBeVisible();
+  }
+  await nav.getByRole('button', { name:'Discover', exact:true }).click();
+  for (const activity of ['Interviews','Certifications','Lifestyle','Investments','Records & releases']) {
+    await expect(page.getByRole('button', { name:new RegExp(activity) })).toBeVisible();
+  }
+  await nav.getByRole('button', { name:'Settings', exact:true }).click();
+  await expect(page.getByText('US Dollar (USD)', { exact:false })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
 
 test('chosen display currency persists without converting the simulation balance', async ({ page }) => {
@@ -116,8 +145,8 @@ test('chosen display currency persists without converting the simulation balance
   expect(saved.currency).toBe('USD');
   expect(saved.money).toBe(2_500_000);
 
-  await page.getByRole('button', { name:'Profile', exact:true }).click();
-  await page.getByRole('tab', { name:'Settings', exact:true }).click();
+  await page.getByRole('button', { name:'Settings', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'Settings', exact:true })).toBeVisible();
   await expect(page.getByText('US Dollar (USD)', { exact:true })).toBeVisible();
   await page.reload();
   await expect(page.locator('.save-card')).toContainText('$2.5M');
@@ -137,11 +166,13 @@ test('app boots, primary nav works, and Chirp compose persists an in-game post w
   });
 
   await startCareer(page);
-  for (const tabName of ['Music', 'Career', 'Profile', 'News']) {
-    await page.getByRole('button', { name:tabName, exact:true }).click();
+  for (const tabName of ['Music', 'Studio', 'Contracts', 'Social', 'Discover', 'Settings']) {
+    await page.locator('.tab-bar').getByRole('button', { name:tabName, exact:true }).click();
     await expect(page.locator('main[aria-label="Career simulation"]')).toBeVisible();
   }
 
+  await page.getByRole('button', { name:'Home', exact:true }).click();
+  await page.locator('.mod-home-root').getByRole('button', { name:/MANAGE YOUR FEED/ }).click();
   await page.getByRole('tab', { name:'Community', exact:true }).click();
   await page.getByRole('button', { name:/Chirp/ }).click();
   await expect(page.getByText('Chirp', { exact:true })).toBeVisible();
@@ -184,8 +215,8 @@ test('mobile studio records a track, releases it and opens the modeled performan
       await page.screenshot({ path:testInfo.outputPath(`${name}.png`), fullPage:false });
     }
   };
-  await page.getByRole('button', { name:'Music', exact:true }).click();
-  await page.getByRole('tab', { name:'Record', exact:true }).click();
+  await page.getByRole('button', { name:'Studio', exact:true }).click();
+  await page.getByRole('tab', { name:'New song', exact:true }).click();
   const title = 'One More Night';
   await page.getByPlaceholder('e.g. No Mercy, Levels, Timeless...').fill(title);
   await captureStudio('studio-390-track-setup', '#studio-track-title');
@@ -217,7 +248,9 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await page.getByRole('tab', { name:/Mix & master/ }).click();
   await expect(page.getByText(/One charge.*only when you record/i)).toBeVisible();
   await page.getByRole('button', { name:/RECORD.*ONE MORE NIGHT.*1 AP/i }).click();
-  await expect(page.getByRole('heading', { name:'Catalog' })).toBeVisible();
+  await expect(page.getByRole('heading', { name:'Projects' })).toBeVisible();
+  await page.getByRole('button', { name:'Music', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'Music', exact:true })).toBeVisible();
   await expect(page.getByText(title, { exact:true })).toBeVisible();
   await page.getByRole('button', { name:/VIEW PRODUCTION CREDITS/ }).click();
   await expect(page.getByText('Production paid at record')).toBeVisible();
@@ -265,9 +298,10 @@ test('mobile studio records a track, releases it and opens the modeled performan
     await page.screenshot({ path:testInfo.outputPath('treblr-mobile-performance.png'), fullPage:false });
   }
 
-  await page.getByRole('button', { name:'Career', exact:true }).click();
+  await page.getByRole('button', { name:'Contracts', exact:true }).click();
   await expect(page.getByRole('heading', { name:'The work behind the music' })).toBeVisible();
-  await page.getByRole('tab', { name:'Markets', exact:true }).click();
+  await page.getByRole('tab', { name:'Overview', exact:true }).click();
+  await page.getByRole('button', { name:/Markets/ }).click();
   await expect(page.getByRole('heading', { name:'Markets' })).toBeVisible();
 
   expect(browserErrors).toEqual([]);
@@ -287,7 +321,7 @@ test('1440px desktop exposes the requested left navigation and career routes', a
 
   await startCareer(page, 'Desktop Artist');
   await expect(page.locator('.desktop-sidebar')).toBeVisible();
-  for (const item of ['Home', 'Career', 'Music', 'Releases', 'Shows', 'Collabs', 'Industry', 'Finances', 'News', 'Inbox']) {
+  for (const item of ['Home', 'Music', 'Charts', 'Studio', 'Projects', 'Training', 'Contracts', 'Jobs', 'Finances', 'Labels', 'Collabs', 'Markets', 'Tour', 'Festivals', 'Social', 'Discover', 'News', 'Inbox', 'Settings']) {
     await expect(page.locator('.desktop-sidebar').getByRole('button', { name:item, exact:true })).toBeVisible();
   }
   await page.waitForTimeout(750);
@@ -297,18 +331,34 @@ test('1440px desktop exposes the requested left navigation and career routes', a
     await page.screenshot({ path:testInfo.outputPath('treblr-desktop-home.png'), fullPage:true });
   }
 
-  await page.locator('.desktop-sidebar').getByRole('button', { name:'Career', exact:true }).click();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Contracts', exact:true }).click();
   await expect(page.getByRole('heading', { name:'The work behind the music' })).toBeVisible();
-  await page.locator('.desktop-sidebar').getByRole('button', { name:'Shows', exact:true }).click();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Tour', exact:true }).click();
   await expect(page.getByRole('heading', { name:'Tour' })).toBeVisible();
   await page.locator('.desktop-sidebar').getByRole('button', { name:'Collabs', exact:true }).click();
   await expect(page.getByRole('heading', { name:'Collabs' })).toBeVisible();
   await page.locator('.desktop-sidebar').getByRole('button', { name:'Finances', exact:true }).click();
   await expect(page.getByRole('heading', { name:'Finances' })).toBeVisible();
   await page.locator('.desktop-sidebar').getByRole('button', { name:'Music', exact:true }).click();
-  await expect(page.getByRole('heading', { name:'Record' })).toBeVisible();
-  await page.locator('.desktop-sidebar').getByRole('button', { name:'Releases', exact:true }).click();
-  await expect(page.getByRole('heading', { name:'Release' })).toBeVisible();
+  await expect(page.getByRole('heading', { name:'Music', exact:true })).toBeVisible();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Charts', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'Charts' })).toBeVisible();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Studio', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'New song' })).toBeVisible();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Projects', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'Projects' })).toBeVisible();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Training', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'Training' })).toBeVisible();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Jobs', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'Jobs' })).toBeVisible();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Labels', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'Labels' })).toBeVisible();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Festivals', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'Festivals' })).toBeVisible();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Social', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'Social desk' })).toBeVisible();
+  await page.locator('.desktop-sidebar').getByRole('button', { name:'Discover', exact:true }).click();
+  await expect(page.getByRole('heading', { name:'Discover', exact:true })).toBeVisible();
   await page.locator('.desktop-sidebar').getByRole('button', { name:'News', exact:true }).click();
   await page.locator('.desktop-sidebar').getByRole('button', { name:'Inbox', exact:true }).click();
   await expect(page.getByText('ACTIVITY LEDGER', { exact:true })).toBeVisible();

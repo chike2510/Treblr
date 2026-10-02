@@ -9,7 +9,7 @@ import CreateTab   from './tabs/CreateTab';
 import NewsTab     from './tabs/NewsTab';
 import BusinessTab from './tabs/BusinessTab';
 import ProfileTab  from './tabs/ProfileTab';
-import MoreTab     from './tabs/MoreTab';
+import MoreTab, { isSocialChannelRoute } from './tabs/MoreTab';
 import WeeklyReport from './components/WeeklyReport';
 
 const Icons = {
@@ -156,6 +156,8 @@ export default function Game({ gs, setGs }) {
   const era = getEra(gs.fans);
   const timeStr = getTimeLabel(gs.totalWeeks, gs.startYear);
   const actionPoints = getActionPoints(gs);
+  const isMoreScreenActive = ['social-home','discover','settings','more'].includes(gs.tab);
+  const hideGlobalTabBar = isMoreScreenActive && isSocialChannelRoute(gs.appRoutes?.more);
   const tabProps = { gs, setGs, patch, patchFn, showToast, endWeek:handleEndWeek, isEndingWeek };
 
   return (
@@ -201,7 +203,7 @@ export default function Game({ gs, setGs }) {
           {gs.tab === 'more' && <MoreTab {...tabProps}/>}
         </main>
 
-        <nav className="tab-bar" aria-label="Primary navigation" style={{ backdropFilter:'blur(18px) saturate(145%)', WebkitBackdropFilter:'blur(18px) saturate(145%)' }}>
+        {!hideGlobalTabBar && <nav className="tab-bar" aria-label="Primary navigation" style={{ backdropFilter:'blur(18px) saturate(145%)', WebkitBackdropFilter:'blur(18px) saturate(145%)' }}>
           {TABS.map(tab => {
             const Icon = tab.Icon;
             const isActive = tab.id === 'social-home' ? ['social-home','social','more'].includes(gs.tab) : gs.tab === tab.id;
@@ -210,7 +212,7 @@ export default function Game({ gs, setGs }) {
               <span className="tab-btn-label">{tab.label}</span>
             </button>;
           })}
-        </nav>
+        </nav>}
       </div>
 
       {showReport && gs.weekReport && <WeeklyReport report={gs.weekReport} currency={gs.currency} stageName={gs.stageName} genre={gs.genre} onContinue={handleReportClose}/>}

@@ -3965,7 +3965,7 @@ body { font-family:var(--font-ui); background:var(--bg-sunken); }
 .more-screen.is-social-experience { display:block; padding:0 !important; background:#111; }
 .social-experience {
   --sx-bg:#fff; --sx-ink:#202124; --sx-muted:#70757a; --sx-line:rgba(32,33,36,.13); --sx-panel:#f4f5f7; --sx-accent:#667085;
-  width:100%; min-height:100%; margin:0; padding:7px 16px 24px; overflow:hidden; overflow-wrap:anywhere;
+  width:100%; min-height:100%; margin:0; padding:7px 16px calc(24px + env(safe-area-inset-bottom, 0px)); overflow:hidden; overflow-wrap:anywhere;
   background:var(--sx-bg); color:var(--sx-ink); font-family:var(--font-ui),Arial,sans-serif;
 }
 .social-experience *, .social-experience *::before, .social-experience *::after { box-sizing:border-box; }

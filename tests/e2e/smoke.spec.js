@@ -501,6 +501,9 @@ test('all twelve native Social destinations render, interact, and return without
   const captureEvidence = process.env.CAPTURE_SOCIAL_ARTIFACTS === '1';
   const evidenceDir = resolve(process.cwd(), 'review-artifacts/2026-10-02-social-platform-native-rebuild');
   if (captureEvidence) mkdirSync(evidenceDir, { recursive:true });
+  const captureNavScreenshots = process.env.CAPTURE_SOCIAL_NAV_SCREENSHOTS === '1';
+  const navScreenshotDir = resolve(process.cwd(), 'review-artifacts/2026-10-02-social-nav-refinement');
+  if (captureNavScreenshots) mkdirSync(navScreenshotDir, { recursive:true });
   const nav = page.locator('.tab-bar');
 
   for (const viewport of [{ width:390, height:844 }, { width:430, height:900 }]) {
@@ -510,11 +513,30 @@ test('all twelve native Social destinations render, interact, and return without
     await expect(directory.getByRole('heading', { name:'Social desk', exact:true })).toBeVisible();
     await expect(directory.locator('.social-directory-card')).toHaveCount(12);
     await expect(directory).toContainText('Twitter / X');
+    await expect(nav).toBeVisible();
+    await expect(nav.getByRole('button')).toHaveCount(7);
+    await expect(nav.getByRole('button', { name:'Contracts', exact:true })).toBeVisible();
     if (captureEvidence) {
       await directory.evaluate(element => { element.scrollTop = 0; });
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path:resolve(evidenceDir, `social-directory-${viewport.width}x${viewport.height}.png`), fullPage:false });
     }
+    if (captureNavScreenshots && viewport.width === 430) {
+      await directory.evaluate(element => { element.scrollTop = 0; });
+      await page.evaluate(() => document.fonts.ready);
+      await page.screenshot({ path:resolve(navScreenshotDir, 'social-directory-430x900.png'), fullPage:false });
+    }
+
+    await page.locator('.more-section-nav').getByRole('button', { name:'Discover', exact:true }).click();
+    await expect(page.locator('.more-screen-discover')).toBeVisible();
+    await expect(nav).toBeVisible();
+    await expect(nav.getByRole('button')).toHaveCount(7);
+    await page.locator('.discover-list').getByRole('button', { name:/Awards/ }).click();
+    await expect(page.locator('.more-screen-discover-awards')).toBeVisible();
+    await expect(nav).toBeVisible();
+    await expect(nav.getByRole('button', { name:'Contracts', exact:true })).toBeVisible();
+    await nav.getByRole('button', { name:'Social', exact:true }).click();
+    await expect(page.locator('.more-screen-social')).toBeVisible();
 
     for (const service of services) {
       const card = directory.locator('.social-directory-card').filter({ hasText:service.label });
@@ -525,6 +547,26 @@ test('all twelve native Social destinations render, interact, and return without
       await expect(view).toHaveAttribute('data-platform', service.id);
       await expect(view).toHaveAttribute('data-layout', service.layout);
       await expect(view.locator('h1').first()).toBeVisible();
+      await expect(page.locator('.tab-bar')).toHaveCount(0);
+      await expect(view.getByRole('button', { name:'Back to Social directory' })).toBeVisible();
+
+      const detailGeometry = await page.evaluate(() => {
+        const shell = document.querySelector('.app-shell').getBoundingClientRect();
+        const main = document.querySelector('.app-main').getBoundingClientRect();
+        const screen = document.querySelector('.more-screen.is-social-experience').getBoundingClientRect();
+        const back = document.querySelector('.sx-exit').getBoundingClientRect();
+        return {
+          shellBottom:shell.bottom,
+          mainBottom:main.bottom,
+          screenBottom:screen.bottom,
+          mainTop:main.top,
+          backBottom:back.bottom,
+          viewportHeight:window.innerHeight,
+        };
+      });
+      expect(detailGeometry.mainBottom).toBeCloseTo(detailGeometry.shellBottom, 0);
+      expect(detailGeometry.screenBottom).toBeCloseTo(detailGeometry.mainBottom, 0);
+      expect(detailGeometry.backBottom).toBeLessThan(detailGeometry.viewportHeight);
 
       if (service.metric) {
         await expect(view).toContainText(/simulated (career )?audience/i);
@@ -541,6 +583,23 @@ test('all twelve native Social destinations render, interact, and return without
         await page.evaluate(() => document.fonts.ready);
         await page.screenshot({ path:resolve(evidenceDir, `social-${service.id}-${viewport.width}x${viewport.height}.png`), fullPage:false });
       }
+      if (captureNavScreenshots && viewport.width === 430 && ['spotify','instagram'].includes(service.id)) {
+        await page.locator('.more-screen.is-social-experience').evaluate(element => { element.scrollTop = 0; });
+        await page.evaluate(() => document.fonts.ready);
+        await page.screenshot({ path:resolve(navScreenshotDir, `social-${service.id}-detail-430x900.png`), fullPage:false });
+      }
+
+      const socialScroll = page.locator('.more-screen.is-social-experience');
+      await socialScroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+      await expect(view.locator('.sx-disclosure')).toBeVisible();
+      const finalContent = await view.locator('.sx-disclosure').evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        const screen = document.querySelector('.more-screen.is-social-experience').getBoundingClientRect();
+        const scroll = document.querySelector('.more-screen.is-social-experience');
+        return { bottom:bounds.bottom, screenBottom:screen.bottom, scrollBottom:scroll.scrollTop + scroll.clientHeight, scrollHeight:scroll.scrollHeight };
+      });
+      expect(finalContent.bottom).toBeLessThanOrEqual(finalContent.screenBottom + 1);
+      expect(finalContent.scrollBottom).toBeGreaterThanOrEqual(finalContent.scrollHeight - 1);
 
       switch (service.id) {
         case 'instagram':
@@ -621,7 +680,7 @@ test('all twelve native Social destinations render, interact, and return without
         return document.documentElement.scrollWidth <= window.innerWidth + 1
           && experience.scrollWidth <= experience.clientWidth + 1
           && main.scrollWidth <= main.clientWidth + 1
-          && navigation.scrollWidth <= navigation.clientWidth + 1;
+          && (!navigation || navigation.scrollWidth <= navigation.clientWidth + 1);
       });
       expect(noHorizontalOverflow, `${service.label} overflow at ${viewport.width}px`).toBe(true);
 
@@ -635,6 +694,9 @@ test('all twelve native Social destinations render, interact, and return without
 
       await view.getByRole('button', { name:'Back to Social directory' }).click();
       await expect(page.locator('.social-directory-card')).toHaveCount(12);
+      await expect(nav).toBeVisible();
+      await expect(nav.getByRole('button')).toHaveCount(7);
+      await expect(nav.getByRole('button', { name:'Contracts', exact:true })).toBeVisible();
     }
   }
 

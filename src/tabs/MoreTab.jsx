@@ -24,6 +24,9 @@ const SOCIAL_CHANNELS = [
   { id:'tidal', label:'Tidal', short:'TD', metric:null, color:'#A3A7A6' },
 ];
 
+export const isSocialChannelRoute = route =>
+  typeof route === 'string' && SOCIAL_CHANNELS.some(channel => route === `channel-${channel.id}`);
+
 const DISCOVER_ITEMS = [
   { id:'records', number:'01', title:'Records & releases', status:'LIVE SYSTEM', copy:'Open the released catalog and track sleeves.', target:['create','catalog'] },
   { id:'charts', number:'02', title:'Charts', status:'LIVE SYSTEM', copy:'See simulated rankings built at week close.', target:['create','charts'] },
@@ -73,7 +76,7 @@ export default function MoreTab({ gs, setGs, patch, showToast }) {
   const discoveryTitle = UNSUPPORTED[route]?.[0];
   const totalAudience = activeChannels.reduce((sum, item) => sum + Number(gs.socialPlatforms?.[item.engine] || 0), 0);
 
-  const isChannelRoute = Boolean(route.startsWith('channel-') && channel);
+  const isChannelRoute = isSocialChannelRoute(route);
 
   return <div className={`tab-content more-screen more-screen-${route}${isChannelRoute ? ' is-social-experience' : ''}`}>
     {isChannelRoute && <SocialExperience channel={channel} gs={gs} fmt={fmt} onBack={() => changeSection('social')} />}

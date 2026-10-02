@@ -367,8 +367,12 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await page.locator('.tab-bar').getByRole('button', { name:'Social', exact:true }).click();
   await expect(page.locator('.more-screen-social')).toBeVisible();
   await page.locator('.social-directory-card').filter({ hasText:'Spotify' }).click();
-  await expect(page.locator('.sx-release-list--spotify')).toContainText(title);
-  await expect(page.locator('.sx-release-list--spotify .sx-release-row')).toHaveCount(1);
+  const spotifyTrack = page.locator('.spfy-track').filter({ hasText:title });
+  await expect(spotifyTrack).toHaveCount(1);
+  await expect(spotifyTrack.locator('.sx-art img')).toHaveAttribute('src', /\/assets\/covers\/cov_/);
+  await spotifyTrack.click();
+  await expect(page.locator('.sx-release-detail')).toContainText(title);
+  await expect(page.locator('.sx-release-detail')).toContainText(/Treblr streams/i);
 
   expect(browserErrors).toEqual([]);
 });
@@ -434,37 +438,81 @@ test('1440px desktop exposes the requested left navigation and career routes', a
   expect(browserErrors).toEqual([]);
 });
 
-test('all twelve Social destinations use distinct service layouts, only show modeled data, and return cleanly', async ({ page }) => {
-  const services = [
-    { id:'instagram', label:'Instagram', layout:'profile-grid', engine:'instapic' },
-    { id:'youtube', label:'YouTube', layout:'channel-videos', engine:'vidtube' },
-    { id:'spotify', label:'Spotify', layout:'artist-discography', engine:'soundify' },
-    { id:'tiktok', label:'TikTok', layout:'creator-video-feed', engine:'rhythmtok' },
-    { id:'twitter', label:'Twitter', layout:'chronological-feed', engine:'chirp' },
-    { id:'forbes', label:'Forbes', layout:'editorial-feature' },
-    { id:'wikipedia', label:'Wikipedia', layout:'encyclopedia-article' },
-    { id:'reddit', label:'Reddit', layout:'community-page' },
-    { id:'soundcloud', label:'SoundCloud', layout:'audio-catalogue', engine:'wavelog' },
-    { id:'apple-music', label:'Apple Music', layout:'music-artist-page' },
-    { id:'itunes', label:'iTunes', layout:'store-catalogue' },
-    { id:'tidal', label:'Tidal', layout:'discography-grid' },
-  ];
-  const captureEvidence = process.env.CAPTURE_SOCIAL_ARTIFACTS === '1';
-  const evidenceDir = resolve(process.cwd(), 'review-artifacts/2026-10-02-social-platform-refresh');
-  if (captureEvidence) mkdirSync(evidenceDir, { recursive:true });
+test('all twelve native Social destinations render, interact, and return without invented service data', async ({ page }) => {
+  const browserErrors = [];
+  const failedRequests = [];
+  const externalAssetHosts = new Set();
+  const appOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:4174').origin;
+  page.on('pageerror', error => browserErrors.push(error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') browserErrors.push(`${message.text()} ${message.location().url || ''}`.trim());
+  });
+  page.on('requestfailed', request => failedRequests.push(`${request.url()} ${request.failure()?.errorText || ''}`));
+  page.on('response', response => {
+    if (response.status() >= 400) browserErrors.push(`HTTP ${response.status()} ${response.url()}`);
+  });
+  page.on('request', request => {
+    const url = new URL(request.url());
+    if (url.protocol.startsWith('http') && url.origin !== appOrigin) externalAssetHosts.add(url.hostname);
+  });
 
   await page.setViewportSize({ width:430, height:900 });
-  await startCareer(page, 'Social Preview Artist');
+  await startCareer(page, 'Social Pattern QA');
+
+  // This disposable browser context creates a track and release using the actual game loop.
+  await page.locator('.tab-bar').getByRole('button', { name:'Studio', exact:true }).click();
+  await page.getByRole('tab', { name:'New song', exact:true }).click();
+  const releaseTitle = 'Native Social Single';
+  await page.getByPlaceholder('e.g. No Mercy, Levels, Timeless...').fill(releaseTitle);
+  await page.getByRole('tab', { name:/Producer/ }).click();
+  await page.getByRole('tab', { name:/Voice & feature/ }).click();
+  await page.getByRole('tab', { name:/Mix & master/ }).click();
+  await page.getByRole('button', { name:/RECORD.*NATIVE SOCIAL SINGLE.*1 AP/i }).click();
+  await expect(page.getByRole('heading', { name:'Projects', exact:true })).toBeVisible();
+  await page.locator('.tab-bar').getByRole('button', { name:'Music', exact:true }).click();
+  await page.getByRole('tab', { name:'Release', exact:true }).click();
+  await page.getByRole('button', { name:/Targeted Campaign/ }).click();
+  await page.getByRole('button', { name:/RELEASE.*NATIVE SOCIAL SINGLE.*1 AP/i }).click();
+  await expect(page.getByRole('heading', { name:'Performance', exact:true })).toBeVisible();
+  const productionArt = page.locator('.performance-art img');
+  await expect(productionArt).toHaveAttribute('src', /\/assets\/covers\/cov_/);
+  await expect.poll(() => productionArt.evaluate(image => image.naturalWidth)).toBeGreaterThan(0);
+  await page.locator('.tab-bar').getByRole('button', { name:'Home', exact:true }).click();
+  await page.getByRole('button', { name:'END WEEK', exact:true }).click();
+  await expect(page.getByRole('dialog', { name:'Week 1' })).toBeVisible();
+  await dismissTestEventPrompt(page);
+  await page.getByRole('button', { name:/CONTINUE/ }).click();
+  await expect(page.locator('.toast')).toBeHidden({ timeout:5_000 });
+
+  const services = [
+    { id:'instagram', label:'Instagram', layout:'profile-grid', metric:true },
+    { id:'youtube', label:'YouTube', layout:'channel-sections', metric:true },
+    { id:'spotify', label:'Spotify', layout:'artist-discography', metric:true },
+    { id:'tiktok', label:'TikTok', layout:'creator-vertical-feed', metric:true },
+    { id:'twitter', label:'Twitter / X', layout:'chronological-profile-timeline', metric:true },
+    { id:'forbes', label:'Forbes', layout:'editorial-artist-dossier', metric:false },
+    { id:'wikipedia', label:'Wikipedia', layout:'encyclopedia-article', metric:false },
+    { id:'reddit', label:'Reddit', layout:'community-feed', metric:false },
+    { id:'soundcloud', label:'SoundCloud', layout:'waveform-track-list', metric:true },
+    { id:'apple-music', label:'Apple Music', layout:'artist-release-shelf', metric:false },
+    { id:'itunes', label:'iTunes', layout:'store-search-catalogue', metric:false },
+    { id:'tidal', label:'Tidal', layout:'minimal-discography-grid', metric:false },
+  ];
+  const captureEvidence = process.env.CAPTURE_SOCIAL_ARTIFACTS === '1';
+  const evidenceDir = resolve(process.cwd(), 'review-artifacts/2026-10-02-social-platform-native-rebuild');
+  if (captureEvidence) mkdirSync(evidenceDir, { recursive:true });
   const nav = page.locator('.tab-bar');
+
   for (const viewport of [{ width:390, height:844 }, { width:430, height:900 }]) {
     await page.setViewportSize(viewport);
     await nav.getByRole('button', { name:'Social', exact:true }).click();
     const directory = page.locator('.more-screen-social');
     await expect(directory.getByRole('heading', { name:'Social desk', exact:true })).toBeVisible();
     await expect(directory.locator('.social-directory-card')).toHaveCount(12);
+    await expect(directory).toContainText('Twitter / X');
     if (captureEvidence) {
       await directory.evaluate(element => { element.scrollTop = 0; });
-      await page.waitForTimeout(250);
+      await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path:resolve(evidenceDir, `social-directory-${viewport.width}x${viewport.height}.png`), fullPage:false });
     }
 
@@ -476,18 +524,94 @@ test('all twelve Social destinations use distinct service layouts, only show mod
       const view = page.locator('.social-experience');
       await expect(view).toHaveAttribute('data-platform', service.id);
       await expect(view).toHaveAttribute('data-layout', service.layout);
-      await expect(view.getByText(service.label, { exact:true }).first()).toBeVisible();
+      await expect(view.locator('h1').first()).toBeVisible();
 
-      const modeledAudience = view.locator('[data-testid="social-simulated-audience"]');
-      if (service.engine) {
-        await expect(modeledAudience).toBeVisible();
-        const savedValue = directoryMetric.trim().split(/\s+/)[0];
-        await expect(modeledAudience.locator('strong')).toHaveText(savedValue);
-        await expect(modeledAudience).toContainText(/saved in this career/i);
+      if (service.metric) {
+        await expect(view).toContainText(/simulated (career )?audience/i);
+        const saveValue = directoryMetric.trim().split(/\s+/)[0];
+        await expect(view).toContainText(saveValue);
+        await expect(view).not.toContainText(/real (Instagram|YouTube|Spotify|TikTok|Twitter|SoundCloud) (followers|subscribers|listeners)/i);
       } else {
-        await expect(modeledAudience).toHaveCount(0);
-        await expect(view).toContainText(/not modeled|not tracked|no (editorial|encyclopedia|released|catalogue|community|release)/i);
+        await expect(view.locator('[data-testid="social-simulated-audience"]')).toHaveCount(0);
         await expect(view).not.toContainText(/simulated audience|followers|subscribers|monthly listeners/i);
+      }
+
+      if (captureEvidence) {
+        await page.locator('.more-screen').evaluate(element => { element.scrollTop = 0; });
+        await page.evaluate(() => document.fonts.ready);
+        await page.screenshot({ path:resolve(evidenceDir, `social-${service.id}-${viewport.width}x${viewport.height}.png`), fullPage:false });
+      }
+
+      switch (service.id) {
+        case 'instagram':
+          await expect(view.locator('.ig-grid')).toContainText(releaseTitle);
+          await view.getByRole('tab', { name:/Reels/ }).click();
+          await expect(view).toContainText('Reels are not available in this save');
+          break;
+        case 'youtube':
+          await expect(view.locator('.yt-banner')).toBeVisible();
+          await view.getByRole('tab', { name:'Playlists', exact:true }).click();
+          await expect(view).toContainText('No playlist data is available');
+          break;
+        case 'spotify': {
+          const track = view.locator('.spfy-track').filter({ hasText:releaseTitle });
+          await expect(track).toHaveCount(1);
+          await expect(track).toContainText(/Treblr|week/i);
+          await track.click();
+          await expect(view.locator('.sx-release-detail')).toContainText(releaseTitle);
+          await expect(view.locator('.sx-release-detail')).toContainText(/Treblr streams/i);
+          break;
+        }
+        case 'tiktok':
+          await expect(view.locator('.tt-profile')).toBeVisible();
+          await expect(view).toContainText('No saved creator posts');
+          break;
+        case 'twitter':
+          await expect(view.locator('.x-profile')).toBeVisible();
+          await expect(view).toContainText('No posts in this timeline');
+          break;
+        case 'forbes':
+          await expect(view.locator('.fb-masthead')).toBeVisible();
+          await expect(view.locator('.fb-story h1')).toHaveText('Social Pattern QA');
+          await expect(view).toContainText('No Forbes article or ranking is modeled');
+          break;
+        case 'wikipedia':
+          await expect(view.locator('.wiki-toc')).toBeVisible();
+          await view.getByRole('link', { name:'Discography', exact:true }).click();
+          await expect(view.locator('#wiki-releases')).toContainText(releaseTitle);
+          break;
+        case 'reddit':
+          await expect(view.locator('.rd-community-head')).toBeVisible();
+          await view.getByRole('button', { name:'Top', exact:true }).click();
+          await expect(view.getByRole('button', { name:'Top', exact:true })).toHaveAttribute('aria-pressed', 'true');
+          await view.getByRole('tab', { name:'About', exact:true }).click();
+          await expect(view).toContainText('No actual subreddit is connected');
+          break;
+        case 'soundcloud': {
+          const track = view.locator('.sc-track').filter({ hasText:releaseTitle });
+          await expect(track).toHaveCount(1);
+          await expect(track.locator('.sc-waveform')).toBeVisible();
+          await track.click();
+          await expect(view.locator('.sx-release-detail')).toContainText(releaseTitle);
+          await expect(view).toContainText('not audio data');
+          break;
+        }
+        case 'apple-music':
+          await expect(view.locator('.am-release-shelf')).toContainText(releaseTitle);
+          await view.getByRole('tab', { name:'Singles', exact:true }).click();
+          await expect(view.locator('.am-release-shelf')).toContainText(releaseTitle);
+          break;
+        case 'itunes':
+          await view.getByRole('searchbox', { name:'Search saved releases' }).fill('Native Social');
+          await expect(view.locator('.it-results')).toContainText(releaseTitle);
+          await view.getByRole('button', { name:'Singles', exact:true }).click();
+          await expect(view.locator('.it-results')).toContainText(releaseTitle);
+          break;
+        case 'tidal':
+          await expect(view.locator('.td-grid')).toContainText(releaseTitle);
+          await view.getByRole('button', { name:'Singles', exact:true }).click();
+          await expect(view.locator('.td-grid')).toContainText(releaseTitle);
+          break;
       }
 
       const noHorizontalOverflow = await page.evaluate(() => {
@@ -501,14 +625,25 @@ test('all twelve Social destinations use distinct service layouts, only show mod
       });
       expect(noHorizontalOverflow, `${service.label} overflow at ${viewport.width}px`).toBe(true);
 
-      if (captureEvidence) {
-        await page.locator('.more-screen').evaluate(element => { element.scrollTop = 0; });
-        await page.waitForTimeout(150);
-        await page.screenshot({ path:resolve(evidenceDir, `social-${service.id}-${viewport.width}x${viewport.height}.png`), fullPage:false });
-      }
+      const imageHealth = await view.locator('img').evaluateAll(images => images.map((image) => ({
+        src:image.currentSrc,
+        width:image.naturalWidth,
+        sameOrigin:image.currentSrc.startsWith(location.origin) || image.currentSrc.startsWith('data:image/'),
+      })));
+      expect(imageHealth.every(image => image.width > 0 && image.sameOrigin), `${service.label} has a broken or non-local image: ${JSON.stringify(imageHealth)}`).toBe(true);
 
-      await view.getByRole('button', { name:/ALL SOCIAL DESTINATIONS/ }).click();
+
+      await view.getByRole('button', { name:'Back to Social directory' }).click();
       await expect(page.locator('.social-directory-card')).toHaveCount(12);
     }
   }
+
+  const fonts = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return { syne:document.fonts.check('14px "Syne"'), outfit:document.fonts.check('14px "Outfit"'), jetbrainsMono:document.fonts.check('12px "JetBrains Mono"') };
+  });
+  expect(fonts).toEqual({ syne:true, outfit:true, jetbrainsMono:true });
+  expect([...externalAssetHosts].every(host => ['fonts.googleapis.com', 'fonts.gstatic.com', 'csp.withgoogle.com'].includes(host))).toBe(true);
+  expect(failedRequests).toEqual([]);
+  expect(browserErrors).toEqual([]);
 });

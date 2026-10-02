@@ -14,7 +14,7 @@ const SOCIAL_CHANNELS = [
   { id:'youtube', label:'YouTube', short:'YT', engine:'vidtube', metric:'Simulated audience', color:'#C55E52' },
   { id:'spotify', label:'Spotify', short:'SP', engine:'soundify', metric:'Simulated audience', color:'#8AA273' },
   { id:'tiktok', label:'TikTok', short:'TT', engine:'rhythmtok', metric:'Simulated audience', color:'#7CA6A5' },
-  { id:'twitter', label:'Twitter', short:'X', engine:'chirp', metric:'Simulated audience', color:'#7A9BB5' },
+  { id:'twitter', label:'Twitter / X', short:'X', engine:'chirp', metric:'Simulated audience', color:'#7A9BB5' },
   { id:'forbes', label:'Forbes', short:'F', metric:null, color:'#9E8D67' },
   { id:'wikipedia', label:'Wikipedia', short:'W', metric:null, color:'#8B8F98' },
   { id:'reddit', label:'Reddit', short:'R', metric:null, color:'#C47F56' },

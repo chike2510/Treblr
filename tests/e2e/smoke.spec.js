@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 async function startCareer(page, stageName = 'Smoke Artist', currency = 'NGN') {
   await page.goto('/');
@@ -362,6 +364,12 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await page.getByRole('button', { name:/Markets/ }).click();
   await expect(page.getByRole('heading', { name:'Markets' })).toBeVisible();
 
+  await page.locator('.tab-bar').getByRole('button', { name:'Social', exact:true }).click();
+  await expect(page.locator('.more-screen-social')).toBeVisible();
+  await page.locator('.social-directory-card').filter({ hasText:'Spotify' }).click();
+  await expect(page.locator('.sx-release-list--spotify')).toContainText(title);
+  await expect(page.locator('.sx-release-list--spotify .sx-release-row')).toHaveCount(1);
+
   expect(browserErrors).toEqual([]);
 });
 
@@ -424,4 +432,83 @@ test('1440px desktop exposes the requested left navigation and career routes', a
   await expect(page.getByRole('heading', { name:'Settings' })).toBeVisible();
 
   expect(browserErrors).toEqual([]);
+});
+
+test('all twelve Social destinations use distinct service layouts, only show modeled data, and return cleanly', async ({ page }) => {
+  const services = [
+    { id:'instagram', label:'Instagram', layout:'profile-grid', engine:'instapic' },
+    { id:'youtube', label:'YouTube', layout:'channel-videos', engine:'vidtube' },
+    { id:'spotify', label:'Spotify', layout:'artist-discography', engine:'soundify' },
+    { id:'tiktok', label:'TikTok', layout:'creator-video-feed', engine:'rhythmtok' },
+    { id:'twitter', label:'Twitter', layout:'chronological-feed', engine:'chirp' },
+    { id:'forbes', label:'Forbes', layout:'editorial-feature' },
+    { id:'wikipedia', label:'Wikipedia', layout:'encyclopedia-article' },
+    { id:'reddit', label:'Reddit', layout:'community-page' },
+    { id:'soundcloud', label:'SoundCloud', layout:'audio-catalogue', engine:'wavelog' },
+    { id:'apple-music', label:'Apple Music', layout:'music-artist-page' },
+    { id:'itunes', label:'iTunes', layout:'store-catalogue' },
+    { id:'tidal', label:'Tidal', layout:'discography-grid' },
+  ];
+  const captureEvidence = process.env.CAPTURE_SOCIAL_ARTIFACTS === '1';
+  const evidenceDir = resolve(process.cwd(), 'review-artifacts/2026-10-02-social-platform-refresh');
+  if (captureEvidence) mkdirSync(evidenceDir, { recursive:true });
+
+  await page.setViewportSize({ width:430, height:900 });
+  await startCareer(page, 'Social Preview Artist');
+  const nav = page.locator('.tab-bar');
+  for (const viewport of [{ width:390, height:844 }, { width:430, height:900 }]) {
+    await page.setViewportSize(viewport);
+    await nav.getByRole('button', { name:'Social', exact:true }).click();
+    const directory = page.locator('.more-screen-social');
+    await expect(directory.getByRole('heading', { name:'Social desk', exact:true })).toBeVisible();
+    await expect(directory.locator('.social-directory-card')).toHaveCount(12);
+    if (captureEvidence) {
+      await directory.evaluate(element => { element.scrollTop = 0; });
+      await page.waitForTimeout(250);
+      await page.screenshot({ path:resolve(evidenceDir, `social-directory-${viewport.width}x${viewport.height}.png`), fullPage:false });
+    }
+
+    for (const service of services) {
+      const card = directory.locator('.social-directory-card').filter({ hasText:service.label });
+      await expect(card).toBeVisible();
+      const directoryMetric = await card.locator('.social-channel-copy small').innerText();
+      await card.click();
+      const view = page.locator('.social-experience');
+      await expect(view).toHaveAttribute('data-platform', service.id);
+      await expect(view).toHaveAttribute('data-layout', service.layout);
+      await expect(view.getByText(service.label, { exact:true }).first()).toBeVisible();
+
+      const modeledAudience = view.locator('[data-testid="social-simulated-audience"]');
+      if (service.engine) {
+        await expect(modeledAudience).toBeVisible();
+        const savedValue = directoryMetric.trim().split(/\s+/)[0];
+        await expect(modeledAudience.locator('strong')).toHaveText(savedValue);
+        await expect(modeledAudience).toContainText(/saved in this career/i);
+      } else {
+        await expect(modeledAudience).toHaveCount(0);
+        await expect(view).toContainText(/not modeled|not tracked|no (editorial|encyclopedia|released|catalogue|community|release)/i);
+        await expect(view).not.toContainText(/simulated audience|followers|subscribers|monthly listeners/i);
+      }
+
+      const noHorizontalOverflow = await page.evaluate(() => {
+        const experience = document.querySelector('.social-experience');
+        const main = document.querySelector('.app-main');
+        const navigation = document.querySelector('.tab-bar');
+        return document.documentElement.scrollWidth <= window.innerWidth + 1
+          && experience.scrollWidth <= experience.clientWidth + 1
+          && main.scrollWidth <= main.clientWidth + 1
+          && navigation.scrollWidth <= navigation.clientWidth + 1;
+      });
+      expect(noHorizontalOverflow, `${service.label} overflow at ${viewport.width}px`).toBe(true);
+
+      if (captureEvidence) {
+        await page.locator('.more-screen').evaluate(element => { element.scrollTop = 0; });
+        await page.waitForTimeout(150);
+        await page.screenshot({ path:resolve(evidenceDir, `social-${service.id}-${viewport.width}x${viewport.height}.png`), fullPage:false });
+      }
+
+      await view.getByRole('button', { name:/ALL SOCIAL DESTINATIONS/ }).click();
+      await expect(page.locator('.social-directory-card')).toHaveCount(12);
+    }
+  }
 });

@@ -1,5 +1,6 @@
 import { getAwardCategories } from '../engine/awards';
 import { fmt, fmtN as formatCurrency } from '../engine/utils';
+import SocialExperience from '../components/SocialExperience';
 import { SettingsView } from './ProfileTab';
 
 const TOP_LEVEL = [
@@ -72,17 +73,20 @@ export default function MoreTab({ gs, setGs, patch, showToast }) {
   const discoveryTitle = UNSUPPORTED[route]?.[0];
   const totalAudience = activeChannels.reduce((sum, item) => sum + Number(gs.socialPlatforms?.[item.engine] || 0), 0);
 
-  return <div className={`tab-content more-screen more-screen-${route}`}>
-    <MoreHeader
+  const isChannelRoute = Boolean(route.startsWith('channel-') && channel);
+
+  return <div className={`tab-content more-screen more-screen-${route}${isChannelRoute ? ' is-social-experience' : ''}`}>
+    {isChannelRoute && <SocialExperience channel={channel} gs={gs} fmt={fmt} onBack={() => changeSection('social')} />}
+    {!isChannelRoute && <MoreHeader
       title={route === 'index' ? 'Social / More' : route === 'social' ? 'Social desk' : route === 'discover' ? 'Discover' : route === 'settings' ? 'Settings' : route === 'discover-awards' ? 'Awards' : discoveryTitle || channel?.label || 'Career world'}
       eyebrow={route === 'index' ? 'THE CAREER WORLD · SECTION SELECT' : route.startsWith('channel-') ? 'SOCIAL DIRECTORY · SIMULATION ONLY' : route.startsWith('discover-') ? 'DISCOVER · AVAILABILITY' : route.toUpperCase().replace('-', ' · ')}
       subtitle={route === 'index' ? 'Choose a destination beyond the main career desks.' : route === 'social' ? 'These pages are in-game simulations only. Nothing here connects to a real account or posts to an external service.' : route === 'discover' ? 'See what this career engine actually tracks—and what it does not.' : route === 'settings' ? 'Manage the local career save and display preferences.' : route === 'discover-awards' ? 'Eligibility is calculated from the career’s existing releases, streams, and chart history.' : discoveryTitle ? 'This destination is reachable, but there is no matching activity or economic system in the current engine.' : channel ? 'A named in-game destination, never a live account or posting service.' : 'Choose a destination from Social, Discover, or Settings.'}
       week={gs.totalWeeks}
-    />
+    />}
 
-    <nav className="more-section-nav" aria-label="Social, Discover, and Settings">
+    {!isChannelRoute && <nav className="more-section-nav" aria-label="Social, Discover, and Settings">
       {TOP_LEVEL.map(item => <button type="button" key={item.id} aria-current={route === item.id || (item.id === 'social' && route.startsWith('channel-')) || (item.id === 'discover' && route.startsWith('discover')) ? 'page' : undefined} onClick={() => changeSection(item.id)}>{item.title}</button>)}
-    </nav>
+    </nav>}
 
     {route === 'index' && <section className="more-hub" aria-label="Social, Discover, and Settings destinations">
       <div className="more-hub-status"><span className="more-hub-orbit" aria-hidden="true">T</span><div><small>CAREER WORLD DIRECTORY</small><strong>{fmt(gs.fans || 0)} fans <i>·</i> {fmtN(gs.money || 0)}</strong><span>{gs.stageName || 'Artist'} <i>·</i> {gs.totalWeeks || 0} completed weeks</span></div></div>
@@ -102,16 +106,6 @@ export default function MoreTab({ gs, setGs, patch, showToast }) {
         </button>;
       })}</div>
       <p className="more-simulation-note">The six audience counts are Treblr save data, not follower or listener counts on the named services. Each destination is simulation-only; no live connection, share, or external post is performed.</p>
-    </section>}
-
-    {route.startsWith('channel-') && channel && <section className="social-channel-detail" style={{ '--channel-accent':channel.color }}>
-      <button type="button" className="more-back-link" onClick={() => changeSection('social')}>← ALL SOCIAL DESTINATIONS</button>
-      <div className="social-channel-detail-hero"><span>{channel.short}</span><div><small>IN-GAME DESTINATION</small><h2>{channel.label}</h2><p>Not a real account connection. External posting is not available.</p></div></div>
-      {channel.engine ? <>
-        <div className="social-channel-count"><strong>{fmt(Number(gs.socialPlatforms?.[channel.engine] || 0))}</strong><span>{channel.metric} <i>·</i> current career save</span></div>
-        <div className="social-channel-model-note">This displayed audience is the saved value for an existing simulated channel. It does not represent real-world followers, monthly listeners, views, or reach.</div>
-        <button type="button" className="more-primary-action" onClick={() => navigate('social', 'community')}>OPEN SIMULATED SOCIAL DESK <span>↗</span></button>
-      </> : <div className="social-channel-unavailable"><span>NOT MODELED</span><p>No account state, audience figure, posting action, or publication outcome is implemented for this destination.</p></div>}
     </section>}
 
     {route === 'discover' && <section className="discover-directory" aria-label="Discover activities">

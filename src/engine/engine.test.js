@@ -5,7 +5,7 @@ import { makeDefault, migrateSave, getSaveSlots, createCareerSlot, loadGame, exp
 import { WEEKLY_ACTION_POINTS, spendActionPoints } from './actionPoints';
 import { endWeek, handleModalChoice } from './weekEngine';
 import { calculateCatalogWeek, getTrackWeeklyStreams } from './incomeCalc';
-import { buildCharts, seedNPCCareers, tickNPCReleases } from './npcEngine';
+import { buildCharts, estimateNPCMonthlyListeners, seedNPCCareers, tickNPCReleases } from './npcEngine';
 import { getAwardCategories, evaluateAwards } from './awards';
 import { getCityDemand, getCityEvents, buildTourRoute } from './cityScene';
 import { getCollaborationPrice, getJobPay, getProducerPrice, getSocialReachMultiplier, getWeeklySocialEnergy } from './careerPerks';
@@ -53,7 +53,7 @@ describe('weekly action economy', () => {
 describe('versioned, multi-career saves', () => {
   it('migrates older saves, normalizes the action budget, and preserves legacy social aliases and career perks', () => {
     const migrated = migrateSave({ saveVersion:2, stageName:'Old Era', careerType:'social_media', sp:5, se:6, maxSe:7, socialPlatforms:{ soundstream:12, soundcloud:28 }, catalog:[{ id:'old-song', released:true, streams:400 }] });
-    expect(migrated.saveVersion).toBe(4);
+    expect(migrated.saveVersion).toBe(5);
     expect(migrated.sp).toBe(3);
     expect(migrated.maxSp).toBe(3);
     expect(migrated.maxSe).toBe(10);
@@ -63,6 +63,24 @@ describe('versioned, multi-career saves', () => {
     expect(migrated.catalog[0].lifetimeStreams).toBe(400);
     expect(getWeeklySocialEnergy(migrated)).toBe(10);
     expect(migrated.currency).toBe('NGN');
+  });
+
+  it('migrates every rival career to persistent modeled monthly listeners and preserves saved values', () => {
+    const artist = NPC_ARTISTS[0];
+    const migrated = migrateSave({
+      saveVersion:4,
+      totalWeeks:1,
+      npcCareers:{ [artist.id]:{ fans:1_000_000, clout:50, releases:3 } },
+      npcCatalog:[{
+        id:'legacy-rival-track', npcId:artist.id, releaseWeek:0, weeklyStreams:200_000,
+        weeklyHistory:[{ week:0, streams:150_000 }, { week:1, streams:200_000 }],
+      }],
+    });
+
+    expect(Object.keys(migrated.npcCareers)).toHaveLength(NPC_ARTISTS.length);
+    expect(migrated.npcCareers[artist.id].monthlyListeners).toBe(13_500);
+    expect(migrated.npcCareers[NPC_ARTISTS[1].id].monthlyListeners).toBeGreaterThan(0);
+    expect(migrateSave(migrated).npcCareers[artist.id].monthlyListeners).toBe(13_500);
   });
 
   it('moves legacy primary routes into their new destinations without changing money or display currency', () => {
@@ -214,6 +232,8 @@ describe('music economy, charts, and awards', () => {
     const firstId = Object.keys(initial)[0];
     expect(result.updatedCareers[firstId].fans).toBeGreaterThan(initial[firstId].fans);
     expect(result.updatedCatalog).toBeDefined();
+    expect(result.updatedCareers[firstId].monthlyListeners).toBeGreaterThan(0);
+    expect(result.updatedCareers[firstId].monthlyListeners).toBe(estimateNPCMonthlyListeners(NPC_ARTISTS[0], result.updatedCareers[firstId], result.updatedCatalog, 1));
   });
 
   it('earns awards through multiple qualifying work and performance categories', () => {

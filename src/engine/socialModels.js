@@ -1,4 +1,5 @@
 import { NPC_ARTISTS } from '../data/artists';
+import { estimateNPCMonthlyListeners } from './npcEngine';
 
 const finiteCount = (value) => {
   const number = Number(value);
@@ -54,16 +55,20 @@ export function buildCareerPlaylists(tracks) {
 }
 
 export function getModeledArtistRank(gameState = {}, peerArtists = NPC_ARTISTS) {
-  const playerFans = finiteCount(gameState.fans);
-  const peers = (Array.isArray(peerArtists) ? peerArtists : [])
-    .map((artist) => finiteCount(gameState.npcCareers?.[artist.id]?.fans ?? artist.fans))
-    .filter(Number.isFinite);
-  const rank = 1 + peers.filter((fans) => fans > playerFans).length;
+  const playerListeners = finiteCount(gameState.socialPlatforms?.soundify);
+  const peers = (Array.isArray(peerArtists) ? peerArtists : []).map((artist) => {
+    const career = gameState.npcCareers?.[artist.id];
+    const listeners = career?.monthlyListeners ?? artist?.monthlyListeners ?? estimateNPCMonthlyListeners(artist, career, gameState.npcCatalog, gameState.totalWeeks || 0);
+    return finiteCount(listeners);
+  });
+  // Competition ranking: artists with the same listener count share a rank; only strictly larger counts rank ahead.
+  const rank = 1 + peers.filter((listeners) => listeners > playerListeners).length;
 
   return {
     rank,
     population: peers.length + 1,
-    playerFans,
-    basis: 'career fanbase',
+    playerListeners,
+    basis: 'modeled monthly Spotify listeners',
+    tiePolicy: 'Equal listener counts share the same rank.',
   };
 }

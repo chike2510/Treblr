@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { NPC_ARTISTS } from '../data/artists';
 import { buildCareerPlaylists, getCareerChartRows, getModeledArtistRank } from './socialModels';
 import { buildCharts } from './npcEngine';
 
@@ -44,16 +45,29 @@ describe('Social platform career views', () => {
     expect(buildCareerPlaylists([]).every((playlist) => playlist.tracks.length === 0)).toBe(true);
   });
 
-  it('ranks the player against the modeled peer artists using current career fan counts', () => {
+  it('ranks the player by modeled Spotify monthly listeners and gives equal counts a shared deterministic rank', () => {
     const peers = [
-      { id:'rival-a', fans:500 },
-      { id:'rival-b', fans:250 },
-      { id:'rival-c', fans:100 },
+      { id:'rival-a', monthlyListeners:500 },
+      { id:'rival-b', monthlyListeners:300 },
+      { id:'rival-c', monthlyListeners:300 },
+      { id:'rival-d', monthlyListeners:100 },
     ];
-    const gameState = { fans:300, npcCareers:{ 'rival-a':{ fans:450 }, 'rival-b':{ fans:320 } } };
+    const gameState = { fans:999_999, socialPlatforms:{ soundify:300 }, npcCareers:{ 'rival-a':{ monthlyListeners:450 } } };
 
-    expect(getModeledArtistRank(gameState, peers)).toEqual({ rank:3, population:4, playerFans:300, basis:'career fanbase' });
-    expect(getModeledArtistRank({ ...gameState, fans:600 }, peers).rank).toBe(1);
-    expect(getModeledArtistRank({ ...gameState, fans:320 }, peers).rank).toBe(2);
+    expect(getModeledArtistRank(gameState, peers)).toEqual({
+      rank:2,
+      population:5,
+      playerListeners:300,
+      basis:'modeled monthly Spotify listeners',
+      tiePolicy:'Equal listener counts share the same rank.',
+    });
+    expect(getModeledArtistRank({ ...gameState, socialPlatforms:{ soundify:600 } }, peers).rank).toBe(1);
+    expect(getModeledArtistRank({ ...gameState, socialPlatforms:{ soundify:299 } }, peers).rank).toBe(4);
+  });
+
+  it('ranks across all 107 modeled rivals plus the player', () => {
+    const result = getModeledArtistRank({ socialPlatforms:{ soundify:0 }, npcCareers:{} });
+    expect(NPC_ARTISTS).toHaveLength(107);
+    expect(result.population).toBe(108);
   });
 });

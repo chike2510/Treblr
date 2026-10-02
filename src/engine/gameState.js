@@ -1,7 +1,8 @@
 import { WEEKLY_ACTION_POINTS } from './actionPoints';
 import { CURRENCIES, LABELS } from '../data/constants';
+import { normalizeNPCCareers } from './npcEngine';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const MAX_CAREER_SLOTS = 8;
 const LEGACY_SAVE_KEY = 'treblr_v3_save';
 const SAVE_INDEX_KEY = 'treblr_v4_index';
@@ -154,7 +155,9 @@ export const migrateSave = (input) => {
   merged.contractObligations = { ...defaults.contractObligations, ...(saved.contractObligations || {}) };
   merged.creativeControl = Number(saved.creativeControl ?? 100);
   merged.npcRelations = saved.npcRelations && typeof saved.npcRelations === 'object' ? saved.npcRelations : {};
-  merged.npcCareers = saved.npcCareers && typeof saved.npcCareers === 'object' ? saved.npcCareers : {};
+  merged.npcCatalog = Array.isArray(saved.npcCatalog) ? saved.npcCatalog : [];
+  merged.npcLastRelease = saved.npcLastRelease && typeof saved.npcLastRelease === 'object' ? saved.npcLastRelease : {};
+  merged.npcCareers = normalizeNPCCareers(saved.npcCareers, merged.npcCatalog, Number(merged.totalWeeks || 0));
   merged.tourHistory = Array.isArray(saved.tourHistory) ? saved.tourHistory : [];
   merged.ownLabelCampaigns = Array.isArray(saved.ownLabelCampaigns) ? saved.ownLabelCampaigns : [];
   merged.saveVersion = SAVE_VERSION;

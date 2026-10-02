@@ -2,6 +2,7 @@ import { NPC_ARTISTS, NPC_SONG_TITLES } from '../data/artists';
 import { clamp, uid, rand, roll } from './utils';
 
 const ensureCareer = (npc, current = {}) => ({
+  ...current,
   fans: Math.max(1, Number(current.fans ?? npc.fans)),
   clout: clamp(Number(current.clout ?? npc.clout), 0, 100),
   releases: Number(current.releases || 0),
@@ -9,7 +10,52 @@ const ensureCareer = (npc, current = {}) => ({
   lastActiveWeek: Number(current.lastActiveWeek || 0),
 });
 
-export const seedNPCCareers = () => Object.fromEntries(NPC_ARTISTS.map((npc) => [npc.id, ensureCareer(npc)]));
+export const estimateNPCMonthlyListeners = (npc, current = {}, npcCatalog = [], totalWeeks = 0) => {
+  if (!npc) return 0;
+  const career = ensureCareer(npc, current);
+  const tracks = (Array.isArray(npcCatalog) ? npcCatalog : []).filter((song) => song?.npcId === npc.id);
+  // In-game estimate: 1% of fans + 0.05% per released catalog track (up to 20) + recent four-week streams / 350.
+  const releaseCount = Math.min(20, Math.max(tracks.length, career.releases));
+  const fanbaseListeners = career.fans * (0.01 + releaseCount * 0.0005);
+  const monthlyStreams = tracks.reduce((sum, song) => {
+    const history = Array.isArray(song.weeklyHistory) ? song.weeklyHistory : [];
+    const recent = history.filter((sample) => {
+      const week = Number(sample?.week);
+      return Number.isFinite(week) && week <= totalWeeks && week > totalWeeks - 4;
+    });
+    const sampledWeeklyStreams = recent.length
+      ? recent.reduce((sampleSum, sample) => sampleSum + Math.max(0, Number(sample.streams) || 0), 0) / recent.length
+      : Math.max(0, Number(song.weeklyStreams) || 0);
+    return sum + sampledWeeklyStreams * 4;
+  }, 0);
+
+  // Use the player's existing 1-listener-per-350-weekly-stream conversion for rival stream equivalents.
+  return Math.max(0, Math.round(fanbaseListeners + monthlyStreams / 350));
+};
+
+export const normalizeNPCCareers = (npcCareers = {}, npcCatalog = [], totalWeeks = 0) => {
+  const saved = npcCareers && typeof npcCareers === 'object' && !Array.isArray(npcCareers) ? npcCareers : {};
+  return Object.fromEntries(NPC_ARTISTS.map((npc) => {
+    const current = saved[npc.id] || {};
+    const career = ensureCareer(npc, current);
+    const savedListeners = Number(current.monthlyListeners);
+    const hasSavedListeners = current.monthlyListeners !== null
+      && current.monthlyListeners !== ''
+      && Number.isFinite(savedListeners)
+      && savedListeners >= 0;
+    return [npc.id, {
+      ...career,
+      monthlyListeners: hasSavedListeners
+        ? Math.round(savedListeners)
+        : estimateNPCMonthlyListeners(npc, career, npcCatalog, totalWeeks),
+    }];
+  }));
+};
+
+export const seedNPCCareers = (npcCatalog = [], totalWeeks = 0) => Object.fromEntries(NPC_ARTISTS.map((npc) => {
+  const career = ensureCareer(npc);
+  return [npc.id, { ...career, monthlyListeners:estimateNPCMonthlyListeners(npc, career, npcCatalog, totalWeeks) }];
+}));
 
 export const generateNPCSong = (npc, releaseWeek, currentCareer) => {
   const career = ensureCareer(npc, currentCareer);
@@ -28,6 +74,7 @@ export const generateNPCSong = (npc, releaseWeek, currentCareer) => {
     weeklySales: 0,
     lifetimeSales: 0,
     videoViews: 0,
+    weeklyHistory: [],
     weeksOnChart: 0,
     chartHistory: [],
     peakPos: null,
@@ -48,7 +95,7 @@ export const generateNPCCatalog = () => {
 export const tickNPCReleases = (npcCatalog, npcLastRelease, totalWeeks, npcCareers = {}) => {
   const newSongs = [];
   const updatedLastRelease = { ...npcLastRelease };
-  const careers = { ...npcCareers };
+  const careers = normalizeNPCCareers(npcCareers, npcCatalog, totalWeeks);
 
   for (const npc of NPC_ARTISTS) {
     const career = ensureCareer(npc, careers[npc.id]);
@@ -82,8 +129,18 @@ export const tickNPCReleases = (npcCatalog, npcLastRelease, totalWeeks, npcCaree
       weeklySales,
       lifetimeSales: Number(song.lifetimeSales || 0) + weeklySales,
       videoViews: Number(song.videoViews || 0) + Math.round(weeklyStreams * 0.1),
+      weeklyHistory: [...(Array.isArray(song.weeklyHistory) ? song.weeklyHistory : []).filter((sample) => Number(sample?.week) !== totalWeeks), { week:totalWeeks, streams:weeklyStreams }]
+        .sort((a, b) => Number(a.week) - Number(b.week))
+        .slice(-4),
     };
   });
+  for (const npc of NPC_ARTISTS) {
+    const career = ensureCareer(npc, careers[npc.id]);
+    careers[npc.id] = {
+      ...career,
+      monthlyListeners:estimateNPCMonthlyListeners(npc, career, catalog, totalWeeks),
+    };
+  }
   return { newNpcSongs: newSongs, updatedLastRelease, updatedCatalog: catalog, updatedCareers: careers };
 };
 

@@ -609,12 +609,13 @@ test('all twelve native Social destinations render, interact, and return without
       expect(detailGeometry.backBottom).toBeLessThan(detailGeometry.viewportHeight);
 
       if (service.id === 'spotify') {
-        await expect(view).toContainText('Monthly listeners');
+        await expect(view).toContainText('Modeled monthly Spotify listeners');
+        await expect(view).toContainText('In-game estimate · updated weekly');
         const saveValue = directoryMetric.trim().split(/\s+/)[0];
         await expect(view).toContainText(saveValue);
-        await expect(view).toContainText('WORLD ARTIST RANK');
-        await expect(view.locator('.spfy-world-rank')).toContainText(/#\d+/);
-        await expect(view.locator('.spfy-world-rank')).toContainText(/\d+ modeled artists/);
+        await expect(view).toContainText('IN-GAME ARTIST RANK');
+        await expect(view.locator('.spfy-world-rank')).toContainText(/#\d+ of 108/);
+        await expect(view.locator('.spfy-world-rank')).toContainText('By modeled monthly Spotify listeners');
         await expect(view).not.toContainText(/simulated career audience|not a Spotify account metric|Treblr career preview|no external account connected/i);
       } else if (service.metric) {
         await expect(view).toContainText(/simulated (career )?audience/i);

@@ -290,7 +290,7 @@ export default function App() {
     };
 
     const npcCatalog    = generateNPCCatalog();
-    const npcCareers    = seedNPCCareers();
+    const npcCareers    = seedNPCCareers(npcCatalog);
     const npcLastRelease = {};
     for (const npc of NPC_ARTISTS) {
       npcLastRelease[npc.id] = -(npc.releaseFrequency + Math.floor(Math.random() * 4));

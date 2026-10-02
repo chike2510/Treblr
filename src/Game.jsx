@@ -157,14 +157,15 @@ export default function Game({ gs, setGs }) {
   const timeStr = getTimeLabel(gs.totalWeeks, gs.startYear);
   const actionPoints = getActionPoints(gs);
   const isMoreScreenActive = ['social-home','discover','settings','more'].includes(gs.tab);
-  const hideGlobalTabBar = isMoreScreenActive && isSocialChannelRoute(gs.appRoutes?.more);
+  const isSocialChannelDetail = isMoreScreenActive && isSocialChannelRoute(gs.appRoutes?.more);
+  const hideGlobalTabBar = isSocialChannelDetail;
   const tabProps = { gs, setGs, patch, patchFn, showToast, endWeek:handleEndWeek, isEndingWeek };
 
   return (
     <div className="app-shell" data-scene={gs.tab}>
       <DesktopSidebar gs={gs} navigate={navigate}/>
       <div className="app-workspace">
-        <header className="li-topbar">
+        {!isSocialChannelDetail && <header className="li-topbar">
           <div className="li-topbar-row">
             <div className="li-topbar-identity">
               <PlayerAvatar gs={gs} size={36} ring="var(--scene-accent)"/>
@@ -188,7 +189,7 @@ export default function Game({ gs, setGs }) {
               <div className="li-action-dots" aria-hidden="true">{Array.from({ length:WEEKLY_ACTION_POINTS }).map((_, index) => <span key={index} className={index < actionPoints ? 'is-ready' : ''}/>)}</div>
             </div>
           </div>
-        </header>
+        </header>}
 
         <main className="app-main" aria-label="Career simulation">
           {gs.tab === 'home' && <HomeTab {...tabProps}/>}

@@ -596,9 +596,11 @@ test('all twelve native Social destinations render, interact, and return without
         const bounds = element.getBoundingClientRect();
         const screen = document.querySelector('.more-screen.is-social-experience').getBoundingClientRect();
         const scroll = document.querySelector('.more-screen.is-social-experience');
-        return { bottom:bounds.bottom, screenBottom:screen.bottom, scrollBottom:scroll.scrollTop + scroll.clientHeight, scrollHeight:scroll.scrollHeight };
+        const experience = document.querySelector('.social-experience');
+        return { bottom:bounds.bottom, screenBottom:screen.bottom, bottomGap:screen.bottom - bounds.bottom, safePadding:parseFloat(getComputedStyle(experience).paddingBottom), scrollBottom:scroll.scrollTop + scroll.clientHeight, scrollHeight:scroll.scrollHeight };
       });
       expect(finalContent.bottom).toBeLessThanOrEqual(finalContent.screenBottom + 1);
+      expect(finalContent.bottomGap).toBeCloseTo(finalContent.safePadding, 0);
       expect(finalContent.scrollBottom).toBeGreaterThanOrEqual(finalContent.scrollHeight - 1);
 
       switch (service.id) {

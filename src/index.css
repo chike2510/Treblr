@@ -2516,9 +2516,9 @@ body { font-family:var(--font-ui); background:var(--bg-sunken); }
   position:relative;
   isolation:isolate;
   z-index:20;
-  background:rgba(21,23,25,0.74);
+  background:rgba(42,48,55,0.84);
   border-top:1px solid rgba(245,241,232,0.22);
-  box-shadow:0 -10px 26px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.045);
+  box-shadow:0 -10px 26px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.10);
   backdrop-filter:blur(18px) saturate(145%);
   -webkit-backdrop-filter:blur(18px) saturate(145%);
 }
@@ -2530,9 +2530,18 @@ body { font-family:var(--font-ui); background:var(--bg-sunken); }
   right:14px;
   height:1px;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,0.38) 22%,rgba(255,255,255,0.16) 78%,transparent);
+  z-index:2;
   pointer-events:none;
 }
-.tab-btn { min-width:0; padding:0 2px; gap:3px; }
+.tab-bar::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.035) 28%,transparent 72%);
+  z-index:0;
+  pointer-events:none;
+}
+.tab-btn { min-width:0; padding:0 2px; gap:3px; z-index:1; }
 .tab-btn.on { color:#E4B35D; }
 .tab-btn.on::before { left:28%; right:28%; background:#C8922A; box-shadow:none; }
 .tab-btn-icon { font-size:16px; }
@@ -3111,7 +3120,7 @@ body { font-family:var(--font-ui); background:var(--bg-sunken); }
 .app-shell[data-scene] .li-action-dots { gap:4px; margin-top:4px; }
 .app-shell[data-scene] .li-action-dots span { width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.14); }
 .app-shell[data-scene] .li-action-dots span.is-ready { background:var(--scene-accent); }
-.app-shell[data-scene] .tab-bar { height:calc(64px + env(safe-area-inset-bottom, 0px)); padding:0 4px env(safe-area-inset-bottom, 0px); background:rgba(21,23,25,.74); border-top:1px solid rgba(255,255,255,.22); }
+.app-shell[data-scene] .tab-bar { height:calc(64px + env(safe-area-inset-bottom, 0px)); padding:0 4px env(safe-area-inset-bottom, 0px); background:rgba(42,48,55,.84); border-top:1px solid rgba(255,255,255,.22); }
 .app-shell[data-scene] .tab-btn { color:#85837d; }
 .app-shell[data-scene] .tab-btn.on { color:var(--scene-accent); }
 .app-shell[data-scene] .tab-btn.on::before { background:var(--scene-accent); box-shadow:none; }

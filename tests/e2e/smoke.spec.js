@@ -77,13 +77,20 @@ test('mobile glass navigation keeps seven labels readable and clear of content a
     const material = await nav.evaluate(element => {
       const style = getComputedStyle(element);
       const match = style.backgroundColor.match(/[\d.]+/g) || [];
+      const shellStyle = getComputedStyle(document.querySelector('.app-shell'));
+      const shellMatch = shellStyle.backgroundColor.match(/[\d.]+/g) || [];
+      const tint = match.slice(0,3).map(Number);
+      const shellTint = shellMatch.slice(0,3).map(Number);
       const box = element.getBoundingClientRect();
       const shell = document.querySelector('.app-shell').getBoundingClientRect();
       const main = document.querySelector('.app-main').getBoundingClientRect();
+      const sheen = getComputedStyle(element, '::after').backgroundImage;
       return {
         backgroundColor:style.backgroundColor,
         alpha:Number(match[3]),
+        visibleComposite:tint.map((channel,index) => Math.round(channel * Number(match[3]) + shellTint[index] * (1 - Number(match[3])))),
         backdropFilter:style.backdropFilter,
+        sheen,
         left:box.left,
         top:box.top,
         bottom:box.bottom,
@@ -93,10 +100,12 @@ test('mobile glass navigation keeps seven labels readable and clear of content a
         clientWidth:element.clientWidth,
       };
     });
-    expect(material.alpha).toBeGreaterThan(0.5);
+    expect(material.alpha).toBeGreaterThan(0.8);
     expect(material.alpha).toBeLessThan(0.9);
+    expect(material.visibleComposite.every(channel => channel >= 30)).toBe(true);
     expect(material.backdropFilter).toContain('blur(18px)');
     expect(material.backdropFilter).toContain('saturate(1.45)');
+    expect(material.sheen).toContain('linear-gradient');
     expect(material.left).toBeGreaterThanOrEqual(0);
     expect(material.bottom).toBeCloseTo(material.shellBottom, 0);
     expect(material.mainBottom).toBeLessThanOrEqual(material.top + 1);

@@ -14,7 +14,7 @@ async function startCareer(page, stageName = 'Smoke Artist', currency = 'NGN') {
   await page.getByRole('button', { name:'NEXT →' }).click();
   await page.getByRole('radio', { name:/Social Media Star/ }).click();
   await page.getByRole('button', { name:'BEGIN CAREER →' }).click();
-  await expect(page.getByRole('heading', { name:'The week you make the move.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name:'Home', exact:true })).toBeVisible();
   await expect(page.getByLabel('3 of 3 weekly action points remaining')).toBeVisible();
 }
 
@@ -50,6 +50,45 @@ test('mobile task navigation stays readable and every primary destination remain
     if (name !== 'Home') await capture(screenshot);
   }
   expect(await nav.evaluate(element => getComputedStyle(element).backdropFilter)).toContain('blur(16px)');
+});
+
+test('mobile Home shows the modular career dashboard, scrolls fully, and opens each live widget destination', async ({ page }) => {
+  await page.setViewportSize({ width:390, height:844 });
+  await startCareer(page, 'Dashboard Artist');
+  const dashboard = page.locator('.mod-home-root');
+  await expect(dashboard).toBeVisible();
+  for (const heading of ['MY CAREER DASHBOARD', 'CAREER OPERATIONS', 'OFF-STAGE SNAPSHOT', 'RECENT ACTIVITY & LOGS', 'YOUR NEXT MOVE']) {
+    await expect(dashboard.getByText(heading, { exact:true })).toBeVisible();
+  }
+  await expect(dashboard.getByRole('button', { name:'END WEEK', exact:true })).toBeVisible();
+  expect(await page.locator('.mod-home-scroll').evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+
+  await dashboard.getByRole('button', { name:/OPEN THE STUDIO/ }).click();
+  await expect(page.getByRole('heading', { name:'Record', exact:true })).toBeVisible();
+  await page.getByRole('button', { name:'Home', exact:true }).click();
+  await page.locator('.mod-home-root').getByRole('button', { name:/OPEN FINANCES/ }).click();
+  await expect(page.getByRole('heading', { name:'Finances', exact:true })).toBeVisible();
+  await page.getByRole('button', { name:'Home', exact:true }).click();
+  await page.locator('.mod-home-root').getByRole('button', { name:/VIEW AVAILABLE JOBS/ }).click();
+  await expect(page.getByRole('heading', { name:'Jobs', exact:true })).toBeVisible();
+  await page.getByRole('button', { name:'Home', exact:true }).click();
+  await page.locator('.mod-home-root').getByRole('button', { name:/VIEW TOUR DESK/ }).click();
+  await expect(page.getByRole('heading', { name:'Tour', exact:true })).toBeVisible();
+  await page.getByRole('button', { name:'Home', exact:true }).click();
+  await page.locator('.mod-home-root').getByRole('button', { name:/OPEN CONTRACTS/ }).click();
+  await expect(page.getByRole('heading', { name:'Industry', exact:true })).toBeVisible();
+  await page.getByRole('button', { name:'Home', exact:true }).click();
+  await page.locator('.mod-home-root').getByRole('button', { name:/MANAGE YOUR FEED/ }).click();
+  await expect(page.getByRole('heading', { name:'Community', exact:true })).toBeVisible();
+  await page.getByRole('button', { name:'Home', exact:true }).click();
+  const homeScroll = page.locator('.mod-home-scroll');
+  await homeScroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await expect(page.locator('.mod-home-root').getByRole('button', { name:/OPEN CAREER LOG/ })).toBeVisible();
+  await expect(page.getByRole('button', { name:'END WEEK', exact:true })).toBeVisible();
+  await expect(page.locator('.tab-bar')).toBeVisible();
+  await page.locator('.mod-home-root').getByRole('button', { name:/OPEN CAREER LOG/ }).click();
+  await expect(page.getByRole('heading', { name:'Career log', exact:true })).toBeVisible();
 });
 
 test('390px phone task indexes expose every nested route without horizontal scrolling', async ({ page }) => {
@@ -212,7 +251,7 @@ test('mobile studio records a track, releases it and opens the modeled performan
   await dismissTestEventPrompt(page);
   await page.getByRole('button', { name:/CONTINUE/ }).click();
   if (process.env.CAPTURE_ARTIFACTS === '1') {
-    await page.locator('.home-scroll').evaluate(element => { element.scrollTop = 0; });
+    await page.locator('.mod-home-scroll').evaluate(element => { element.scrollTop = 0; });
     await page.waitForTimeout(750);
     await page.screenshot({ path:testInfo.outputPath('redesign-home-week-2.png'), fullPage:true });
   }

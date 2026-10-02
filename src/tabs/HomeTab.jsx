@@ -1,6 +1,7 @@
-import { ERAS, CITIES, GENRES } from '../data/constants';
+import { ERAS, CITIES, GENRES, JOBS, LABELS } from '../data/constants';
 import { fmt, fmtN as formatCurrency, getEra, getTimeLabel } from '../engine/utils';
 import { getActionPoints } from '../engine/actionPoints';
+import { buildTourRoute } from '../engine/cityScene';
 import { PlayerAvatar } from '../components/Living';
 
 const TYPE_LABELS = {
@@ -19,6 +20,15 @@ const TYPE_COLORS = {
   '': 'var(--text-muted)',
 };
 
+const PLATFORM_LABELS = [
+  ['soundify', 'SFD'],
+  ['instapic', 'IN'],
+  ['chirp', 'CH'],
+  ['vidtube', 'VT'],
+  ['rhythmtok', 'RT'],
+  ['wavelog', 'WL'],
+];
+
 const MOVE_ROUTES = {
   record: ['create', 'record'],
   release: ['create', 'release'],
@@ -26,10 +36,41 @@ const MOVE_ROUTES = {
   performance: ['create', 'performance'],
   training: ['create', 'train'],
   jobs: ['create', 'jobs'],
+  contracts: ['business', 'industry'],
   tour: ['business', 'tour'],
   money: ['business', 'money'],
   career: ['business', 'overview'],
 };
+
+const ROUTE_KEYS = { create: 'music', business: 'career', social: 'news', profile: 'profile' };
+
+const isJobEligible = (job, gs) => {
+  if (!job.req) return true;
+  if (job.req.startsWith('fans')) return Number(gs.fans || 0) >= Number(job.req.slice(4));
+  const requirement = job.req.match(/^([a-z]+)(\d+)$/);
+  return requirement ? Number(gs[requirement[1]] || 0) >= Number(requirement[2]) : true;
+};
+
+const changeRoute = (patch, gs, tab, route) => {
+  const key = ROUTE_KEYS[tab];
+  patch({
+    tab,
+    appRoutes: { ...(gs.appRoutes || {}), ...(key && route ? { [key]: route } : {}) },
+  });
+};
+
+function DashboardCard({ eyebrow, title, status, className = '', children, action, onAction, actionLabel }) {
+  return (
+    <article className={`mod-card ${className}`}>
+      <div className="mod-card-top"><span>{eyebrow}</span>{status && <span className="mod-card-status">{status}</span>}</div>
+      <h2>{title}</h2>
+      {children}
+      <button type="button" className="mod-card-action" onClick={onAction}>
+        {actionLabel || action} <span aria-hidden="true">↗</span>
+      </button>
+    </article>
+  );
+}
 
 export default function HomeTab({ gs, patch, endWeek, isEndingWeek }) {
   const fmtN = amount => formatCurrency(amount, gs.currency);
@@ -40,16 +81,24 @@ export default function HomeTab({ gs, patch, endWeek, isEndingWeek }) {
     : 100;
   const city = CITIES.find(item => item.id === gs.city) || CITIES[0];
   const genre = GENRES.find(item => item.id === gs.genre)?.label || gs.genre || 'Music';
-  const released = (gs.catalog || []).filter(track => track.released);
-  const unreleased = (gs.catalog || []).filter(track => !track.released);
+  const catalog = Array.isArray(gs.catalog) ? gs.catalog : [];
+  const released = catalog.filter(track => track.released);
+  const unreleased = catalog.filter(track => !track.released);
   const latest = released.reduce((best, track) => !best || Number(track.releaseWeek || 0) > Number(best.releaseWeek || 0) ? track : best, null);
-  const featured = latest || unreleased[0] || null;
-  const latestSample = latest?.weeklyHistory?.at(-1) || null;
-  const report = gs.lastWeekReport || null;
+  const draft = unreleased[0] || null;
+  const report = gs.lastWeekReport || gs.weekReport || null;
   const entries = (gs.news || []).slice(0, 3);
   const actions = getActionPoints(gs);
   const weeksUntilRelease = Math.max(0, Number(gs.lastReleaseWeek ?? -99) + 2 - Number(gs.totalWeeks || 0));
-  const routeKey = { create: 'music', business: 'career', social: 'news', profile: 'profile' };
+  const totalSocial = Object.values(gs.socialPlatforms || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  const latestSocialPost = (gs.feed || []).find(item => item?.type === 'social' && item.msg);
+  const label = LABELS.find(item => item.id === gs.labelId) || LABELS[0];
+  const isSigned = label.id !== 'independent';
+  const matchedJobs = JOBS.filter(job => isJobEligible(job, gs));
+  const activeTour = Boolean(gs.tourActive && gs.tourData);
+  const nextTourStop = activeTour ? (gs.tourData.route || []).find(stop => !Number(stop.attendance || 0)) : null;
+  const activeProjectCount = (gs.projects || []).length;
+  const routeKey = ROUTE_KEYS;
 
   const goTo = destination => {
     const [tab, route] = MOVE_ROUTES[destination] || ['business', 'overview'];
@@ -66,7 +115,7 @@ export default function HomeTab({ gs, patch, endWeek, isEndingWeek }) {
     } else if (!released.length) {
       moves.push({ id: 'record', destination: 'record', label: 'Record your first track', note: 'Choose a producer and optional feature in the Studio', cost: '1 AP · 25 energy' });
     } else {
-      moves.push({ id: 'performance', destination: 'performance', label: 'Read the latest release', note: latest ? `${latest.title} · ${latestSample ? `Week ${latestSample.week} streams` : 'first result arrives at week close'}` : 'Open the live release ledger', cost: 'No AP' });
+      moves.push({ id: 'performance', destination: 'performance', label: 'Read the latest release', note: latest ? `${latest.title} · ${latest.weeklyHistory?.at(-1) ? `Week ${fmt(latest.weeklyHistory.at(-1).week)} · ${fmt(latest.weeklyHistory.at(-1).streams)} streams` : 'first result arrives at week close'}` : 'Open the live release ledger', cost: 'No AP' });
     }
     if (gs.activeJob) {
       moves.push({ id: 'job', destination: 'jobs', label: 'Check your current work', note: `${gs.activeJob.label} · ${gs.activeJob.weeksLeft} week${gs.activeJob.weeksLeft === 1 ? '' : 's'} left`, cost: `${fmtN(gs.activeJob.weeklyPay || 0)}/week` });
@@ -78,102 +127,119 @@ export default function HomeTab({ gs, patch, endWeek, isEndingWeek }) {
       : { id: 'money', destination: 'money', label: 'Read the cash ledger', note: report ? `Last settled · Week ${report.week}` : 'Your first statement arrives when a week closes', cost: 'No AP' });
   }
 
+  const openNews = section => changeRoute(patch, gs, 'social', section);
+
   return (
-    <div className="tab-content home-content home-page">
-      <div className="home-scroll">
-        <header className="home-edition">
-          <div className="home-edition-meta"><span>THE ARTIST’S DESK</span><span>{getTimeLabel(gs.totalWeeks || 0, gs.startYear)}</span></div>
-          <h1>The week you make the move.</h1>
-          <p>Week {Number(gs.totalWeeks || 0) + 1} <span>·</span> {city.label} <span>·</span> {genre}</p>
+    <div className="tab-content home-content mod-home-root">
+      <div className="mod-home-scroll">
+        <header className="mod-home-heading">
+          <div className="mod-home-edition"><span>TREBLR <i>/</i> ARTIST DESK</span><span>{getTimeLabel(gs.totalWeeks || 0, gs.startYear)}</span></div>
+          <div className="mod-home-title-row">
+            <div className="mod-home-avatar"><PlayerAvatar gs={gs} size={40} ring="var(--accent-gold)" /></div>
+            <div className="mod-home-title-copy">
+              <h1>Home</h1>
+              <p>{gs.stageName || 'Your artist'} <i>·</i> {city.label} <i>·</i> {genre}</p>
+            </div>
+            <span className="mod-home-week">WEEK {String(Number(gs.totalWeeks || 0) + 1).padStart(2, '0')}</span>
+          </div>
         </header>
 
-        <section className="home-artist-hero" aria-label="Artist identity">
-          <div className="home-artist-portrait"><PlayerAvatar gs={gs} size={76} ring="var(--scene-accent)" /></div>
-          <div className="home-artist-copy">
-            <span className="home-artist-kicker">CURRENT CHAPTER</span>
-            <h2>{gs.stageName || 'Your artist name'}</h2>
-            <p>{era.label.replace(' Era', '')} <span>·</span> {genre}</p>
-            <span className="home-artist-place">{city.label.toUpperCase()} / INDEPENDENT CAREER</span>
-          </div>
-          <div className="home-artist-issue">{String(Number(gs.totalWeeks || 0) + 1).padStart(2, '0')}<small>WEEK</small></div>
-        </section>
-
-        <section className="home-scoreline" aria-label="Recorded career indicators">
-          <div><span>FANBASE</span><strong>{fmt(gs.fans || 0)}</strong></div>
-          <div><span>LIFETIME STREAMS</span><strong>{fmt(gs.totalLifetimeStreams || 0)}</strong></div>
-          <div><span>REPUTATION</span><strong>{Math.round(gs.reputation ?? 50)}<small>/100</small></strong></div>
-        </section>
-
-        <section className="home-milestone" aria-label="Career milestone progress">
-          <div className="home-section-heading"><span>THE NEXT MILESTONE</span><span>{nextEra ? `${progress}%` : 'REACHED'}</span></div>
-          <div className="home-milestone-title">
-            <strong>{nextEra ? nextEra.label.replace(' Era', '') : 'All fan-based eras reached'}</strong>
-            <span>{nextEra ? `${fmt(Math.max(0, nextEra.minFans - Number(gs.fans || 0)))} fans to go` : 'The highest fan tier is yours.'}</span>
-          </div>
-          <div className="home-era-track" role="progressbar" aria-label={`Progress to ${nextEra?.label || 'the highest era'}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}>
-            {ERAS.map((step, index) => <span key={step.label} className={index <= ERAS.indexOf(era) ? 'is-past' : ''} />)}
-            {nextEra && <i style={{ left: `${progress}%` }} />}
-          </div>
-        </section>
-
-        <section className="home-signal" aria-labelledby="home-signal-title">
-          <div className="home-section-heading"><span>THE RECORD</span><span>{latest ? 'IN ROTATION' : featured ? 'IN THE VAULT' : 'STUDIO NEXT'}</span></div>
-          {featured ? (
-            <div className="home-feature-record">
-              <button type="button" className="home-record-art" onClick={() => goTo(latest ? 'performance' : featured.released ? 'catalog' : 'release')} aria-label={`Open ${featured.title}`}>
-                {featured.coverArt ? <img src={featured.coverArt} alt={`${featured.title} cover art`} /> : <span className="home-record-glyph" aria-hidden="true"><i /></span>}
-                <span className="home-record-index">SIDE A</span>
-              </button>
-              <div className="home-record-copy">
-                <span className="home-record-status">{latest ? 'LATEST RELEASE' : 'NEXT RELEASE'}</span>
-                <strong id="home-signal-title">{featured.title}</strong>
-                <span>{GENRES.find(item => item.id === featured.genre)?.label || featured.genre || genre} <i>·</i> Quality {featured.quality}</span>
-                {latest
-                  ? <span className="home-record-stat">{fmt(latest.lifetimeStreams || latest.streams || 0)} lifetime streams{latestSample ? ` · ${fmt(latestSample.streams)} this week` : ''}</span>
-                  : <span className="home-record-stat">Recorded · {featured.released ? 'released' : 'not yet released'}</span>}
-                <button type="button" className="home-record-action" onClick={() => goTo(latest ? 'performance' : 'release')}>
-                  {latest ? 'OPEN PERFORMANCE' : 'PLAN RELEASE'} <span aria-hidden="true">→</span>
-                </button>
+        <section className="mod-dashboard-section" aria-labelledby="career-growth-title">
+          <div className="mod-section-heading"><span>MY CAREER DASHBOARD</span><span>CAREER PULSE</span></div>
+          <article className="mod-card mod-career-card">
+            <div className="mod-career-topline">
+              <div><span className="mod-card-kicker">FAN GROWTH</span><h2 id="career-growth-title">{fmt(gs.fans || 0)} <small>fans</small></h2></div>
+              <div className={`mod-growth-value${Number(report?.fansDelta || 0) < 0 ? ' is-down' : ''}`}>
+                <span>{report ? `${Number(report.fansDelta || 0) > 0 ? '+' : ''}${fmt(report.fansDelta || 0)}` : '—'}</span>
+                <small>{report ? 'LAST WEEK' : 'WEEKLY CHANGE'}</small>
               </div>
             </div>
-          ) : (
-            <div className="home-first-session">
-              <div className="home-soundmark" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /></div>
-              <div><strong>Nothing in the vault. Yet.</strong><p>Your first recording is one decision away.</p></div>
-              <button type="button" onClick={() => goTo('record')}>OPEN STUDIO <span aria-hidden="true">→</span></button>
-            </div>
-          )}
+            <div className="mod-era-label"><strong>{nextEra ? nextEra.label.replace(' Era', '') : 'Top fan tier reached'}</strong><span>{nextEra ? `${fmt(Math.max(0, nextEra.minFans - Number(gs.fans || 0)))} to go` : 'Maximum career milestone'}</span></div>
+            <div className="mod-progress-track" role="progressbar" aria-label={`Progress to ${nextEra?.label || 'the highest era'}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>
+            <div className="mod-career-foot"><span>{era.label.replace(' Era', '')}</span><span>{nextEra ? `${progress}% OF NEXT TIER` : 'LEGACY'}</span></div>
+            <div className="mod-mini-stats"><div><span>LIFETIME STREAMS</span><strong>{fmt(gs.totalLifetimeStreams || 0)}</strong></div><div><span>REPUTATION</span><strong>{Math.round(gs.reputation ?? 50)}<small>/100</small></strong></div><div><span>RELEASES</span><strong>{released.length}</strong></div></div>
+          </article>
         </section>
 
-        <section className="home-weekly-record" aria-labelledby="home-weekly-title">
-          <div className="home-section-heading"><span id="home-weekly-title">THIS WEEK, ON RECORD</span><span>{report ? `SETTLED · WK ${report.week}` : 'CAREER JOURNAL'}</span></div>
-          {report && <div className="home-settled-row"><span>Last statement</span><span>{fmt(report.fansDelta || 0)} fans <i>·</i> {fmt(report.streamCount || 0)} streams</span><strong>{fmtN(report.revenue || 0)} in</strong></div>}
-          {(gs.tourActive && gs.tourData) && <div className="home-obligation"><span className="home-obligation-type">TOUR</span><span>{gs.tourData.label} · {gs.tourWeeksLeft} week{gs.tourWeeksLeft === 1 ? '' : 's'} left</span></div>}
-          {gs.activeJob && <div className="home-obligation"><span className="home-obligation-type">WORK</span><span>{gs.activeJob.label} · {fmtN(gs.activeJob.weeklyPay || 0)}/week</span></div>}
-          {gs.labelId && gs.labelId !== 'independent' && <div className="home-obligation"><span className="home-obligation-type">CONTRACT</span><span>{gs.contractWeeksLeft || 0} weeks remaining · {gs.contractObligations?.postsDue || 0} posts due</span></div>}
-          {entries.length ? <ol className="home-journal-list">{entries.map((item, index) => <li key={`${item.week ?? 0}-${index}-${item.msg}`}>
-            <span className="home-journal-mark" style={{ background: TYPE_COLORS[item.type] || TYPE_COLORS[''] }} />
-            <span className="home-journal-copy"><strong>{TYPE_LABELS[item.type] || 'JOURNAL'} <i>·</i> WEEK {item.week ?? '—'}</strong><span>{item.msg}</span></span>
-          </li>)}</ol> : <p className="home-empty-copy">Your career log will record real simulation events as they happen.</p>}
-          <button type="button" className="home-text-link" onClick={() => patch({ tab: 'social', appRoutes: { ...(gs.appRoutes || {}), news: 'wire' } })}>OPEN THE WIRE <span aria-hidden="true">→</span></button>
+        <section className="mod-dashboard-section" aria-label="Career operations">
+          <div className="mod-section-heading"><span>CAREER OPERATIONS</span><span>LIVE STATUS</span></div>
+          <div className="mod-card-grid">
+            <DashboardCard eyebrow="CURRENT DEAL" title={label.name} status={isSigned ? `${gs.contractWeeksLeft || 0} WEEKS LEFT` : 'INDEPENDENT'} className="mod-deal-card" actionLabel="OPEN CONTRACTS" onAction={() => goTo('contracts')}>
+              <p className="mod-card-copy">{isSigned ? `${label.artistSplit}% artist share · ${Math.round(gs.creativeControl ?? label.creativeControl)}% creative control` : 'Self-released · full ownership retained'}</p>
+              {isSigned ? <div className="mod-detail-pair"><span>Due this week</span><strong>{gs.contractObligations?.postsDue || 0} posts <i>·</i> {gs.contractObligations?.singlesDue || 0} singles</strong></div> : <div className="mod-detail-pair"><span>Deal status</span><strong>No label obligations</strong></div>}
+              <div className="mod-card-note">{isSigned ? `${label.tierLabel} · ${label.desc}` : 'Review label offers and terms in the Industry hub.'}</div>
+            </DashboardCard>
+
+            <DashboardCard eyebrow="TOUR TRACKER" title={activeTour ? gs.tourData.label : 'No tour booked'} status={activeTour ? 'ON THE ROAD' : 'READY WHEN YOU ARE'} className="mod-tour-card" actionLabel="VIEW TOUR DESK" onAction={() => goTo('tour')}>
+              {activeTour ? <>
+                <div className="mod-tour-next"><span>NEXT STOP</span><strong>{nextTourStop?.city || 'Final stop complete'}</strong></div>
+                <p className="mod-card-copy">{gs.tourWeeksLeft} week{gs.tourWeeksLeft === 1 ? '' : 's'} remaining <i>·</i> projected {fmtN(gs.tourData.revenue || 0)}</p>
+              </> : <>
+                <div className="mod-tour-next"><span>HOME MARKET</span><strong>{city.label}</strong></div>
+                <p className="mod-card-copy">Compare eligible routes, booking costs and modeled attendance.</p>
+              </>}
+            </DashboardCard>
+
+            <DashboardCard eyebrow="STUDIO WORKSHOP" title={draft ? 'A track is in the vault' : latest ? 'Latest release' : 'Start a session'} status={draft ? `${unreleased.length} UNRELEASED` : `${catalog.length} TRACK${catalog.length === 1 ? '' : 'S'}`} className="mod-studio-card" actionLabel={draft ? 'PLAN A RELEASE' : 'OPEN THE STUDIO'} onAction={() => goTo(draft ? 'release' : 'record')}>
+              <div className="mod-studio-record"><span className="mod-record-mark" aria-hidden="true">♫</span><div><strong>{draft?.title || latest?.title || 'Your first record'}</strong><span>{draft ? `Recorded · quality ${draft.quality}/100` : latest ? `${latest.releaseType || 'Single'} · quality ${latest.quality}/100` : 'Choose a producer and build your sound.'}</span></div></div>
+              <div className="mod-detail-pair"><span>Released projects</span><strong>{activeProjectCount}</strong></div>
+            </DashboardCard>
+
+            <DashboardCard eyebrow="CONTRACTS & JOBS" title={gs.activeJob ? 'Work in progress' : 'Open job board'} status={gs.activeJob ? 'ACTIVE' : `${matchedJobs.length} MATCHING`} className="mod-jobs-card" actionLabel="VIEW AVAILABLE JOBS" onAction={() => goTo('jobs')}>
+              {gs.activeJob ? <>
+                <p className="mod-job-title">{gs.activeJob.label}</p>
+                <div className="mod-detail-pair"><span>{gs.activeJob.weeksLeft} week{gs.activeJob.weeksLeft === 1 ? '' : 's'} remaining</span><strong>{fmtN(gs.activeJob.weeklyPay || 0)} / wk</strong></div>
+              </> : <>
+                <p className="mod-card-copy">Listings that meet your current fan and skill requirements.</p>
+                <div className="mod-detail-pair"><span>Board listings</span><strong>{JOBS.length}</strong></div>
+              </>}
+            </DashboardCard>
+          </div>
         </section>
 
-        <section className="home-next-moves" aria-labelledby="home-moves-title">
-          <div className="home-section-heading"><span id="home-moves-title">YOUR NEXT MOVE</span><span>{actions} ACTION{actions === 1 ? '' : 'S'} LEFT</span></div>
-          <div className="home-move-list">{moves.slice(0, 3).map((move, index) => <button type="button" className="home-move" key={move.id} onClick={() => goTo(move.destination)}>
-            <span className="home-move-number">0{index + 1}</span>
-            <span className="home-move-copy"><strong>{move.label}</strong><small>{move.note}</small></span>
-            <span className="home-move-cost">{move.cost}</span><span className="home-arrow" aria-hidden="true">↗</span>
+        <section className="mod-dashboard-section" aria-label="Audience and cash overview">
+          <div className="mod-section-heading"><span>OFF-STAGE SNAPSHOT</span><span>THIS WEEK</span></div>
+          <div className="mod-card-grid">
+            <DashboardCard eyebrow="SOCIAL ENGAGEMENT" title={`${fmt(totalSocial)} total audience`} status="6 PLATFORMS" className="mod-social-card" actionLabel="MANAGE YOUR FEED" onAction={() => openNews('community')}>
+              <div className="mod-platform-grid">{PLATFORM_LABELS.map(([key, label]) => <div key={key}><span>{label}</span><strong>{fmt((gs.socialPlatforms || {})[key] || 0)}</strong></div>)}</div>
+              <p className="mod-card-note mod-post-note">{latestSocialPost ? `Latest post · ${latestSocialPost.msg}` : 'No posts recorded yet. Per-post likes and comments are not modeled.'}</p>
+            </DashboardCard>
+
+            <DashboardCard eyebrow="FINANCIALS" title={fmtN(gs.money || 0)} status="CASH BALANCE" className="mod-finance-card" actionLabel="OPEN FINANCES" onAction={() => goTo('money')}>
+              <p className="mod-finance-caption">Available cash</p>
+              <div className="mod-detail-pair"><span>Last week income</span><strong>{report ? fmtN(report.revenue || 0) : '—'}</strong></div>
+              <div className="mod-detail-pair"><span>Tax set aside</span><strong>{fmtN(gs.taxAccum || 0)}</strong></div>
+            </DashboardCard>
+          </div>
+        </section>
+
+        <section className="mod-dashboard-section mod-activity-section" aria-labelledby="home-activity-title">
+          <div className="mod-section-heading"><span id="home-activity-title">RECENT ACTIVITY &amp; LOGS</span><span>{(gs.news || []).length} ENTRIES</span></div>
+          <article className="mod-card mod-activity-card">
+            {entries.length ? <ol className="mod-activity-list">{entries.map((item, index) => <li key={`${item.week ?? 0}-${index}-${item.msg}`}>
+              <span className="mod-activity-dot" style={{ background: TYPE_COLORS[item.type] || TYPE_COLORS[''] }} />
+              <span className="mod-activity-copy"><strong>{TYPE_LABELS[item.type] || 'JOURNAL'} <i>·</i> {item.week == null ? 'CAREER LOG' : `WEEK ${item.week}`}</strong><span>{item.msg}</span></span>
+            </li>)}</ol> : <p className="mod-empty-state">Career milestones, releases and press updates will appear here as they happen.</p>}
+            <button type="button" className="mod-card-action" onClick={() => openNews('inbox')}>OPEN CAREER LOG <span aria-hidden="true">↗</span></button>
+          </article>
+        </section>
+
+        <section className="mod-dashboard-section mod-next-section" aria-labelledby="home-next-move-title">
+          <div className="mod-section-heading"><span id="home-next-move-title">YOUR NEXT MOVE</span><span>{actions} ACTION{actions === 1 ? '' : 'S'} LEFT</span></div>
+          <div className="mod-move-list">{moves.slice(0, 3).map((move, index) => <button type="button" className="mod-move" key={move.id} onClick={() => goTo(move.destination)}>
+            <span className="mod-move-number">0{index + 1}</span>
+            <span className="mod-move-copy"><strong>{move.label}</strong><small>{move.note}</small></span>
+            <span className="mod-move-cost">{move.cost}</span><span className="mod-move-arrow" aria-hidden="true">↗</span>
           </button>)}</div>
         </section>
       </div>
 
-      <div className="home-close-week">
-        <button type="button" className="home-end-week" aria-label={isEndingWeek ? 'SETTLING WEEK' : 'END WEEK'} onClick={endWeek} disabled={isEndingWeek}>
+      <footer className="mod-close-week">
+        <button type="button" className="mod-end-week" aria-label={isEndingWeek ? 'SETTLING WEEK' : 'END WEEK'} onClick={endWeek} disabled={isEndingWeek}>
           <span>{isEndingWeek ? 'SETTLING THE WEEK…' : 'CLOSE THE WEEK'}</span>{!isEndingWeek && <span aria-hidden="true">→</span>}
         </button>
         <p>Releases, work, touring and finances settle when the week closes.</p>
-      </div>
+      </footer>
     </div>
   );
 }

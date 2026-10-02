@@ -642,12 +642,12 @@ export default function CreateTab({ gs, patch, patchFn, showToast, mode = 'studi
 
           {studioStep === 1 && <div className="studio-step-panel">
             <div className="studio-step-heading"><span>02 / PRODUCTION</span><h3>Choose the beatmaker.</h3><p>The producer’s existing quality bonus and career-adjusted fee feed the final track score and record bill.</p></div>
-            <div className="studio-option-list">
+            <div className="studio-option-list" role="group" aria-label="Producer options">
               {PRODUCERS.filter(item => item.minFans <= gs.fans || hasPremiumProducerAccess(gs)).map(item => {
                 const selected = producerId === item.id;
                 const cost = getStudioQuote(gs, { producerId:item.id, featuredArtistIds:featNpcs, mixId, masterId }).producerCost;
-                return <button type="button" key={item.id} aria-pressed={selected} className={`studio-option-row${selected ? ' is-selected' : ''}`} onClick={() => setProducerId(item.id)}>
-                  <span className="studio-option-marker" aria-hidden="true">{selected ? '●' : '○'}</span><span className="studio-option-copy"><strong>{item.name}</strong><small>{item.desc}</small></span><span className="studio-option-result"><b>{cost ? fmtN(cost) : 'FREE'}</b><small>+{item.qBonus} quality</small></span>
+                return <button type="button" key={item.id} aria-pressed={selected} className={`studio-option-row${selected ? ' is-selected' : ''}`} style={{ '--studio-knob-turn':`${(item.tier - 2) * 34}deg` }} onClick={() => setProducerId(item.id)}>
+                  <span className="studio-option-marker" aria-hidden="true"><i>T{item.tier}</i></span><span className="studio-option-copy"><span className="studio-option-kicker">PRODUCER · TIER {String(item.tier).padStart(2, '0')}</span><strong>{item.name}</strong><small>{item.desc}</small></span><span className="studio-option-result"><b>{cost ? fmtN(cost) : 'FREE'}</b><small>+{item.qBonus} quality</small></span>
                 </button>;
               })}
             </div>
@@ -684,8 +684,22 @@ export default function CreateTab({ gs, patch, patchFn, showToast, mode = 'studi
 
           {studioStep === 3 && <div className="studio-step-panel">
             <div className="studio-step-heading"><span>04 / FINAL PASS</span><h3>Mix it. Master it.</h3><p>These bounded finishing bonuses modify the same overall quality score the game already uses for modeled streams.</p></div>
-            <div className="studio-choice-section"><div className="studio-choice-label">MIX ENGINEER</div><div className="studio-finish-grid">{MIX_OPTIONS.map(option => <button type="button" key={option.id} aria-pressed={mixId === option.id} className={`studio-finish-card${mixId === option.id ? ' is-selected' : ''}`} onClick={() => setMixId(option.id)}><span>{option.label}</span><small>{option.desc}</small><b>{option.cost ? fmtN(option.cost) : 'NO SPEND'}</b><i>+{option.qBonus} quality</i></button>)}</div></div>
-            <div className="studio-choice-section"><div className="studio-choice-label">MASTERING</div><div className="studio-finish-grid">{MASTER_OPTIONS.map(option => <button type="button" key={option.id} aria-pressed={masterId === option.id} className={`studio-finish-card${masterId === option.id ? ' is-selected' : ''}`} onClick={() => setMasterId(option.id)}><span>{option.label}</span><small>{option.desc}</small><b>{option.cost ? fmtN(option.cost) : 'NO SPEND'}</b><i>+{option.qBonus} quality</i></button>)}</div></div>
+            <div className="studio-choice-section">
+              <div className="studio-choice-head"><div className="studio-choice-label">MIX ENGINEER</div><span>SELECT A CHANNEL</span></div>
+              <div className="studio-finish-grid" role="group" aria-label="Mix engineer options">{MIX_OPTIONS.map((option, index) => <button type="button" key={option.id} aria-pressed={mixId === option.id} className={`studio-finish-card${mixId === option.id ? ' is-selected' : ''}`} style={{ '--studio-dial-angle':`${(index - 1) * 42}deg` }} onClick={() => setMixId(option.id)}>
+                <span className="studio-finish-topline"><span>MIX {String(index + 1).padStart(2, '0')}</span><i aria-hidden="true"/></span>
+                <span className="studio-finish-control"><span className="studio-finish-knob" aria-hidden="true"><i/></span><span className="studio-finish-copy"><strong>{option.label}</strong><small>{option.desc}</small></span></span>
+                <span className="studio-finish-readout"><b>{option.cost ? fmtN(option.cost) : 'NO SPEND'}</b><i>+{option.qBonus} quality</i></span>
+              </button>)}</div>
+            </div>
+            <div className="studio-choice-section">
+              <div className="studio-choice-head"><div className="studio-choice-label">MASTERING</div><span>SELECT A CHANNEL</span></div>
+              <div className="studio-finish-grid" role="group" aria-label="Mastering options">{MASTER_OPTIONS.map((option, index) => <button type="button" key={option.id} aria-pressed={masterId === option.id} className={`studio-finish-card${masterId === option.id ? ' is-selected' : ''}`} style={{ '--studio-dial-angle':`${(index - 1) * 42}deg` }} onClick={() => setMasterId(option.id)}>
+                <span className="studio-finish-topline"><span>MASTER {String(index + 1).padStart(2, '0')}</span><i aria-hidden="true"/></span>
+                <span className="studio-finish-control"><span className="studio-finish-knob" aria-hidden="true"><i/></span><span className="studio-finish-copy"><strong>{option.label}</strong><small>{option.desc}</small></span></span>
+                <span className="studio-finish-readout"><b>{option.cost ? fmtN(option.cost) : 'NO SPEND'}</b><i>+{option.qBonus} quality</i></span>
+              </button>)}</div>
+            </div>
 
             <div className="studio-final-credits"><div className="studio-choice-label">PACKAGE NOTES · RECORD CREDITS</div>{studioQuote.credits.map((credit, index) => <div key={`${credit.role}-${credit.id}-${index}`}><span>{credit.role} · {credit.name}</span><b>{credit.cost ? fmtN(credit.cost) : 'FREE'}</b></div>)}<div className="studio-credit-total"><span>One charge · only when you record</span><b>{fmtN(studioQuote.cashCost)}</b></div></div>
           </div>}

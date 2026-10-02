@@ -438,6 +438,37 @@ test('1440px desktop exposes the requested left navigation and career routes', a
   expect(browserErrors).toEqual([]);
 });
 
+test('Spotify and Apple Music show honest chart and playlist empty states for a blank career', async ({ page }) => {
+  await page.setViewportSize({ width:390, height:844 });
+  await startCareer(page, 'Empty Catalogue QA');
+  const nav = page.locator('.tab-bar');
+  await nav.getByRole('button', { name:'Social', exact:true }).click();
+  const directory = page.locator('.more-screen-social');
+  await expect(directory.locator('.social-directory-card')).toHaveCount(12);
+
+  await directory.locator('.social-directory-card').filter({ hasText:'Spotify' }).click();
+  const spotify = page.locator('.social-experience[data-platform="spotify"]');
+  await spotify.getByRole('tab', { name:'Charts', exact:true }).click();
+  await expect(spotify.locator('[data-testid="spotify-charts"]')).toContainText('No releases to chart yet');
+  await expect(spotify.locator('.spfy-chart-row')).toHaveCount(0);
+  await spotify.getByRole('tab', { name:'Playlists', exact:true }).click();
+  await expect(spotify.locator('[data-testid="spotify-playlists"]')).toContainText('No tracks for a playlist yet');
+  await expect(spotify.locator('.spfy-playlist-card')).toHaveCount(0);
+  await spotify.getByRole('button', { name:'Back to Social directory' }).click();
+
+  await directory.locator('.social-directory-card').filter({ hasText:'Apple Music' }).click();
+  const apple = page.locator('.social-experience[data-platform="apple-music"]');
+  await apple.getByRole('tab', { name:'Charts', exact:true }).click();
+  await expect(apple.locator('[data-testid="apple-music-charts"]')).toContainText('No releases to chart yet');
+  await expect(apple.locator('.am-chart-row')).toHaveCount(0);
+  await apple.getByRole('tab', { name:'Playlists', exact:true }).click();
+  await expect(apple.locator('[data-testid="apple-music-playlists"]')).toContainText('No tracks for a playlist yet');
+  await expect(apple.locator('.am-playlist-card')).toHaveCount(0);
+  await expect(apple).not.toContainText(/Treblr career preview|no external account connected/i);
+  await apple.getByRole('button', { name:'Back to Social directory' }).click();
+  await expect(directory.locator('.social-directory-card')).toHaveCount(12);
+});
+
 test('all twelve native Social destinations render, interact, and return without invented service data', async ({ page }) => {
   const browserErrors = [];
   const failedRequests = [];
@@ -501,6 +532,9 @@ test('all twelve native Social destinations render, interact, and return without
   const captureEvidence = process.env.CAPTURE_SOCIAL_ARTIFACTS === '1';
   const evidenceDir = resolve(process.cwd(), 'review-artifacts/2026-10-02-social-platform-native-rebuild');
   if (captureEvidence) mkdirSync(evidenceDir, { recursive:true });
+  const capturePlatformFlows = process.env.CAPTURE_SOCIAL_PLATFORM_SHOTS === '1';
+  const platformEvidenceDir = resolve(process.cwd(), 'review-artifacts/2026-10-02-spotify-apple-music');
+  if (capturePlatformFlows) mkdirSync(platformEvidenceDir, { recursive:true });
   const captureNavScreenshots = process.env.CAPTURE_SOCIAL_NAV_SCREENSHOTS === '1';
   const navScreenshotDir = resolve(process.cwd(), 'review-artifacts/2026-10-02-social-detail-hud');
   if (captureNavScreenshots) mkdirSync(navScreenshotDir, { recursive:true });
@@ -574,7 +608,15 @@ test('all twelve native Social destinations render, interact, and return without
       expect(detailGeometry.screenBottom).toBeCloseTo(detailGeometry.mainBottom, 0);
       expect(detailGeometry.backBottom).toBeLessThan(detailGeometry.viewportHeight);
 
-      if (service.metric) {
+      if (service.id === 'spotify') {
+        await expect(view).toContainText('Monthly listeners');
+        const saveValue = directoryMetric.trim().split(/\s+/)[0];
+        await expect(view).toContainText(saveValue);
+        await expect(view).toContainText('WORLD ARTIST RANK');
+        await expect(view.locator('.spfy-world-rank')).toContainText(/#\d+/);
+        await expect(view.locator('.spfy-world-rank')).toContainText(/\d+ modeled artists/);
+        await expect(view).not.toContainText(/simulated career audience|not a Spotify account metric|Treblr career preview|no external account connected/i);
+      } else if (service.metric) {
         await expect(view).toContainText(/simulated (career )?audience/i);
         const saveValue = directoryMetric.trim().split(/\s+/)[0];
         await expect(view).toContainText(saveValue);
@@ -589,6 +631,11 @@ test('all twelve native Social destinations render, interact, and return without
         await page.evaluate(() => document.fonts.ready);
         await page.screenshot({ path:resolve(evidenceDir, `social-${service.id}-${viewport.width}x${viewport.height}.png`), fullPage:false });
       }
+      if (capturePlatformFlows && ['spotify','apple-music'].includes(service.id)) {
+        await page.locator('.more-screen.is-social-experience').evaluate(element => { element.scrollTop = 0; });
+        await page.evaluate(() => document.fonts.ready);
+        await page.screenshot({ path:resolve(platformEvidenceDir, `${service.id}-default-${viewport.width}x${viewport.height}.png`), fullPage:false });
+      }
       if (captureNavScreenshots && ['spotify','twitter'].includes(service.id)) {
         await page.locator('.more-screen.is-social-experience').evaluate(element => { element.scrollTop = 0; });
         await page.evaluate(() => document.fonts.ready);
@@ -597,16 +644,10 @@ test('all twelve native Social destinations render, interact, and return without
 
       const socialScroll = page.locator('.more-screen.is-social-experience');
       await socialScroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
-      await expect(view.locator('.sx-disclosure')).toBeVisible();
-      const finalContent = await view.locator('.sx-disclosure').evaluate(element => {
-        const bounds = element.getBoundingClientRect();
-        const screen = document.querySelector('.more-screen.is-social-experience').getBoundingClientRect();
+      const finalContent = await socialScroll.evaluate(element => {
         const scroll = document.querySelector('.more-screen.is-social-experience');
-        const experience = document.querySelector('.social-experience');
-        return { bottom:bounds.bottom, screenBottom:screen.bottom, bottomGap:screen.bottom - bounds.bottom, safePadding:parseFloat(getComputedStyle(experience).paddingBottom), scrollBottom:scroll.scrollTop + scroll.clientHeight, scrollHeight:scroll.scrollHeight };
+        return { scrollBottom:scroll.scrollTop + scroll.clientHeight, scrollHeight:scroll.scrollHeight };
       });
-      expect(finalContent.bottom).toBeLessThanOrEqual(finalContent.screenBottom + 1);
-      expect(finalContent.bottomGap).toBeCloseTo(finalContent.safePadding, 0);
       expect(finalContent.scrollBottom).toBeGreaterThanOrEqual(finalContent.scrollHeight - 1);
 
       switch (service.id) {
@@ -627,6 +668,28 @@ test('all twelve native Social destinations render, interact, and return without
           await track.click();
           await expect(view.locator('.sx-release-detail')).toContainText(releaseTitle);
           await expect(view.locator('.sx-release-detail')).toContainText(/Treblr streams/i);
+          await view.getByRole('tab', { name:'Charts', exact:true }).click();
+          const chartTrack = view.locator('.spfy-chart-row').filter({ hasText:releaseTitle });
+          await expect(chartTrack).toHaveCount(1);
+          const spotifyPosition = await chartTrack.getAttribute('data-chart-position');
+          if (spotifyPosition) await expect(chartTrack.locator('.spfy-chart-position')).toHaveText(`#${spotifyPosition}`);
+          else await expect(chartTrack.locator('.spfy-chart-status')).toHaveText(/NO POSITION|PENDING/);
+          await expect(chartTrack.locator('.sx-art img')).toBeVisible();
+          if (capturePlatformFlows) {
+            await page.locator('.more-screen.is-social-experience').evaluate(element => { element.scrollTop = 0; });
+            await page.evaluate(() => document.fonts.ready);
+            await page.screenshot({ path:resolve(platformEvidenceDir, `spotify-charts-${viewport.width}x${viewport.height}.png`), fullPage:false });
+          }
+          await view.getByRole('tab', { name:'Playlists', exact:true }).click();
+          await expect(view.locator('.spfy-playlist-card')).toHaveCount(2);
+          await expect(view.locator('.spfy-playlist-card').filter({ hasText:'Recently released' })).toContainText('1 song');
+          await expect(view.locator('.spfy-playlist-track').filter({ hasText:releaseTitle })).toHaveCount(1);
+          await expect(view.locator('.spfy-playlist-track').filter({ hasText:releaseTitle }).locator('.sx-art img')).toBeVisible();
+          if (capturePlatformFlows) {
+            await page.locator('.more-screen.is-social-experience').evaluate(element => { element.scrollTop = 0; });
+            await page.evaluate(() => document.fonts.ready);
+            await page.screenshot({ path:resolve(platformEvidenceDir, `spotify-playlists-${viewport.width}x${viewport.height}.png`), fullPage:false });
+          }
           break;
         }
         case 'tiktok':
@@ -667,6 +730,28 @@ test('all twelve native Social destinations render, interact, and return without
           await expect(view.locator('.am-release-shelf')).toContainText(releaseTitle);
           await view.getByRole('tab', { name:'Singles', exact:true }).click();
           await expect(view.locator('.am-release-shelf')).toContainText(releaseTitle);
+          await view.getByRole('tab', { name:'Charts', exact:true }).click();
+          const appleChartTrack = view.locator('.am-chart-row').filter({ hasText:releaseTitle });
+          await expect(appleChartTrack).toHaveCount(1);
+          const applePosition = await appleChartTrack.getAttribute('data-chart-position');
+          if (applePosition) await expect(appleChartTrack.locator('.am-chart-position')).toHaveText(`#${applePosition}`);
+          else await expect(appleChartTrack.locator('.am-chart-status')).toHaveText(/NO POSITION|PENDING/);
+          await expect(appleChartTrack.locator('.sx-art img')).toBeVisible();
+          if (capturePlatformFlows) {
+            await page.locator('.more-screen.is-social-experience').evaluate(element => { element.scrollTop = 0; });
+            await page.evaluate(() => document.fonts.ready);
+            await page.screenshot({ path:resolve(platformEvidenceDir, `apple-music-charts-${viewport.width}x${viewport.height}.png`), fullPage:false });
+          }
+          await view.getByRole('tab', { name:'Playlists', exact:true }).click();
+          await expect(view.locator('.am-playlist-card')).toHaveCount(2);
+          await expect(view.locator('.am-playlist-card').filter({ hasText:'Recently released' })).toContainText('1 song');
+          await expect(view.locator('.am-playlist-track').filter({ hasText:releaseTitle })).toHaveCount(1);
+          await expect(view.locator('.am-playlist-track').filter({ hasText:releaseTitle }).locator('.sx-art img')).toBeVisible();
+          if (capturePlatformFlows) {
+            await page.locator('.more-screen.is-social-experience').evaluate(element => { element.scrollTop = 0; });
+            await page.evaluate(() => document.fonts.ready);
+            await page.screenshot({ path:resolve(platformEvidenceDir, `apple-music-playlists-${viewport.width}x${viewport.height}.png`), fullPage:false });
+          }
           break;
         case 'itunes':
           await view.getByRole('searchbox', { name:'Search saved releases' }).fill('Native Social');

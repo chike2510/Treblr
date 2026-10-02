@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CITIES, CAREER_TYPES, GENRES } from '../data/constants';
+import { buildCareerPlaylists, getCareerChartRows, getModeledArtistRank } from '../engine/socialModels';
 
 const LAYOUT_BY_SERVICE = {
   instagram:'profile-grid',
@@ -43,14 +44,13 @@ function ServiceFrame({ channel, onBack, children }) {
   return <section className={`social-experience social-experience--${channel.id}`} data-platform={channel.id} data-layout={LAYOUT_BY_SERVICE[channel.id]} aria-label={`${channel.label} in-game experience`}>
     <ExitToDirectory onBack={onBack} />
     {children}
-    <footer className="sx-disclosure">Treblr career preview <i>·</i> no external account connected</footer>
   </section>;
 }
 
-function AudienceMetric({ channel, count, label = 'in-game audience' }) {
+function AudienceMetric({ channel, count, label = 'in-game audience', detail }) {
   return <div className="sx-audience-metric" data-testid="social-simulated-audience">
     <strong>{count}</strong><span>{label}</span>
-    <small>Saved in this career — not a {channel.label} account metric.</small>
+    <small>{detail || `Saved in this career — not a ${channel.label} account metric.`}</small>
   </div>;
 }
 
@@ -70,6 +70,23 @@ function ReleaseDetail({ track, fmt }) {
     <Artwork track={track} />
     <div><small>FROM THIS TREBLR SAVE</small><strong>{track.title}</strong><span>{track.releaseType || 'Single'} <i>·</i> {fmtWeek(track.releaseWeek)}</span><span>{fmt(releaseStreams(track))} Treblr streams <i>·</i> quality {Number(track.quality || 0) || 'not recorded'}</span></div>
   </aside>;
+}
+
+function PlaylistCover({ tracks, className = '' }) {
+  return <span className={`sx-playlist-cover ${className}`} aria-hidden="true">
+    {tracks.slice(0, 4).map((track) => <Artwork key={track.id} track={track} alt="" />)}
+  </span>;
+}
+
+function CareerChartRows({ rows, variant, chartWeek, selected, onSelect }) {
+  return <div className={`${variant}-chart-list`}>
+    {rows.map((track) => <button type="button" key={track.id} data-track-id={track.id} data-chart-position={track.chartPosition ?? ''} aria-label={`${track.title}, ${track.chartPosition ? `number ${track.chartPosition}` : 'no chart position'}`} className={`${variant}-chart-row${selected?.id === track.id ? ' is-selected' : ''}`} onClick={() => onSelect(selected?.id === track.id ? null : track)}>
+      <strong className={`${variant}-chart-position`}>{track.chartPosition ? `#${track.chartPosition}` : '—'}</strong>
+      <Artwork track={track} />
+      <span className={`${variant}-chart-info`}><strong>{track.title}</strong><small>{track.releaseType || 'Single'} <i>·</i> {fmtWeek(track.releaseWeek)}</small></span>
+      <span className={`${variant}-chart-status`}>{track.chartPosition ? 'CHARTED' : chartWeek != null ? 'NO POSITION' : 'PENDING'}</span>
+    </button>)}
+  </div>;
 }
 
 function InstagramPage({ channel, gs, releases, count, fmt, onBack }) {
@@ -119,20 +136,29 @@ function YouTubePage({ channel, gs, releases, count, fmt, onBack }) {
 function SpotifyPage({ channel, gs, releases, count, fmt, onBack }) {
   const [tab, setTab] = useState('music');
   const [selected, setSelected] = useState(null);
+  const [activePlaylistId, setActivePlaylistId] = useState('recently-released');
   const ranked = useMemo(() => [...releases].sort((a, b) => releaseStreams(b) - releaseStreams(a)), [releases]);
   const latest = useMemo(() => [...releases].sort((a, b) => Number(b.releaseWeek || 0) - Number(a.releaseWeek || 0))[0], [releases]);
+  const chartRows = useMemo(() => getCareerChartRows(releases, gs), [releases, gs.charts]);
+  const chartWeek = gs.latestChartSnapshot?.week ?? null;
+  const playlists = useMemo(() => buildCareerPlaylists(releases), [releases]);
+  const activePlaylist = playlists.find((playlist) => playlist.id === activePlaylistId) || playlists[0];
+  const artistRank = useMemo(() => getModeledArtistRank(gs), [gs.fans, gs.npcCareers]);
   return <ServiceFrame channel={channel} onBack={onBack}>
     <div className="spfy-topbar"><strong><i aria-hidden="true">◉</i> Spotify</strong><div aria-hidden="true"><span>⌕</span><span>⋯</span></div></div>
     <div className="spfy-artist-hero" style={latest && safeImage(latest.coverArt) ? { '--artist-cover':`url("${safeImage(latest.coverArt)}")` } : undefined}>
       <small>ARTIST</small><h1>{gs.stageName || 'Artist'}</h1><p>{findLabel(GENRES, gs.genre, 'Music career')} <i>·</i> {releases.length} saved {releases.length === 1 ? 'release' : 'releases'}</p>
     </div>
-    <div className="spfy-identity"><Avatar gs={gs} /><div><h2>{gs.stageName || 'Artist'}</h2><small>Artist profile preview <i>·</i> Treblr</small></div><button type="button" disabled title="Spotify follow state is not modeled">Follow unavailable</button></div>
-    <AudienceMetric channel={channel} count={fmt(count)} label="simulated career audience — not monthly listeners" />
-    <Tabs label="Spotify artist profile" values={[{ id:'music', label:'Music' }, { id:'about', label:'About' }, { id:'clips', label:'Clips' }, { id:'events', label:'Events' }, { id:'merch', label:'Merch' }]} value={tab} onChange={setTab} className="spfy-tabs" />
+    <div className="spfy-identity"><Avatar gs={gs} /><div><h2>{gs.stageName || 'Artist'}</h2><small>{findLabel(GENRES, gs.genre, 'Artist')}</small></div><button type="button" disabled title="Spotify follow state is not modeled">Follow unavailable</button></div>
+    <AudienceMetric channel={channel} count={fmt(count)} label="Monthly listeners" detail="Career audience · updated weekly" />
+    <div className="spfy-world-rank" aria-label={`World artist rank ${artistRank.rank} by career fanbase`}><span>WORLD ARTIST RANK</span><strong>#{artistRank.rank}</strong><small>By career fanbase · {artistRank.population} modeled artists</small></div>
+    <Tabs label="Spotify artist profile" values={[{ id:'music', label:'Music' }, { id:'charts', label:'Charts' }, { id:'playlists', label:'Playlists' }, { id:'about', label:'About' }, { id:'clips', label:'Clips' }, { id:'events', label:'Events' }, { id:'merch', label:'Merch' }]} value={tab} onChange={setTab} className="spfy-tabs" />
     {tab === 'music' && <div className="spfy-panel" role="tabpanel" aria-label="Artist music"><section className="spfy-feature"><div className="spfy-feature-head"><span>Latest release</span><span>{latest ? fmtWeek(latest.releaseWeek) : 'No release yet'}</span></div>{latest ? <button type="button" className="spfy-feature-release" onClick={() => setSelected(latest)}><Artwork track={latest} /><span><small>{latest.releaseType || 'Single'}</small><strong>{latest.title}</strong><small>Treblr release catalogue</small></span><b aria-hidden="true">›</b></button> : <Empty title="A first release will appear here">No music release is saved in this career yet.</Empty>}</section>
-      <section className="spfy-popular"><div className="spfy-section-heading"><h2>Popular</h2><span>Ranked by saved Treblr streams</span></div>{ranked.length ? ranked.map((track, index) => <button type="button" key={track.id} className={`spfy-track${selected?.id === track.id ? ' is-selected' : ''}`} onClick={() => setSelected(selected?.id === track.id ? null : track)}><span className="spfy-rank">{index + 1}</span><Artwork track={track} /><span className="spfy-track-info"><strong>{track.title}</strong><small>{track.releaseType || 'Single'} <i>·</i> {fmtWeek(track.releaseWeek)}</small></span><span className="spfy-stream-count">{fmt(releaseStreams(track))}</span></button>) : <Empty title="Your popular tracks are waiting">Track order and totals appear only after a real career release is recorded.</Empty>}</section>
+      <section className="spfy-popular"><div className="spfy-section-heading"><h2>Popular</h2><span>Ranked by streams in this career</span></div>{ranked.length ? ranked.map((track, index) => <button type="button" key={track.id} className={`spfy-track${selected?.id === track.id ? ' is-selected' : ''}`} onClick={() => setSelected(selected?.id === track.id ? null : track)}><span className="spfy-rank">{index + 1}</span><Artwork track={track} /><span className="spfy-track-info"><strong>{track.title}</strong><small>{track.releaseType || 'Single'} <i>·</i> {fmtWeek(track.releaseWeek)}</small></span><span className="spfy-stream-count">{fmt(releaseStreams(track))}</span></button>) : <Empty title="Your popular tracks are waiting">Track order and totals appear only after a career release is recorded.</Empty>}</section>
       <ReleaseDetail track={selected} fmt={fmt} />
     </div>}
+    {tab === 'charts' && <div className="spfy-panel spfy-chart-panel" role="tabpanel" aria-label="Spotify career charts" data-testid="spotify-charts"><div className="spfy-chart-heading"><div><small>CAREER CHART</small><h2>Global track chart</h2></div><span>{chartWeek != null ? `WEEK ${chartWeek}` : 'WEEK NOT RECORDED'}</span></div>{chartRows.length ? <CareerChartRows rows={chartRows} variant="spfy" chartWeek={chartWeek} selected={selected} onSelect={setSelected} /> : <Empty title="No releases to chart yet">Released tracks appear here after they enter the career chart.</Empty>}<ReleaseDetail track={selected} fmt={fmt} /></div>}
+    {tab === 'playlists' && <div className="spfy-panel spfy-playlists-panel" role="tabpanel" aria-label="Spotify career playlists" data-testid="spotify-playlists"><div className="spfy-playlists-heading"><small>MADE FOR {gs.stageName || 'ARTIST'}</small><h2>Playlists</h2><span>Career mixes · {releases.length} tracks</span></div>{releases.length ? <><div className="spfy-playlist-cards">{playlists.map((playlist) => <button type="button" key={playlist.id} aria-pressed={activePlaylist?.id === playlist.id} className={`spfy-playlist-card${activePlaylist?.id === playlist.id ? ' is-selected' : ''}`} onClick={() => setActivePlaylistId(playlist.id)}><PlaylistCover tracks={playlist.tracks} className="spfy-playlist-cover" /><span><small>CAREER MIX</small><strong>{playlist.title}</strong><i>{playlist.tracks.length} {playlist.tracks.length === 1 ? 'song' : 'songs'}</i></span><b aria-hidden="true">›</b></button>)}</div>{activePlaylist && <section className="spfy-playlist-detail"><header><div><small>CAREER PLAYLIST</small><h3>{activePlaylist.title}</h3></div><span>{activePlaylist.tracks.length} songs</span></header>{activePlaylist.tracks.map((track) => <button type="button" key={track.id} className="spfy-playlist-track" onClick={() => setSelected(selected?.id === track.id ? null : track)}><Artwork track={track} /><span><strong>{track.title}</strong><small>{track.releaseType || 'Single'} <i>·</i> {fmtWeek(track.releaseWeek)}</small></span></button>)}</section>}<ReleaseDetail track={selected} fmt={fmt} /></> : <Empty title="No tracks for a playlist yet">Release music in this career to build Recently released and Popular in this career.</Empty>}</div>}
     {tab === 'about' && <div className="spfy-panel" role="tabpanel" aria-label="Artist details"><div className="spfy-about-card"><small>ABOUT</small><h2>{gs.stageName || 'Artist'}</h2><p>{findLabel(GENRES, gs.genre, 'Genre not recorded')} <i>·</i> {findLabel(CITIES, gs.city, 'Home city not recorded')}</p><span>No artist biography or Spotify profile content is saved.</span></div></div>}
     {tab === 'clips' && <Empty title="Clips are not stored">No video files or Spotify Clips are part of this Treblr save.</Empty>}
     {tab === 'events' && <Empty title="No artist events are modeled">Concert dates, event listings, ticket links, and attendance are not tracked in this career.</Empty>}
@@ -228,17 +254,28 @@ function AppleMusicPage({ channel, gs, releases, fmt, onBack }) {
   const [tab, setTab] = useState('overview');
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState(null);
+  const [activePlaylistId, setActivePlaylistId] = useState('recently-released');
   const ordered = useMemo(() => [...releases].sort((a, b) => Number(b.releaseWeek || 0) - Number(a.releaseWeek || 0)), [releases]);
   const shown = ordered.filter((track) => filter === 'all' || String(track.releaseType || 'single').toLowerCase() === filter);
   const latest = ordered[0];
+  const chartRows = useMemo(() => getCareerChartRows(releases, gs), [releases, gs.charts]);
+  const chartWeek = gs.latestChartSnapshot?.week ?? null;
+  const playlists = useMemo(() => buildCareerPlaylists(releases), [releases]);
+  const activePlaylist = playlists.find((playlist) => playlist.id === activePlaylistId) || playlists[0];
+  const changeTab = (id) => {
+    setTab(id);
+    setFilter(id === 'albums' ? 'album' : id === 'singles' ? 'single' : 'all');
+  };
   return <ServiceFrame channel={channel} onBack={onBack}>
     <div className="am-topbar"><strong>Music</strong><button type="button" aria-label="Search catalogue" disabled>⌕</button></div>
     <div className="am-quick-nav"><span>Listen Now</span><span>Browse</span><span>Radio</span><b>Artist</b></div>
     <div className="am-artist-hero">{latest && <Artwork track={latest} className="am-hero-art" />}<Avatar gs={gs} className="am-avatar" /><div><small>ARTIST</small><h1>{gs.stageName || 'Artist'}</h1><p>{findLabel(GENRES, gs.genre, 'Music')}</p></div></div>
     <div className="am-hero-actions"><button type="button" disabled title="Apple Music playback is not part of this simulation">Play unavailable</button><span>{releases.length} saved releases</span></div>
-    <Tabs label="Apple Music artist sections" values={[{ id:'overview', label:'Overview' }, { id:'albums', label:'Albums' }, { id:'singles', label:'Singles' }, { id:'details', label:'Details' }]} value={tab} onChange={(id) => { setTab(id); setFilter(id === 'albums' ? 'album' : id === 'singles' ? 'single' : 'all'); }} className="am-tabs" />
-    {tab !== 'details' && <div className="am-panel" role="tabpanel" aria-label={`${tab} releases`}><div className="am-section-head"><h2>{tab === 'overview' ? 'Latest releases' : tab === 'albums' ? 'Albums' : 'Singles'}</h2><span>{shown.length} in this career</span></div>{shown.length ? <div className="am-release-shelf">{shown.map((track) => <button type="button" key={track.id} onClick={() => setSelected(selected?.id === track.id ? null : track)}><Artwork track={track} /><strong>{track.title}</strong><small>{track.releaseType || 'Single'} <i>·</i> {fmtWeek(track.releaseWeek)}</small><span>{fmt(releaseStreams(track))} Treblr streams</span></button>)}</div> : <Empty title={tab === 'albums' ? 'No albums saved in this career' : tab === 'singles' ? 'No singles saved in this career' : 'No releases are saved yet'}>This catalogue shows releases from the Treblr save only; it does not indicate Apple Music availability or plays.</Empty>}<ReleaseDetail track={selected} fmt={fmt} /></div>}
-    {tab === 'details' && <div className="am-details" role="tabpanel" aria-label="Artist details"><h2>{gs.stageName || 'Artist'}</h2><p>{findLabel(GENRES, gs.genre, 'Genre not recorded')} <i>·</i> {findLabel(CITIES, gs.city, 'City not recorded')}</p><span>No Apple artist profile, biography, chart position, or listener analytics are connected.</span></div>}
+    <Tabs label="Apple Music artist sections" values={[{ id:'overview', label:'Overview' }, { id:'albums', label:'Albums' }, { id:'singles', label:'Singles' }, { id:'charts', label:'Charts' }, { id:'playlists', label:'Playlists' }, { id:'details', label:'Details' }]} value={tab} onChange={changeTab} className="am-tabs" />
+    {['overview','albums','singles'].includes(tab) && <div className="am-panel" role="tabpanel" aria-label={`${tab} releases`}><div className="am-section-head"><h2>{tab === 'overview' ? 'Latest releases' : tab === 'albums' ? 'Albums' : 'Singles'}</h2><span>{shown.length} in this career</span></div>{shown.length ? <div className="am-release-shelf">{shown.map((track) => <button type="button" key={track.id} onClick={() => setSelected(selected?.id === track.id ? null : track)}><Artwork track={track} /><strong>{track.title}</strong><small>{track.releaseType || 'Single'} <i>·</i> {fmtWeek(track.releaseWeek)}</small><span>{fmt(releaseStreams(track))} Treblr streams</span></button>)}</div> : <Empty title={tab === 'albums' ? 'No albums saved in this career' : tab === 'singles' ? 'No singles saved in this career' : 'No releases are saved yet'}>{tab === 'albums' ? 'Released albums appear here.' : tab === 'singles' ? 'Released singles appear here.' : 'Your latest releases will appear here.'}</Empty>}<ReleaseDetail track={selected} fmt={fmt} /></div>}
+    {tab === 'charts' && <div className="am-panel am-chart-panel" role="tabpanel" aria-label="Apple Music career charts" data-testid="apple-music-charts"><div className="am-chart-heading"><div><small>CAREER CHART</small><h2>Track rankings</h2></div><span>{chartWeek != null ? `WEEK ${chartWeek}` : 'WEEK NOT RECORDED'}</span></div>{chartRows.length ? <CareerChartRows rows={chartRows} variant="am" chartWeek={chartWeek} selected={selected} onSelect={setSelected} /> : <Empty title="No releases to chart yet">Released tracks appear here after they enter the career chart.</Empty>}<ReleaseDetail track={selected} fmt={fmt} /></div>}
+    {tab === 'playlists' && <div className="am-panel am-playlists-panel" role="tabpanel" aria-label="Apple Music career playlists" data-testid="apple-music-playlists"><div className="am-playlists-heading"><small>MADE FOR {gs.stageName || 'ARTIST'}</small><h2>Playlists</h2><p>Career mixes built from released music</p></div>{releases.length ? <><div className="am-playlist-list">{playlists.map((playlist, index) => <button type="button" key={playlist.id} aria-pressed={activePlaylist?.id === playlist.id} className={`am-playlist-card${activePlaylist?.id === playlist.id ? ' is-selected' : ''}`} onClick={() => setActivePlaylistId(playlist.id)}><PlaylistCover tracks={playlist.tracks} className="am-playlist-cover" /><span className="am-playlist-copy"><small>PLAYLIST {String(index + 1).padStart(2, '0')}</small><strong>{playlist.title}</strong><i>{playlist.tracks.length} {playlist.tracks.length === 1 ? 'song' : 'songs'}</i></span><b aria-hidden="true">›</b></button>)}</div>{activePlaylist && <section className="am-playlist-detail"><div className="am-playlist-detail-head"><div><small>CAREER PLAYLIST</small><h3>{activePlaylist.title}</h3></div><span>{activePlaylist.tracks.length} songs</span></div>{activePlaylist.tracks.map((track, index) => <button type="button" key={track.id} className="am-playlist-track" onClick={() => setSelected(selected?.id === track.id ? null : track)}><span className="am-playlist-index">{String(index + 1).padStart(2, '0')}</span><Artwork track={track} /><span><strong>{track.title}</strong><small>{track.releaseType || 'Single'} <i>·</i> {fmtWeek(track.releaseWeek)}</small></span></button>)}</section>}<ReleaseDetail track={selected} fmt={fmt} /></> : <Empty title="No tracks for a playlist yet">Release music in this career to build Recently released and Popular in this career.</Empty>}</div>}
+    {tab === 'details' && <div className="am-details" role="tabpanel" aria-label="Artist details"><h2>{gs.stageName || 'Artist'}</h2><p>{findLabel(GENRES, gs.genre, 'Genre not recorded')} <i>·</i> {findLabel(CITIES, gs.city, 'City not recorded')}</p><span>{releases.length} releases in this career</span></div>}
   </ServiceFrame>;
 }
 

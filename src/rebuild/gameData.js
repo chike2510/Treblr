@@ -3,6 +3,15 @@ export const SAVE_KEY = 'treblr.career.life.v2';
 export const MAX_ACTION_POINTS = 3;
 export const MAX_SOCIAL_ENERGY = 3;
 
+export const CAREER_RANKS = [
+  { id: 'new-voice', title: 'New voice', minXp: 0, unlock: 'The first signal is waiting.' },
+  { id: 'first-signal', title: 'First signal', minXp: 90, unlock: 'Local radio wants your story.' },
+  { id: 'city-draw', title: 'City draw', minXp: 230, unlock: 'A bigger-room conversation is open.' },
+  { id: 'breakout', title: 'Breakout act', minXp: 430, unlock: 'Global press has your number.' },
+  { id: 'global-name', title: 'Global name', minXp: 760, unlock: 'The whole circuit knows the name.' },
+  { id: 'headliner', title: 'Headliner', minXp: 1150, unlock: 'Your own night is on the table.' },
+];
+
 export const MARKETS = [
   { id: 'lagos', name: 'Lagos', code: 'LOS', country: 'NG', region: 'West Africa', venue: 'The Current Room', fare: 680, tone: 'amber' },
   { id: 'atlanta', name: 'Atlanta', code: 'ATL', country: 'US', region: 'North America', venue: 'Signal Hall', fare: 820, tone: 'coral' },
@@ -20,6 +29,11 @@ export const GENRES = [
 ];
 
 export const PROJECT_TITLES = ['First Light', 'New City', 'Good Company', 'Open Doors', 'Long Way Home', 'All At Once', 'No Small Thing', 'After Hours'];
+export const RELEASE_ARTWORK = [
+  '/assets/covers/cov_02_07.png', '/assets/covers/cov_02_06.png', '/assets/covers/cov_03_02.png',
+  '/assets/covers/cov_03_06.png', '/assets/covers/cov_03_08.png', '/assets/covers/cov_02_04.png',
+  '/assets/covers/cov_03_04.png', '/assets/covers/cov_03_09.png',
+];
 
 export const RELEASE_CAMPAIGNS = [
   { id: 'diy', name: 'Independent drop', detail: 'Keep the whole return. A steady first move.', fee: 350, reach: 1, fans: 1 },
@@ -28,7 +42,7 @@ export const RELEASE_CAMPAIGNS = [
 ];
 
 export const STUDIO_FOCUSES = [
-  { id: 'writing', name: 'Songwriting session', detail: 'A writing room develops your next release candidate.', skill: 'writing', gain: 3, energy: 14, cost: 700 },
+  { id: 'writing', name: 'Project-development session', detail: 'Your team prepares a release candidate off-screen; you decide when it goes out and how to support it.', skill: 'writing', gain: 3, energy: 14, cost: 700 },
   { id: 'rehearsal', name: 'Live rehearsal', detail: 'Build confidence and protect your next show.', skill: 'performance', gain: 4, energy: 10, cost: 300 },
   { id: 'coaching', name: 'Career coaching', detail: 'Sharpen one skill that can open the next door.', skill: 'marketing', gain: 5, energy: 7, cost: 500 },
 ];
@@ -40,7 +54,7 @@ export const JOBS = [
 
 export const LABEL_OFFERS = [
   { id: 'northline', name: 'Northline Distribution', detail: 'Two-release distribution term · smaller share.', advance: 4200, share: 8, releases: 2, minimumRep: 10 },
-  { id: 'orbit-house', name: 'Orbit House', detail: 'Three-release services term · campaign support.', advance: 7600, share: 14, releases: 3, minimumRep: 24 },
+  { id: 'orbit-house', name: 'Orbit House', detail: 'Three-release services term · campaign support.', advance: 7600, share: 14, releases: 3, minimumRep: 24, minimumXp: 230 },
 ];
 
 export const FESTIVALS = [
@@ -56,8 +70,10 @@ export const SOCIAL_STORIES = [
 ];
 
 export const DISCOVER_ITEMS = [
-  { id: 'local-radio', name: 'Local radio conversation', detail: 'A short interview about the scene you came up in.', fans: 42, reputation: 3 },
+  { id: 'local-radio', name: 'Local radio conversation', detail: 'A short interview about the scene you came up in.', fans: 42, reputation: 3, minimumXp: 90 },
   { id: 'profile-piece', name: 'Artist profile', detail: 'Talk about what you want the next chapter to look like.', fans: 28, reputation: 5 },
+  { id: 'city-spotlight', name: 'City spotlight feature', detail: 'A bigger outlet wants to hear how one local crowd became a route.', fans: 96, reputation: 6, minimumXp: 230 },
+  { id: 'global-profile', name: 'Global profile', detail: 'Take the long view with an international music desk.', fans: 180, reputation: 8, minimumXp: 430 },
 ];
 
 export const GAME_TABS = [

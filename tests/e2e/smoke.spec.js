@@ -15,7 +15,7 @@ async function startCareer(page, { width = 390, height = 844, name = 'Nova Field
   await page.getByTestId(`genre-${genre}`).click();
   await page.getByTestId('begin-career').click();
   await expect(page.getByTestId('career-shell')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Your week, in motion' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your career has a next move.' })).toBeVisible();
 }
 
 function watchRuntime(page) {
@@ -32,9 +32,9 @@ async function noHorizontalOverflow(page) {
 }
 
 async function expectLocalEditorialAssets(page) {
-  await expect(page.locator('.live-editorial')).toBeVisible();
-  const images = await page.locator('.live-editorial-photo img').evaluateAll((items) => items.map((image) => ({ loaded: image.complete && image.naturalWidth > 0, source: new URL(image.currentSrc).pathname })));
-  expect(images).toHaveLength(2);
+  await expect(page.locator('.chapter-photo')).toBeVisible();
+  const images = await page.locator('.chapter-photo img').evaluateAll((items) => items.map((image) => ({ loaded: image.complete && image.naturalWidth > 0, source: new URL(image.currentSrc).pathname })));
+  expect(images).toHaveLength(1);
   expect(images.every((image) => image.loaded && image.source.startsWith('/assets/live/'))).toBe(true);
   const loadedFont = await page.evaluate(async () => {
     await document.fonts.load('800 32px "Bricolage Grotesque"');
@@ -55,7 +55,7 @@ test('mobile career keeps the seven desks and five-market world playable', async
   await expectLocalEditorialAssets(page);
   await page.screenshot({ path: `${screenshotDir}/treblr-mobile.png`, animations: 'disabled' });
   await page.screenshot({ path: `${screenshotDir}/treblr-home-mobile.png`, animations: 'disabled', fullPage: true, style: '.mobile-nav { position: static !important; }' });
-  await page.getByRole('button', { name: /find a room in accra/i }).click();
+  await nav.getByTestId('tab-contracts').click();
   await expect(page.getByRole('heading', { name: 'Pick the room—and the terms.' })).toBeVisible();
   await nav.getByTestId('tab-home').click();
   await expect(page.locator('main').first()).not.toContainText(/beat|sequencer|instrument|rhythm pad|arrangement/i);
@@ -76,6 +76,9 @@ test('mobile career keeps the seven desks and five-market world playable', async
 
   await nav.getByTestId('tab-contracts').click();
   await expect(page.locator('.market-card')).toHaveCount(5);
+  await expect(page.locator('.live-editorial')).toBeVisible();
+  const fieldPhotos = await page.locator('.live-editorial-photo img').evaluateAll((items) => items.map((image) => image.complete && image.naturalWidth > 0 && new URL(image.currentSrc).pathname.startsWith('/assets/live/')));
+  expect(fieldPhotos).toEqual([true, true]);
   await page.screenshot({ path: `${screenshotDir}/treblr-contracts-mobile.png`, animations: 'disabled' });
   for (const city of ['Lagos', 'Atlanta', 'London', 'Accra', 'Toronto']) {
     await expect(page.locator('.market-card').filter({ hasText: city })).toHaveCount(1);
@@ -92,7 +95,7 @@ test('career choices create and release a project, reach a market, and settle th
 
   await page.locator('.mobile-nav').getByTestId('tab-studio').click();
   await page.getByTestId('studio-session-writing').click();
-  await expect(page.getByRole('status')).toContainText(/writing room wrapped/i);
+  await expect(page.getByRole('status')).toContainText(/project development wrapped/i);
   const ready = await page.evaluate(() => JSON.parse(localStorage.getItem('treblr.career.life.v2')));
   expect(ready.projects[0]).toMatchObject({ status: 'ready', type: 'Single' });
   expect(ready.projects[0].arrangement).toBeUndefined();
@@ -130,6 +133,75 @@ test('career choices create and release a project, reach a market, and settle th
   expect(settled.fans).toBeGreaterThan(initial.fans);
   await noHorizontalOverflow(page);
   expect(runtimeErrors).toEqual([]);
+});
+
+test('first release advances a real career arc, unlocks radio, and carries XP into the next week', async ({ page }) => {
+  await startCareer(page, { width: 390, height: 844, name: 'First Signal', market: 'lagos', genre: 'afrobeats' });
+  await page.locator('.chapter-photo img').evaluate((image) => image.decode());
+  await page.screenshot({ path: `${screenshotDir}/treblr-home-viewport.png`, animations: 'disabled' });
+  const initial = await page.evaluate(() => JSON.parse(localStorage.getItem('treblr.career.life.v2')));
+  expect(initial.careerXp).toBe(0);
+
+  await page.getByTestId('career-next-step').click();
+  await expect(page.getByRole('heading', { name: 'Make room to grow.' })).toBeVisible();
+  await page.getByTestId('studio-session-writing').click();
+  await expect(page.getByRole('status')).toContainText('+22 career XP');
+  const built = await page.evaluate(() => JSON.parse(localStorage.getItem('treblr.career.life.v2')));
+  expect(built.projects[0].status).toBe('ready');
+  expect(built.skills.writing).toBeGreaterThan(initial.skills.writing);
+  expect(built.careerXp).toBe(22);
+
+  await page.locator('.mobile-nav').getByTestId('tab-music').click();
+  await page.getByTestId(`release-${built.projects[0].id}`).click();
+  await expect(page.getByRole('status')).toContainText(/is out/i);
+  const released = await page.evaluate(() => JSON.parse(localStorage.getItem('treblr.career.life.v2')));
+  expect(released.stats.releases).toBe(1);
+  expect(released.awards.map((award) => award.name)).toContain('First Signal');
+  expect(released.careerXp).toBe(80);
+  const releaseArtLoaded = await page.locator('.catalogue-row .release-cover').evaluate((image) => image.complete && image.naturalWidth > 0);
+  expect(releaseArtLoaded).toBe(true);
+  await page.screenshot({ path: `${screenshotDir}/treblr-release-mobile.png`, animations: 'disabled' });
+
+  await page.locator('.mobile-nav').getByTestId('tab-contracts').click();
+  await page.getByTestId('gig-lagos').click();
+  await expect(page.getByRole('status')).toContainText(/night at The Current Room, Lagos/i);
+  const advanced = await page.evaluate(() => JSON.parse(localStorage.getItem('treblr.career.life.v2')));
+  expect(advanced.careerRank).toBe('first-signal');
+  expect(advanced.careerXp).toBeGreaterThanOrEqual(90);
+  expect(advanced.lastResult.rankUps.map((rank) => rank.title)).toContain('First signal');
+  await expect(page.getByRole('status')).toContainText(/Local radio wants your story/i);
+
+  await page.locator('.mobile-nav').getByTestId('tab-discover').click();
+  await expect(page.getByTestId('interview-local-radio')).toBeDisabled();
+  await expect(page.getByRole('heading', { name: 'Local radio conversation' })).toBeVisible();
+  const beforeClose = await page.evaluate(() => JSON.parse(localStorage.getItem('treblr.career.life.v2')));
+
+  await page.locator('.mobile-nav').getByTestId('tab-home').click();
+  await page.getByTestId('home-close-week').click();
+  const report = page.getByRole('dialog', { name: /your work is moving/i });
+  await expect(report).toBeVisible();
+  await expect(report).toContainText(/modeled listeners/i);
+  await expect(report).toContainText(/net music income/i);
+  await expect(report).toContainText(/career xp/i);
+  await expect(report).toContainText(/This week’s moments/i);
+  const settled = await page.evaluate(() => JSON.parse(localStorage.getItem('treblr.career.life.v2')));
+  expect(settled.week).toBe(2);
+  expect(settled.actionPoints).toBe(3);
+  expect(settled.careerXp).toBeGreaterThan(beforeClose.careerXp);
+  expect(settled.awards.map((award) => award.id)).toContain('first-release');
+
+  await page.getByRole('button', { name: /start week 02/i }).click();
+  await expect(page.getByTestId('career-xp')).toHaveText(String(settled.careerXp));
+  await page.locator('.mobile-nav').getByTestId('tab-discover').click();
+  await expect(page.getByTestId('interview-local-radio')).toBeEnabled();
+  await page.getByTestId('interview-local-radio').click();
+  await expect(page.getByRole('status')).toContainText(/Local radio conversation published/i);
+  const interviewed = await page.evaluate(() => JSON.parse(localStorage.getItem('treblr.career.life.v2')));
+  expect(interviewed.stats.interviews).toBe(1);
+  expect(interviewed.actionPoints).toBe(2);
+  await page.locator('.mobile-nav').getByTestId('tab-home').click();
+  await expect(page.getByTestId('action-feedback')).toBeHidden({ timeout: 6000 });
+  await page.screenshot({ path: `${screenshotDir}/treblr-progression-mobile.png`, animations: 'disabled' });
 });
 
 test('desktop navigation and career export work without overflow', async ({ page }) => {

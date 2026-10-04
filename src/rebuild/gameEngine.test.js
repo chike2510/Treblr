@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { closeWeek, createCareer, gameReducer } from './gameEngine';
+import { closeWeek, createCareer, gameReducer, getCareerJourney, getCareerRank } from './gameEngine';
 import { SAVE_KEY } from './gameData';
-import { exportCareer, isRebuildCareer, loadCareer, parseCareerBackup, saveCareer } from './saveStore';
+import { exportCareer, isRebuildCareer, loadCareer, parseCareerBackup, saveCareer, upgradeCareer } from './saveStore';
 
 const command = (state, name, payload = {}) => gameReducer(state, { type: 'command', command: name, ...payload });
 const startCareer = () => createCareer({ stageName: 'Nova', marketId: 'lagos', genreId: 'rnb' });
@@ -162,6 +162,32 @@ describe('career-first weekly simulation', () => {
     expect(next.energy).toBeGreaterThan(career.energy);
     expect(next.health).toBeGreaterThan(career.health);
   });
+
+  it('turns the first release into a rank-up, an earned award, and a genuinely new radio call', () => {
+    let career = startCareer();
+    career = command(career, 'studio-session', { focusId: 'writing' });
+    career = command(career, 'release', { projectId: career.projects[0].id, campaignId: 'press' });
+    expect(career.careerXp).toBe(80);
+    expect(career.awards.map((award) => award.id)).toContain('first-release');
+    expect(getCareerJourney(career).id).toBe('home-crowd');
+    expect(getCareerRank(career.careerXp).id).toBe('new-voice');
+
+    const locked = command(career, 'interview', { itemId: 'local-radio' });
+    expect(locked.stats.interviews).toBe(0);
+    expect(locked.notice).toMatch(/opens at First signal rank/i);
+    career = command(career, 'gig', { marketId: 'lagos' });
+    expect(career.careerRank).toBe('first-signal');
+    expect(career.lastResult.rankUps.map((rank) => rank.title)).toContain('First signal');
+    expect(career.notice).toMatch(/Local radio wants your story/i);
+
+    const radio = command({ ...career, actionPoints: 1 }, 'interview', { itemId: 'local-radio' });
+    expect(radio.stats.interviews).toBe(1);
+    expect(radio.careerXp).toBeGreaterThan(career.careerXp);
+    const settled = closeWeek(radio);
+    expect(settled.week).toBe(2);
+    expect(settled.weeklyReport.xpEarned).toBeGreaterThan(0);
+    expect(settled.careerXp).toBeGreaterThan(radio.careerXp);
+  });
 });
 
 describe('local career save file', () => {
@@ -187,5 +213,22 @@ describe('local career save file', () => {
     expect(storage.getItem('treblr.career.rebuild.v1')).toContain('arrangement');
     expect(() => parseCareerBackup('{broken')).toThrow(/valid JSON/);
     expect(() => parseCareerBackup(JSON.stringify({ schemaVersion: 1, songs: [] }))).toThrow(/compatible/);
+  });
+
+  it('upgrades a prior v2 career from its history without resetting progress', () => {
+    const { careerXp, careerRank, careerMilestones, awards, lastResult, ...oldSave } = startCareer();
+    const legacy = {
+      ...oldSave,
+      completedWeeks: 3,
+      stats: { ...oldSave.stats, sessions: 2, releases: 1, gigs: 2, tourStops: 1, interviews: 1, socialPosts: 2 },
+      visitedMarkets: ['lagos', 'accra'],
+    };
+    const upgraded = upgradeCareer(legacy);
+    expect(upgraded.careerXp).toBeGreaterThan(legacy.week * 10);
+    expect(upgraded.careerRank).toBe('city-draw');
+    expect(upgraded.careerMilestones).toContain('first-signal');
+    expect(upgraded.awards.map((award) => award.id)).toContain('first-release');
+    expect(upgraded.week).toBe(legacy.week);
+    expect(upgraded.credits).toBe(legacy.credits);
   });
 });

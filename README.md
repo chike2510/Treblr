@@ -1,24 +1,24 @@
 # Treblr — Global Music Career
 
-Treblr is a touch-first, local-first game about building an artist’s career across five connected music markets. The player’s weekly decisions—not a music-making interface—drive the experience: spend limited career actions, decide when to release a project, choose gigs and deals, build an audience, manage energy and health, and keep relationships moving.
+Treblr is a touch-first, local-first music-career game set across five connected markets. It is not a music-production app: the team prepares projects off-screen, while the player makes the consequential career decisions—when to release, which campaign to fund, where to play, who to answer, and which contract terms to accept.
 
 ## The seven desks
 
-- **Home:** see the current week and choose the next move from action-first career prompts.
-- **Music:** decide when a studio project becomes a release and select its independent, press, or visual campaign. Listener counts and release milestones are simulated career events; players do not compose individual tracks.
-- **Studio:** book a songwriting session to develop a release-ready project, rehearse for live work, take career coaching, or spend an action on recovery. Sessions improve skills and affect energy; collaborators and relationships matter.
+- **Home:** follow the current career chapter, work toward a specific milestone, review the week’s activity, and see how the name is carrying across the route.
+- **Music:** make the release-timing and campaign decision for a team-delivered project. Saved local cover art follows the release through its catalogue history; listener counts and milestones are simulated career events.
+- **Studio:** book abstract project development (the team prepares a release candidate off-screen), rehearse for live work, take career coaching, or spend an action on recovery. There are no track-authoring, beat-making, sequencer, or recording-take controls.
 - **Contracts:** book local gigs and away-market tour stops, track familiarity and fan growth, accept eligible festival invitations, take paid calls, and weigh fictional label advances against future royalty shares.
 - **Social:** choose from in-game publicity moments. Each choice models reach, fans, reputation, and a relationship effect; nothing is posted to an external service.
-- **Discover:** take press opportunities, follow global-market progress, and review career milestones and recent events.
+- **Discover:** answer press opportunities, see calls unlock as career rank rises, follow global-market progress, and review earned awards and a career activity file.
 - **Settings:** rename the artist, export or import a versioned career backup, or reset the current local career.
 
 The five available markets are **Lagos, Atlanta, London, Accra, and Toronto**. They form one global circuit. Local gigs and away-market tour stops build familiarity; travel has a visible game-credit cost, while energy and health influence show outcomes and weekly recovery.
 
 ## Weekly play
 
-Each week gives the player three career actions and three separate publicity choices. A songwriting session develops a release candidate with modeled quality from career skills and collaborator trust. The player then chooses whether to release it and which campaign to fund. Other actions include local gigs, tour stops, festivals, label contracts, paid calls, press interviews, live rehearsal, coaching, and recovery. The tour log records every show played away from the artist’s home market.
+Each week gives the player three career actions and three separate publicity choices. A project-development booking returns a release-ready candidate with modeled quality from career skills and collaborator trust; the player chooses whether to release it and whether to pay for a wider campaign. Gigs, tour stops, festivals, label terms, paid calls, press interviews, social moments, rehearsal, coaching, and recovery compete for time, cash, energy, buzz, and relationship gains.
 
-Closing the week settles modeled listeners and music income, adds fans and reputation, restores action budgets and energy, and recovers health. Low energy can carry a health cost; taking recovery time and keeping a constructive relationship with the manager can improve the next week. The local save contains market familiarity, project/release status, skills, resources, label terms, relationships, and the career log.
+Career choices earn **career XP**. Rank thresholds unlock actual opportunities such as a local radio conversation and larger press or label calls; weekly settlements carry XP, audience, cash, health, and team trust into the next week. Awards are earned from real in-game milestones such as a first release, a stronger home crowd, a festival debut, or completing the five-city circuit. Closing the week settles modeled listeners and royalty-adjusted income, restores action budgets, recovers energy and health, and exposes rank-ups in a week report. The local save preserves these systems; earlier v2 saves are upgraded from their recorded history rather than reset.
 
 ## Fictional simulation and local saves
 
@@ -50,7 +50,7 @@ npm run build         # production bundle
 npm run test:smoke    # production-preview Playwright browser suite
 ```
 
-The Playwright suite checks the weekly career loop, all seven tabs, all five markets, release and gig progression, save export, and responsive play at **320×800**, **390×844**, **430×900**, and desktop widths. Screenshots are written to `screenshots/treblr-mobile.png`, `screenshots/treblr-studio-mobile.png`, `screenshots/treblr-contracts-mobile.png`, `screenshots/treblr-desktop.png`, and `screenshots/treblr-studio-desktop.png`.
+The Playwright suite checks a real release → show → rank unlock → press call → settlement → next-week progression flow, all seven tabs, all five markets, save export, locally bundled artwork, and responsive play at **320×800**, **390×844**, **430×900**, and **1440×960**. Screenshots include the clean 390×844 viewport at `screenshots/treblr-home-viewport.png`, full-page `screenshots/treblr-home-mobile.png`, the 320px render at `screenshots/treblr-home-narrow.png`, the artwork-backed catalogue at `screenshots/treblr-release-mobile.png`, the progression state at `screenshots/treblr-progression-mobile.png`, and the Studio, Contracts and desktop screens.
 
 ## Source layout
 

@@ -42,8 +42,8 @@ for (const viewport of [{ width: 320, height: 800 }, { width: 430, height: 900 }
 
 test('city focus follows opportunities across tabs and a tour stop pulses the live route', async ({ page }) => {
   await startCareer(page, { width: 390, height: 844 });
-  await page.getByTestId('circuit-market-atlanta').click();
-  await expect(page.getByTestId('market-focus')).toContainText('Atlanta');
+  await page.getByTestId('route-city-atlanta').click();
+  await expect(page.locator('.dispatch-readout')).toContainText('Atlanta');
   await page.locator('.mobile-nav').getByTestId('tab-contracts').click();
   await expect(page.locator('.dispatch-readout')).toContainText('Atlanta');
   await page.getByTestId('circuit-market-london').click();

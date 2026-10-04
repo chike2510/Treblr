@@ -112,9 +112,32 @@ function HomeView({ career, setTab, focusedMarketId, onFocusMarket, signalMarket
       <NetworkMap career={career} focusedMarketId={focusedMarketId} onFocusMarket={onFocusMarket} signalMarketId={signalMarketId} signalVersion={signalVersion}/>
       <div className="market-focus" data-testid="market-focus"><div className="market-focus-identity"><span className={`market-code tone-${market.tone}`}>{market.code}</span><div><Kicker>{market.id === career.currentMarketId ? 'CURRENT CITY · LIVE' : 'OPPORTUNITY FOCUS'}</Kicker><h3>{market.name}<small>{market.country} / {market.region}</small></h3></div></div><div className="market-focus-stats"><span><small>LOCAL SIGNAL</small><b>{progress.familiarity}%</b></span><span><small>LOCAL FANS</small><b>{compact.format(progress.fans)}</b></span><span><small>ROOMS PLAYED</small><b>{progress.gigs}</b></span></div><Button tone="outline" onClick={() => setTab('contracts')}>See {market.name} opportunities <span aria-hidden="true">→</span></Button></div>
     </section>
+    <LiveEditorial market={market} onExplore={() => setTab('contracts')}/>
     <section className="relay-actions"><div className="relay-actions-head"><Kicker>YOUR WEEK / THREE ACTIONS</Kicker><h2>Where will you send it?</h2><p>Sessions make releases. Shows move the route. People carry the story.</p></div><button className="relay-action action-music" onClick={() => setTab('studio')}><span>01 / BUILD</span><b>Studio time</b><small>Writing, rehearsal, coaching or a day to reset.</small><i>Open Studio →</i></button><button className="relay-action action-contract" onClick={() => setTab('contracts')}><span>02 / ROUTE</span><b>A room in {market.name}</b><small>Book a show, tour stop, festival or label term.</small><i>Open Contracts →</i></button><button className="relay-action action-social" onClick={() => setTab('social')}><span>03 / REACH</span><b>Share the moment</b><small>Build familiarity with the people listening.</small><i>Open Social →</i></button></section>
     <section className="home-latest"><div><Kicker>LAST SIGNAL</Kicker><b>{career.log.at(-1)?.text || 'Your first move starts in this city.'}</b></div><div className="home-catalogue">{latest ? <><span className="release-mark">{genreFor(career.genreId).mark}</span><span><Kicker>CATALOGUE / LAST RELEASE</Kicker><b>{latest.title}</b><small>Week {latest.releaseWeek} · {compact.format(latest.totalStreams)} modeled listeners · {marketFor(latest.marketId).code}</small></span><button className="text-button" onClick={() => setTab('music')}>Open Music →</button></> : <><span className="release-mark">{genreFor(career.genreId).mark}</span><span><Kicker>CATALOGUE / FIRST SIGNAL</Kicker><b>A story still in the making.</b><small>Your studio team shapes the work. You choose when it reaches the world.</small></span><button className="text-button" onClick={() => setTab('music')}>Open Music →</button></>}</div></section>
   </div>;
+}
+
+function LiveEditorial({ market, onExplore }) {
+  return <section className="live-editorial" aria-labelledby="live-editorial-title">
+    <div className="live-editorial-head"><Kicker>FIELD NOTES / THE LIVE CIRCUIT</Kicker><span>ROOM TO ROUTE · 01 / 02</span></div>
+    <div className="live-editorial-grid">
+      <figure className="live-editorial-photo live-editorial-primary">
+        <img src="/assets/live/live-room-stage.webp" alt="A guitarist playing under blue and red lights on a small live stage" width="1120" height="746"/>
+        <figcaption><span>LIVE ROOM · ON STAGE</span><span>GLOBAL RELAY / 01</span></figcaption>
+      </figure>
+      <div className="live-editorial-copy">
+        <Kicker>FROM {market.code} TO THE NEXT CITY</Kicker>
+        <h2 id="live-editorial-title">Every city has a first room.</h2>
+        <p>Playing the room grows your local signal. Take the next show somewhere new and let the audience travel with you.</p>
+        <Button tone="outline" onClick={onExplore}>Find a room in {market.name} <span aria-hidden="true">→</span></Button>
+      </div>
+      <figure className="live-editorial-photo live-editorial-secondary">
+        <img src="/assets/live/live-room-crowd.webp" alt="A live band performs with a violin and guitars in front of a crowd" width="960" height="640"/>
+        <figcaption><span>LIVE BAND · A LOCAL ROOM</span></figcaption>
+      </figure>
+    </div>
+  </section>;
 }
 
 function MusicView({ career, run, setTab, focusedMarketId, onFocusMarket, signalMarketId, signalVersion }) {

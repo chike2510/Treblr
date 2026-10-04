@@ -31,6 +31,20 @@ async function noHorizontalOverflow(page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 }
 
+async function expectLocalEditorialAssets(page) {
+  await expect(page.locator('.live-editorial')).toBeVisible();
+  const images = await page.locator('.live-editorial-photo img').evaluateAll((items) => items.map((image) => ({ loaded: image.complete && image.naturalWidth > 0, source: new URL(image.currentSrc).pathname })));
+  expect(images).toHaveLength(2);
+  expect(images.every((image) => image.loaded && image.source.startsWith('/assets/live/'))).toBe(true);
+  const loadedFont = await page.evaluate(async () => {
+    await document.fonts.load('800 32px "Bricolage Grotesque"');
+    return document.fonts.check('800 32px "Bricolage Grotesque"');
+  });
+  expect(loadedFont).toBe(true);
+  const displayFamily = await page.locator('.page-intro h1').evaluate((element) => getComputedStyle(element).fontFamily);
+  expect(displayFamily).toMatch(/Bricolage Grotesque/);
+}
+
 test('mobile career keeps the seven desks and five-market world playable', async ({ page }) => {
   await startCareer(page, { width: 390, height: 844, name: 'Global Route Artist', market: 'accra', genre: 'hiphop' });
   const nav = page.locator('.mobile-nav');
@@ -38,7 +52,12 @@ test('mobile career keeps the seven desks and five-market world playable', async
   await expect(nav.getByRole('button')).toHaveCount(7);
   expect(await nav.locator('button span:last-child').allTextContents()).toEqual(TABS);
   await noHorizontalOverflow(page);
+  await expectLocalEditorialAssets(page);
   await page.screenshot({ path: `${screenshotDir}/treblr-mobile.png`, animations: 'disabled' });
+  await page.screenshot({ path: `${screenshotDir}/treblr-home-mobile.png`, animations: 'disabled', fullPage: true, style: '.mobile-nav { position: static !important; }' });
+  await page.getByRole('button', { name: /find a room in accra/i }).click();
+  await expect(page.getByRole('heading', { name: 'Pick the room—and the terms.' })).toBeVisible();
+  await nav.getByTestId('tab-home').click();
   await expect(page.locator('main').first()).not.toContainText(/beat|sequencer|instrument|rhythm pad|arrangement/i);
 
   const routeHeadings = [
@@ -120,7 +139,9 @@ test('desktop navigation and career export work without overflow', async ({ page
   await expect(page.locator('.mobile-nav')).toBeHidden();
   await expect(desktopNav.getByRole('button')).toHaveCount(7);
   await noHorizontalOverflow(page);
+  await expectLocalEditorialAssets(page);
   await page.screenshot({ path: `${screenshotDir}/treblr-desktop.png`, animations: 'disabled' });
+  await page.screenshot({ path: `${screenshotDir}/treblr-home-desktop.png`, animations: 'disabled', fullPage: true });
 
   await desktopNav.getByTestId('tab-studio').click();
   await expect(page.getByRole('heading', { name: 'Make room to grow.' })).toBeVisible();

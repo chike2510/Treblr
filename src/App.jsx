@@ -1,332 +1,97 @@
-import { useState, useCallback } from 'react';
-import { GENRES, CITIES, CAREER_TYPES, CURRENCIES } from './data/constants';
-import { NPC_ARTISTS } from './data/artists';
-import { makeDefault, loadGame, getSaveSlots, createCareerSlot, deleteSave } from './engine/gameState';
-import { fmt, fmtN, getTier, getEra } from './engine/utils';
-import { generateNPCCatalog, buildCharts, seedNPCCareers } from './engine/npcEngine';
-import Game from './Game';
+import { useEffect, useMemo, useState } from 'react';
 
-// ── SVG ICONS ─────────────────────────────────────────────────────────────────
-const MicIcon = () => (
-  <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-);
+const SAVE_KEY = 'treblr_seed_foundation_v1';
+const NAV = [
+  { id: 'home', label: 'Home', icon: 'home' }, { id: 'music', label: 'Music', icon: 'music' },
+  { id: 'studio', label: 'Studio', icon: 'studio' }, { id: 'analytics', label: 'Analytics', icon: 'analytics' },
+  { id: 'career', label: 'Career', icon: 'career' }, { id: 'world', label: 'World', icon: 'world' },
+  { id: 'profile', label: 'Profile', icon: 'profile' },
+];
+const MOBILE_NAV = ['home', 'music', 'career', 'world', 'profile'];
+const ICONS = {
+  home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/></>,
+  music: <><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></>,
+  studio: <><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 8h10M7 12h6M7 16h3"/></>,
+  analytics: <><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 6-7"/><path d="M17 6h3v3"/></>,
+  career: <><path d="M3 8h18v12H3z"/><path d="M8 8V5h8v3M3 12h18M10 12v2h4v-2"/></>,
+  world: <><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></>,
+  profile: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
+  arrow: <><path d="M5 12h14M13 6l6 6-6 6"/></>, close: <><path d="m6 6 12 12M18 6 6 18"/></>,
+  check: <path d="m5 12 4 4L19 6"/>,
+};
+const SEED_RELEASES = [
+  { id:'never-met-you', title:'Never Met You', subtitle:'Single · Alté / Afrobeats', releaseWeek:40, streams:1482000, listeners:38400, trend:'+18.4%', status:'Top 100', markets:['United States','United Kingdom','Nigeria'], colors:'cover-mint', initials:'NMY', weekly:[32,38,44,51,48,63,78] },
+  { id:'soft-landing', title:'Soft Landing', subtitle:'Single · Alternative R&B', releaseWeek:36, streams:826000, listeners:21900, trend:'+8.2%', status:'Climbing', markets:['Nigeria','Canada','France'], colors:'cover-plum', initials:'SL', weekly:[22,28,25,34,39,41,48] },
+  { id:'paper-satellites', title:'Paper Satellites', subtitle:'EP · Indie pop', releaseWeek:29, streams:512000, listeners:16200, trend:'+3.1%', status:'Steady', markets:['Germany','Japan','United States'], colors:'cover-sky', initials:'PS', weekly:[18,21,22,24,24,27,30] },
+  { id:'quiet-fire', title:'Quiet Fire', subtitle:'Single · Global soul', releaseWeek:24, streams:291000, listeners:9700, trend:'+5.7%', status:'Steady', markets:['Brazil','Portugal','Nigeria'], colors:'cover-rose', initials:'QF', weekly:[13,15,16,18,21,22,25] },
+];
+const WORLD_ARTISTS = [
+  {name:'Mara Sol',city:'São Paulo, Brazil',genre:'Global soul',listeners:872000,change:'+2',initials:'MS',tint:'tone-rose'},
+  {name:'Candelar',city:'Accra · London',genre:'Alté / Afrobeats',listeners:38400,change:'+11',initials:'CA',tint:'tone-mint',player:true},
+  {name:'Jun Park',city:'Seoul, South Korea',genre:'Indie R&B',listeners:33100,change:'+4',initials:'JP',tint:'tone-violet'},
+  {name:'Nia Blue',city:'Toronto, Canada',genre:'Alternative pop',listeners:29700,change:'+6',initials:'NB',tint:'tone-blue'},
+  {name:'Kofi Vale',city:'Accra, Ghana',genre:'Afrobeats',listeners:24100,change:'—',initials:'KV',tint:'tone-gold'},
+];
+const STORIES = [
+  {id:'festival',category:'GLOBAL CIRCUIT',title:'New cities are opening their doors to independent acts',body:'Regional showcase teams are trading one-off headline slots for small, connected runs. A strong local partner can turn a single date into repeat listeners across a whole region.',byline:'World Desk · 2 hours ago'},
+  {id:'playlist',category:'AUDIENCE',title:'Discovery playlists are rewarding patient release plans',body:'This week, editors pointed to steady audience growth and a clear story between releases as the signals they trust most. A smaller, well-timed campaign can outlast a loud first day.',byline:'Scene Notes · Yesterday'},
+];
+const OPPORTUNITIES = [
+  {id:'support-tour',title:'North Star support run',type:'LIVE OPPORTUNITY',detail:'Four opening dates across London, Berlin and Amsterdam. A good first step into a connected European circuit.',risk:'Medium',effects:{cash:1250,fans:1800,reputation:4,reach:3,energy:-14},effectLabel:'+$1,250 · +1,800 fans · +4 reputation · −14 energy',button:'Take the dates'},
+  {id:'global-campaign',title:'Worldwide discovery package',type:'RELEASE PARTNER',detail:'A focused six-week campaign for “Never Met You” with editorial pitching in four markets.',risk:'Low',effects:{cash:-700,fans:1100,reputation:2,reach:7,energy:-4},effectLabel:'−$700 · +1,100 fans · +7 global reach · +2 reputation',button:'Fund the campaign'},
+];
+const STUDIO_CHOICES = [
+  {id:'press-room',title:'Book an international press room',place:'New York · Friday',description:'A short run of interviews and a live Q&A with music desks in three markets.',cost:600,fans:450,reputation:3,reach:6,energy:-5,streamBoost:1.14,effectLabel:'−$600 · +450 fans · +3 reputation · +6 reach'},
+  {id:'listening-tour',title:'Take the listening room on the road',place:'Accra · London · Toronto',description:'Small community sessions with local hosts. More travel, but a stronger fan connection.',cost:850,fans:1450,reputation:2,reach:4,energy:-13,streamBoost:1.2,effectLabel:'−$850 · +1,450 fans · +2 reputation · +4 reach'},
+];
+const MARKET_FACTORS = {Global:['Worldwide','Top 100','All active markets'],US:['United States','#84 · Alt discovery','New York · Atlanta · LA'],UK:['United Kingdom','#41 · Emerging','London · Manchester · Bristol'],Brazil:['Brazil','#96 · New voices','São Paulo · Rio · Recife'],Korea:['South Korea','#62 · New audience','Seoul · Busan · Incheon']};
 
-// ── START SCREEN ──────────────────────────────────────────────────────────────
-function StartScreen({ onNew, onContinue, saveSlots, onDelete }) {
-  return (
-    <main className="start-screen">
-      <h1 className="start-logo">TREBLR</h1>
-      <div className="start-tagline">Build Your Legacy</div>
-      <div style={{ maxWidth:380, width:'100%', maxHeight:'52vh', overflowY:'auto', margin:'18px 0' }}>
-        {saveSlots.length > 0 && <div className="save-label" style={{ marginBottom:8 }}>YOUR CAREERS · {saveSlots.length}/8</div>}
-        {saveSlots.map((slot) => (
-          <article key={slot.id} className="save-card" style={{ marginBottom:10 }}>
-            <div className="save-label">{slot.totalWeeks ? `WEEK ${slot.totalWeeks}` : 'NEW CAREER'}</div>
-            <div className="save-name">{slot.name}</div>
-            <div className="save-info">{GENRES.find(g => g.id === slot.genre)?.label || 'Genre TBD'} · {CITIES.find(c => c.id === slot.city)?.label || 'City TBD'}</div>
-            <div style={{ display:'flex', gap:12, fontSize:12, fontWeight:700, marginTop:8, marginBottom:10 }}>
-              <span style={{ color:'var(--accent-cyan)' }}>{fmt(slot.fans || 0)} fans</span>
-              <span style={{ color:'var(--text-muted)' }}>{slot.money ? fmtN(slot.money, slot.currency) : 'Career save'}</span>
-            </div>
-            <div style={{ display:'flex', gap:8 }}>
-              <button className="btn btn-primary" style={{ flex:1 }} onClick={() => onContinue(slot.id)}>CONTINUE</button>
-              <button className="btn btn-outline" aria-label={`Delete ${slot.name}`} onClick={() => onDelete(slot.id)}>DELETE</button>
-            </div>
-          </article>
-        ))}
-      </div>
-      <button className={`btn btn-full ${saveSlots.length ? 'btn-outline' : 'btn-primary'}`} style={{ maxWidth:320 }} onClick={onNew} disabled={saveSlots.length >= 8}>
-        {saveSlots.length ? 'NEW CAREER' : 'START CAREER'}
-      </button>
-      {saveSlots.length >= 8 && <div style={{ fontSize:11, color:'var(--accent-orange)', marginTop:8 }}>Delete or export a save to free one of your 8 slots.</div>}
-      <div style={{ position:'absolute', bottom:24, fontSize:10, color:'var(--text-muted)', letterSpacing:2, textTransform:'uppercase' }}>v4.0 · LOCAL SAVES</div>
-    </main>
-  );
-}
+function makeDefault(){return {artist:'Candelar',realName:'Amara Mensah',week:42,year:2026,cash:4320,fans:24860,reputation:34,reach:48,energy:72,careerMoveUsed:false,sessionUsed:false,profilePublic:true,releases:SEED_RELEASES,activity:[{id:'seed-1',title:'“Never Met You” entered the Top 100',detail:'Worldwide streaming chart · 3 hours ago',tone:'mint'},{id:'seed-2',title:'A new listener milestone is within reach',detail:'You are 140 fans away from your next audience tier',tone:'violet'},{id:'seed-3',title:'Two industry opportunities are waiting',detail:'Review the North Star support run and a global campaign',tone:'gold'}],weeklyStreams:[28,32,31,39,43,52,61],weekBoost:1};}
+function readSave(){try{const saved=localStorage.getItem(SAVE_KEY);if(saved)return {...makeDefault(),...JSON.parse(saved)};}catch(error){console.warn('Could not load the local career save.',error);}return makeDefault();}
+function fmt(value){return new Intl.NumberFormat('en-US').format(Math.max(0,Math.round(value)));}
+function cashFmt(value){return `$${fmt(value)}`;}
+function compact(value){if(value>=1_000_000)return `${(value/1_000_000).toFixed(value>=10_000_000?0:1)}M`;if(value>=10_000)return `${(value/1_000).toFixed(1)}K`;return fmt(value);}
+function formatWeek(game){return `Week ${game.week} · ${game.year}`;}
+function addActivity(game,title,detail,tone='mint'){return [{id:`${Date.now()}-${Math.random().toString(16).slice(2)}`,title,detail,tone},...game.activity].slice(0,8);}
+function Icon({name}){return <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">{ICONS[name]}</svg>;}
+function Stat({label,value,detail,accent=''}){return <div className="stat"><div className="stat-label">{label}</div><div className={`stat-value ${accent}`}>{value}</div>{detail&&<div className="stat-detail">{detail}</div>}</div>;}
+function Button({children,onClick,kind='',className='',disabled=false,...props}){return <button type="button" className={`btn ${kind} ${className}`.trim()} onClick={onClick} disabled={disabled} {...props}>{children}</button>;}
+function Cover({release,large=false}){return <div className={`cover-art ${release.colors} ${large?'cover-large':''}`} aria-hidden="true"><span>{release.initials}</span><i/><b/></div>;}
 
-// ── ONBOARDING ────────────────────────────────────────────────────────────────
-function OnboardScreen({ onStart }) {
-  const [step, setStep]               = useState(0);
-  const [stageName, setStageName]     = useState('');
-  const [realName, setRealName]       = useState('');
-  const [startAge, setStartAge]       = useState(22);
-  const [currency, setCurrency]       = useState('NGN');
-  const [genre, setGenre]             = useState(null);
-  const [city, setCity]               = useState(null);
-  const [careerType, setCareerType]   = useState(null);
+export default function App(){
+  const [game,setGame]=useState(readSave),[page,setPage]=useState('home'),[selectedRelease,setSelectedRelease]=useState(null),[selectedStory,setSelectedStory]=useState(null),[search,setSearch]=useState(''),[releaseFilter,setReleaseFilter]=useState('All releases'),[worldMarket,setWorldMarket]=useState('Global'),[profileEditing,setProfileEditing]=useState(false),[draftName,setDraftName]=useState(''),[sessionChoice,setSessionChoice]=useState('press-room'),[notice,setNotice]=useState('');
+  useEffect(()=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(game));}catch(error){console.warn('Could not save the local career.',error);}},[game]);
+  useEffect(()=>{if(!notice)return undefined;const timer=window.setTimeout(()=>setNotice(''),3800);return()=>window.clearTimeout(timer);},[notice]);
+  const activeRelease=game.releases.find(r=>r.id==='never-met-you')||game.releases[0];
+  const pageName=NAV.find(item=>item.id===page)?.label||'Home';
+  const visibleReleases=useMemo(()=>game.releases.filter(release=>{
+    const matchesText=`${release.title} ${release.subtitle} ${release.status}`.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter=releaseFilter==='All releases'||(releaseFilter==='Singles'?release.subtitle.startsWith('Single'):release.status===releaseFilter);
+    return matchesText&&matchesFilter;
+  }),[game.releases,releaseFilter,search]);
+  function navigate(destination){setPage(destination);window.scrollTo?.({top:0,behavior:'smooth'});}
+  function decideOpportunity(opportunity,choice){if(game.careerMoveUsed)return;const accepted=choice==='accept',effects=accepted?opportunity.effects:{reputation:1};setGame(prev=>({...prev,cash:Math.max(0,prev.cash+(effects.cash||0)),fans:prev.fans+(effects.fans||0),reputation:Math.min(100,Math.max(0,prev.reputation+(effects.reputation||0))),reach:Math.min(100,Math.max(0,prev.reach+(effects.reach||0))),energy:Math.min(100,Math.max(0,prev.energy+(effects.energy||0))),careerMoveUsed:true,activity:addActivity(prev,accepted?`${opportunity.title} confirmed`:`${opportunity.title} passed`,accepted?`${opportunity.effectLabel} · decision made this week`:'You kept your calendar open and protected your independence.',accepted?'mint':'gold')}));setNotice(accepted?'Career move confirmed. Your stats and activity log have updated.':'Opportunity passed. Your activity log has been updated.');}
+  function bookSession(){if(game.sessionUsed)return;const chosen=STUDIO_CHOICES.find(item=>item.id===sessionChoice);if(!chosen||game.cash<chosen.cost)return;setGame(prev=>({...prev,cash:prev.cash-chosen.cost,fans:prev.fans+chosen.fans,reputation:Math.min(100,prev.reputation+chosen.reputation),reach:Math.min(100,prev.reach+chosen.reach),energy:Math.max(0,prev.energy+chosen.energy),releases:prev.releases.map(release=>release.id===activeRelease.id?{...release,streams:Math.round(release.streams*chosen.streamBoost),trend:`+${(Number.parseFloat(release.trend)+3.2).toFixed(1)}%`}:release),weekBoost:Math.max(prev.weekBoost,chosen.streamBoost),sessionUsed:true,activity:addActivity(prev,`${chosen.title} booked`,`${chosen.effectLabel} · “${activeRelease.title}” receives a ${Math.round((chosen.streamBoost-1)*100)}% discovery lift.`,'violet')}));setNotice('Session booked. The release plan is now reflected in your career.');}
+  function endWeek(){const progress=Math.round((activeRelease.listeners*.08+game.fans*.004)*game.weekBoost),extraStreams=Math.round(activeRelease.listeners*.035*game.weekBoost);setGame(prev=>{const week=prev.week>=52?1:prev.week+1,year=prev.week>=52?prev.year+1:prev.year,royalties=Math.max(90,Math.round(extraStreams*.008));return {...prev,week,year,cash:prev.cash+royalties,fans:prev.fans+progress,energy:Math.min(100,prev.energy+12),releases:prev.releases.map(release=>({...release,streams:release.streams+Math.round(release.listeners*.035*prev.weekBoost)})),weeklyStreams:[...prev.weeklyStreams.slice(-6),Math.max(15,Math.round(prev.weeklyStreams.at(-1)*.92+extraStreams/1800))],careerMoveUsed:false,sessionUsed:false,weekBoost:1,activity:addActivity(prev,`Week ${prev.week} closed · ${week} begins`,`+${cashFmt(royalties)} royalties · +${fmt(progress)} fans · energy restored to ${Math.min(100,prev.energy+12)}.`,'mint')};});setNotice(`Week closed. The audience kept growing: +${fmt(progress)} fans and +${cashFmt(Math.max(90,Math.round(extraStreams*.008)))} royalties.`);}
+  function saveProfile(event){event.preventDefault();const name=draftName.trim();if(!name)return;setGame(prev=>({...prev,artist:name,activity:addActivity(prev,'Artist profile updated',`Your stage name is now ${name}.`,'violet')}));setProfileEditing(false);setNotice('Profile saved. Your artist name is updated across the app.');}
 
-  const career = CAREER_TYPES.find(c => c.id === careerType);
-  const selectedGenre = GENRES.find(g => g.id === genre);
-  const canStart = stageName.trim() && realName.trim() && genre && city && careerType;
+  function ActivityFeed({items=game.activity}){return <div className="feed">{items.map(item=><div className="feed-item" key={item.id}><span className={`dot dot-${item.tone}`}/><div><b>{item.title}</b><small>{item.detail}</small></div></div>)}</div>;}
+  function ReleaseCard({release}){return <button type="button" className="album" onClick={()=>setSelectedRelease(release)} aria-label={`Open ${release.title} release details`}><Cover release={release}/><span className="album-title">{release.title}</span><span className="album-meta">{release.subtitle}</span><span className="album-streams">{compact(release.streams)} streams <i>{release.trend}</i></span></button>;}
+  function HomePage(){return <>
+    <section className="hero"><div className="hero-copy"><div className="eyebrow"><span className="status-dot"/> Your latest single is moving</div><h2>“Never Met You” just entered the <em>Top 100.</em></h2><p>Momentum is travelling. New listeners are finding you in London, Toronto and São Paulo—and two industry opportunities are waiting on a decision.</p><div className="actions"><Button kind="primary" onClick={()=>setSelectedRelease(activeRelease)}>View release <Icon name="arrow"/></Button><Button onClick={()=>navigate('career')}>Review opportunities</Button></div></div><div className="hero-art" aria-label="Abstract artist portrait artwork"><div className="hero-orbit orbit-a"/><div className="hero-orbit orbit-b"/><div className="hero-person"><span/></div><div className="hero-watermark">TREBLR</div><div className="hero-caption"><span>GLOBAL MOMENTUM</span><b>01 — 04</b></div></div></section>
+    <section className="stats" aria-label="Career stats"><Stat label="Cash" value={cashFmt(game.cash)} detail="Available balance"/><Stat label="Fans" value={compact(game.fans)} detail="Across 31 markets" accent="positive"/><Stat label="Reputation" value={`${game.reputation}/100`} detail="Industry trust"/><Stat label="Global reach" value={`${game.reach}/100`} detail="Listener discovery" accent="positive"/></section>
+    <div className="grid-2 home-lower"><section className="panel"><div className="subhead"><h3>Latest release</h3><button className="text-link" onClick={()=>navigate('music')}>Music library <Icon name="arrow"/></button></div><button type="button" className="release featured-release" onClick={()=>setSelectedRelease(activeRelease)} aria-label={`Open ${activeRelease.title} release details`}><Cover release={activeRelease} large/><span className="release-copy"><b className="release-title">{activeRelease.title}</b><span className="release-meta">Single · Released week 40 · {compact(activeRelease.streams)} streams</span><span className="release-badge"><i/>{activeRelease.status}<span>· {activeRelease.trend}</span></span></span><span className="release-chevron"><Icon name="arrow"/></span></button><div className="home-shortcuts"><button onClick={()=>navigate('studio')}><span className="shortcut-icon"><Icon name="studio"/></span><span><b>Studio & sessions</b><small>Plan a career-facing appearance</small></span><Icon name="arrow"/></button><button onClick={()=>navigate('analytics')}><span className="shortcut-icon"><Icon name="analytics"/></span><span><b>Audience analytics</b><small>See what is moving globally</small></span><Icon name="arrow"/></button></div></section><section className="panel activity-panel"><div className="subhead"><h3>Career activity</h3><span>{game.activity.length} recent updates</span></div><ActivityFeed items={game.activity.slice(0,4)}/><Button onClick={()=>navigate('career')} className="panel-footer-link">Make this week count <Icon name="arrow"/></Button></section></div>
+    <section className="week-close panel"><div><span className="eyebrow">ONE MOVE AT A TIME</span><h3>Ready to see what next week brings?</h3><p>Close the week to settle royalties, grow your audience and recover energy. Your choices carry forward.</p></div><Button kind="primary" onClick={endWeek}>End week <Icon name="arrow"/></Button></section>
+  </>;}
+  function MusicPage(){return <><section className="page-intro"><div><div className="eyebrow">Your catalogue, in motion</div><h2>Music library</h2><p>Browse every release and open the story behind its audience.</p></div><div className="catalog-count"><b>{String(game.releases.length).padStart(2,'0')}</b><span>RELEASES</span></div></section><div className="toolbar"><label className="search-wrap"><span className="search-icon">⌕</span><input className="search" aria-label="Search releases" placeholder="Search your catalogue" value={search} onChange={event=>setSearch(event.target.value)}/></label><div className="filter-pills" aria-label="Release filters">{['All releases','Singles','Top 100'].map(filter=><button key={filter} type="button" className={`pill ${releaseFilter===filter?'active':''}`} onClick={()=>setReleaseFilter(filter)}>{filter}</button>)}</div></div><div className="library">{visibleReleases.map(release=><ReleaseCard key={release.id} release={release}/>)}{visibleReleases.length===0&&<div className="empty-state panel"><span>⌕</span><b>No releases match that search</b><small>Try a different title or filter.</small></div>}</div><section className="panel catalog-note"><span className="note-mark">✳</span><div><b>Release choices happen in the career</b><p>Plan a press appearance or listening-room run in Studio. The decision changes your reach and the release’s next-week momentum.</p></div><Button onClick={()=>navigate('studio')}>Open Studio <Icon name="arrow"/></Button></section></>;}
+  function StudioPage(){const chosen=STUDIO_CHOICES.find(item=>item.id===sessionChoice)||STUDIO_CHOICES[0];return <><section className="page-intro studio-intro"><div><div className="eyebrow">Studio · sessions & rollout</div><h2>Put the release in the room.</h2><p>Choose the appearance that fits this week. It affects audience, reputation, reach and the momentum of your active release.</p></div><div className="session-week"><span>THIS WEEK</span><b>{formatWeek(game)}</b><small>One booking available</small></div></section><div className="studio-layout"><section className="panel studio-choices"><div className="subhead"><h3>Choose a session</h3><span>Career decision · no production console</span></div>{STUDIO_CHOICES.map(choice=><button type="button" key={choice.id} className={`session-choice ${sessionChoice===choice.id?'selected':''}`} onClick={()=>setSessionChoice(choice.id)} aria-pressed={sessionChoice===choice.id}><span className="choice-mark">{sessionChoice===choice.id?<Icon name="check"/>:<span/>}</span><span className="choice-copy"><b>{choice.title}</b><small>{choice.place}</small><span>{choice.description}</span><em>{choice.effectLabel}</em></span><span className="choice-cost">{cashFmt(choice.cost)}</span></button>)}<div className="booking-actions"><span className="muted">Your balance: <b>{cashFmt(game.cash)}</b></span><Button kind="primary" onClick={bookSession} disabled={game.sessionUsed||game.cash<chosen.cost}>{game.sessionUsed?'Session booked this week':`Confirm · ${cashFmt(chosen.cost)}`}</Button></div>{game.sessionUsed&&<div className="inline-success"><span>✓</span> This booking is in your activity log and has changed your stats.</div>}</section><aside className="panel studio-summary"><div className="summary-art"><div className={`summary-cover ${activeRelease.colors}`}><span>{activeRelease.initials}</span></div><span className="summary-live"><i/> CURRENT PLAN</span></div><div className="summary-content"><div className="eyebrow">ACTIVE RELEASE</div><h3>{activeRelease.title}</h3><p>{compact(activeRelease.streams)} streams · {activeRelease.trend} this week</p><div className="summary-row"><span>Selected session</span><b>{chosen.title.replace('Book an ','').replace('Take the ','')}</b></div><div className="summary-row"><span>Release focus</span><b>International discovery</b></div><div className="summary-row"><span>Current reach</span><b>{game.reach}/100</b></div></div></aside></div><section className="panel studio-note"><b>Session, not a studio console</b><p>Every option is a career-facing appearance or release rollout. Nothing here asks you to compose, record or mix a track.</p></section><section className="panel studio-recent"><div className="subhead"><h3>Recent session activity</h3><span>Career effects</span></div><ActivityFeed items={game.activity.slice(0,3)}/></section></>;}
+  function AnalyticsPage(){const totalStreams=game.releases.reduce((total,release)=>total+release.streams,0),bars=game.weeklyStreams;return <><section className="page-intro"><div><div className="eyebrow">Signals, not noise</div><h2>Audience analytics</h2><p>Track how the last release is travelling across markets.</p></div><span className="analytics-period">LAST 7 WEEKS <i>↗</i></span></section><div className="analytics-grid"><section className="panel analytics-main"><div className="track-head"><Cover release={activeRelease} large/><div><span className="eyebrow">LEADING RELEASE</span><h3>{activeRelease.title}</h3><div className="big-number">{compact(totalStreams)}</div><span className="muted">total catalogue streams <b className="positive">· {activeRelease.trend}</b></span></div></div><div className="chart-heading"><b>Weekly listening momentum</b><span>GLOBAL · INDEXED</span></div><div className="chart" role="img" aria-label="Weekly streams chart across the last seven weeks">{bars.map((height,index)=><div key={`${index}-${height}`} className="chart-column"><span className="bar-value">{height}</span><div className="bar" style={{height:`${Math.min(100,height*1.35)}%`}}/><small>W{game.week-(bars.length-1-index)<1?game.week-(bars.length-1-index)+52:game.week-(bars.length-1-index)}</small></div>)}</div></section><section className="panel market-panel"><div className="subhead"><h3>Where they listen</h3><button className="text-link" onClick={()=>navigate('world')}>World desk <Icon name="arrow"/></button></div>{[['United States',42,'+14%'],['United Kingdom',26,'+11%'],['Nigeria',18,'+6%'],['Canada',9,'+9%'],['Other markets',5,'+4%']].map(([name,value,change])=><div className="market-row" key={name}><span className="market-name">{name}</span><div className="market-track"><i style={{width:`${value*1.8}%`}}/></div><b>{value}%</b><small>{change}</small></div>)}<div className="global-stamp"><Icon name="world"/><span><b>31 markets</b><small>are finding your music</small></span></div></section></div><div className="stats analytics-stats"><Stat label="Monthly listeners" value={compact(game.releases.reduce((n,release)=>n+release.listeners,0))} detail="Across all releases" accent="positive"/><Stat label="Followers" value={compact(game.fans)} detail="+1,284 this month"/><Stat label="Save rate" value="8.7%" detail="Above your last release"/><Stat label="Top city" value="London" detail="+22% discovery"/></div></>;}
+  function CareerPage(){return <><section className="page-intro career-intro"><div><div className="eyebrow">Your next move</div><h2>Career desk</h2><p>Good opportunities ask for something. Decide what this week is worth.</p></div><div className="decision-status"><span className={game.careerMoveUsed?'status-complete':''}>{game.careerMoveUsed?'✓ DECISION MADE':'● DECISION OPEN'}</span><small>{formatWeek(game)}</small></div></section><section className="panel opportunity-board"><div className="subhead"><h3>Opportunities on the table</h3><span>Two paths · one choice this week</span></div>{OPPORTUNITIES.map((opportunity,index)=><article className={`opportunity opportunity-${index}`} key={opportunity.id}><div className={`opportunity-art art-op-${index}`}><span>{index===0?'NS':'GD'}</span><i/></div><div className="opportunity-copy"><span className="opportunity-type">{opportunity.type}</span><h4>{opportunity.title}</h4><p>{opportunity.detail}</p><div className="opportunity-meta"><span className={`risk risk-${opportunity.risk.toLowerCase()}`}>{opportunity.risk} risk</span><span>{opportunity.effectLabel}</span></div></div><div className="opportunity-actions"><Button kind={game.careerMoveUsed?'':'primary'} onClick={()=>decideOpportunity(opportunity,'accept')} disabled={game.careerMoveUsed}>{opportunity.button}</Button><Button onClick={()=>decideOpportunity(opportunity,'pass')} disabled={game.careerMoveUsed}>Pass</Button></div></article>)}{game.careerMoveUsed&&<div className="inline-success"><span>✓</span> Your decision is already reflected in Cash, Fans, Reputation and Activity.</div>}</section><div className="career-foot-grid"><section className="panel"><div className="subhead"><h3>Career standing</h3><span>Global, not local</span></div><div className="standing-score"><b>{game.reputation}</b><span><strong>Industry reputation</strong><small>Independent artist · building trust in 31 markets</small></span></div><div className="standing-track"><i style={{width:`${game.reputation}%`}}/></div><div className="standing-detail"><span>Next level: <b>Breakthrough</b></span><span>{100-game.reputation} points to go</span></div></section><section className="panel"><div className="subhead"><h3>Recent activity</h3><span>Latest first</span></div><ActivityFeed items={game.activity.slice(0,3)}/></section></div></>;}
+  function WorldPage(){const factors=MARKET_FACTORS[worldMarket],artists=WORLD_ARTISTS.filter(artist=>!artist.player||game.profilePublic).map(artist=>artist.player?{...artist,name:game.artist,listeners:activeRelease.listeners}:artist).sort((a,b)=>b.listeners-a.listeners);return <><section className="page-intro"><div><div className="eyebrow">Across scenes & borders</div><h2>World desk</h2><p>See how artists and releases are moving in a connected music world.</p></div><div className="world-count"><Icon name="world"/><span><b>31</b><small>active markets</small></span></div></section><section className="world-banner"><div className="world-banner-mark"><Icon name="world"/></div><div><span className="eyebrow">GLOBAL CHART SNAPSHOT</span><h3>Independent scenes move together.</h3><p>Local signals can become global momentum. Switch markets to explore the artists, cities and stories shaping this week.</p></div><div className="world-banner-orb orb-one"/><div className="world-banner-orb orb-two"/></section><div className="world-grid"><section className="panel leaderboard"><div className="subhead"><h3>Artists on the rise</h3><span>Updated this week</span></div><div className="market-tabs" role="tablist" aria-label="World market">{Object.keys(MARKET_FACTORS).map(market=><button type="button" role="tab" aria-selected={worldMarket===market} key={market} className={`market-tab ${worldMarket===market?'active':''}`} onClick={()=>setWorldMarket(market)}>{market}</button>)}</div><div className="market-caption"><span>{factors[0]}</span><b>{factors[1]}</b><small>{factors[2]}</small></div><div className="artist-list">{artists.map((artist,index)=><button className={`artist-row ${artist.player?'artist-you':''}`} key={artist.name} onClick={()=>setSelectedStory({category:'ARTIST PROFILE',title:artist.name,body:`${artist.genre} artist based in ${artist.city}. ${compact(artist.listeners)} monthly listeners, with ${artist.change.startsWith('+')?`${artist.change} places of movement`:'a steady position'} in the ${worldMarket} market.`,byline:'World desk · Artist snapshot'})}><span className="artist-rank">{String(index+1).padStart(2,'0')}</span><span className={`artist-avatar ${artist.tint}`}>{artist.initials}</span><span className="artist-main"><b>{artist.name}{artist.player&&<i>YOU</i>}</b><small>{artist.city} · {artist.genre}</small></span><span className="artist-listeners"><b>{compact(artist.listeners)}</b><small>listeners</small></span><span className="artist-change">{artist.change}</span></button>)}</div><div className="table-note">Select an artist to open a market snapshot.</div></section><section className="panel news-panel"><div className="subhead"><h3>Across the scene</h3><span>World notes</span></div><div className="news">{STORIES.map(story=><button className="news-item" key={story.id} onClick={()=>setSelectedStory(story)}><span className="category">{story.category}</span><h4>{story.title}</h4><p>{story.body}</p><span className="news-byline">{story.byline} <Icon name="arrow"/></span></button>)}</div><div className="world-note"><span>✦</span><small>Every market is in play. Your path is global from week one.</small></div></section></div></>;}
+  function ProfilePage(){return <><section className="profile-head"><div className="profile-photo"><div className="profile-monogram">{game.artist.slice(0,2).toUpperCase()}</div><span className="photo-glow"/></div><div className="profile-intro"><span className="eyebrow">Independent artist · since 2026</span><h2 className="profile-name">{game.artist}</h2><p>{game.realName} <span>·</span> Alté / Afrobeats <span>·</span> Accra & London</p><div className="tags"><span className="tag">Global soul</span><span className="tag">Independent</span><span className="tag">31 markets</span></div></div><div className="profile-actions"><span className={`profile-visibility ${game.profilePublic?'is-public':''}`}><i/>{game.profilePublic?'PUBLIC PROFILE':'PRIVATE PROFILE'}</span><Button onClick={()=>{setDraftName(game.artist);setProfileEditing(value=>!value);}}>{profileEditing?'Cancel edit':'Edit profile'}</Button></div></section>{profileEditing&&<form className="panel profile-edit" onSubmit={saveProfile}><label htmlFor="stage-name">Artist / stage name<input id="stage-name" value={draftName} onChange={event=>setDraftName(event.target.value)} maxLength={24}/></label><div className="profile-edit-actions"><Button kind="primary" type="submit">Save profile</Button></div></form>}<div className="profile-grid"><section className="panel"><div className="subhead"><h3>Career snapshot</h3><span>{formatWeek(game)}</span></div><div className="profile-metrics"><div><b>{compact(game.fans)}</b><small>fans</small></div><div><b>{compact(game.releases.reduce((n,release)=>n+release.streams,0))}</b><small>catalogue streams</small></div><div><b>{game.reputation}</b><small>reputation</small></div></div><div className="profile-feature"><span className="eyebrow">CURRENT MOMENT</span><h4>“{activeRelease.title}” is reaching beyond home.</h4><p>Listeners in London, Toronto and São Paulo are sharing the same release. Your next move can turn curiosity into a community.</p><button className="text-link" onClick={()=>setSelectedRelease(activeRelease)}>Open release detail <Icon name="arrow"/></button></div></section><section className="panel profile-settings"><div className="subhead"><h3>Public presence</h3><span>Only affects this career save</span></div><div className="presence-card"><div><b>Artist profile visibility</b><small>{game.profilePublic?'Your profile is visible to the world desk.':'Your profile is hidden from the world desk.'}</small></div><button type="button" className={`switch ${game.profilePublic?'on':''}`} role="switch" aria-checked={game.profilePublic} aria-label="Public profile visibility" onClick={()=>setGame(prev=>({...prev,profilePublic:!prev.profilePublic,activity:addActivity(prev,`Profile made ${prev.profilePublic?'private':'public'}`,'Your artist presence setting was updated.','violet')}))}><i/></button></div><div className="profile-bio"><span className="eyebrow">ABOUT</span><p>Building an independent career between scenes. Current focus: meaningful rooms, patient growth and music that travels.</p></div></section></div><section className="panel profile-activity"><div className="subhead"><h3>Career story</h3><span>Latest first</span></div><ActivityFeed items={game.activity.slice(0,4)}/></section></>;}
 
-  const steps = [
-    { label: 'Identity', done: !!(stageName.trim() && realName.trim()) },
-    { label: 'Genre',    done: !!genre },
-    { label: 'City',     done: !!city },
-    { label: 'Career',   done: !!careerType },
-  ];
-
-  const handleStart = () => {
-    if (!canStart) return;
-    onStart({ stageName: stageName.trim(), realName: realName.trim(), startAge, currency, genre, city, careerType });
-  };
-
-  return (
-    <div className="ob-screen">
-      <div className="ob-logo">TREBLR</div>
-      <div className="ob-subtitle">Build Your Legacy</div>
-
-      {/* Step indicators */}
-      <div style={{ display:'flex', gap:8, marginBottom:24, width:'100%', maxWidth:440 }}>
-        {steps.map((s, i) => (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={i === step}
-            key={s.label}
-            onClick={() => setStep(i)}
-            style={{
-              appearance:'none', background:'transparent', border:0, font:'inherit',
-              flex:1, textAlign:'center', cursor:'pointer',
-              borderBottom: `2px solid ${i === step ? 'var(--accent-gold)' : s.done ? 'var(--accent-green)' : 'var(--border)'}`,
-              paddingBottom:6,
-            }}
-          >
-            <div style={{ fontSize:9, letterSpacing:1, textTransform:'uppercase', color: i === step ? 'var(--accent-gold-lt)' : s.done ? 'var(--accent-green)' : 'var(--text-muted)' }}>
-              {s.done && i !== step ? '✓ ' : ''}{s.label}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Step 0: Identity */}
-      {step === 0 && (
-        <div className="ob-section">
-          <div className="ob-sec-head">
-            <span className="ob-num">01</span>
-            <span className="ob-sec-label">Your Identity</span>
-          </div>
-          <div className="ob-input-row">
-            <div>
-              <label className="form-label" htmlFor="stage-name">Stage Name</label>
-              <input id="stage-name" className="ob-input" placeholder="e.g. CANDELAR" value={stageName} onChange={e => setStageName(e.target.value)} maxLength={18} />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="real-name">Real Name</label>
-              <input id="real-name" className="ob-input" placeholder="Given name" value={realName} onChange={e => setRealName(e.target.value)} maxLength={24} />
-            </div>
-          </div>
-          <div className="ob-input-row">
-            <div>
-              <label className="form-label" htmlFor="starting-age">Starting Age</label>
-              <select
-                id="starting-age"
-                className="ob-input"
-                value={startAge}
-                onChange={e => setStartAge(Number(e.target.value))}
-                style={{ appearance:'none' }}
-              >
-                {Array.from({ length: 20 }, (_, i) => 16 + i).map(a => (
-                  <option key={a} value={a}>{a} years old</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="form-label" htmlFor="display-currency">Display Currency</label>
-              <select
-                id="display-currency"
-                className="ob-input"
-                value={currency}
-                onChange={e => setCurrency(e.target.value)}
-                style={{ appearance:'none' }}
-              >
-                {CURRENCIES.map(item => <option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}
-              </select>
-            </div>
-          </div>
-          <div style={{ marginTop:-4, fontSize:10, lineHeight:1.45, color:'var(--text-muted)' }}>
-            Display only. Existing game amounts stay the same; no exchange conversion is applied.
-          </div>
-          <button className="btn btn-primary btn-full" style={{ marginTop:16 }} disabled={!stageName.trim() || !realName.trim()} onClick={() => setStep(1)}>
-            NEXT →
-          </button>
-        </div>
-      )}
-
-      {/* Step 1: Genre */}
-      {step === 1 && (
-        <div className="ob-section">
-          <div className="ob-sec-head">
-            <span className="ob-num">02</span>
-            <span className="ob-sec-label">Your Genre</span>
-          </div>
-          <div className="grid2">
-            {GENRES.map(g => (
-              <button
-                type="button" role="radio" aria-checked={genre === g.id}
-                key={g.id}
-                className={`sel${genre === g.id ? ' on' : ''}`}
-                onClick={() => setGenre(g.id)}
-                style={genre === g.id ? { borderColor: g.color, background: g.color + '14' } : {}}
-              >
-                <div className="sel-icon">
-                  <div style={{ width:28, height:28, borderRadius:8, background:g.color + '30', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <span style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:700, color:g.color }}>{g.initials}</span>
-                  </div>
-                </div>
-                <div className="sel-label">{g.label}</div>
-                <div className="sel-sub">{g.desc}</div>
-              </button>
-            ))}
-          </div>
-          <button className="btn btn-primary btn-full" style={{ marginTop:16 }} disabled={!genre} onClick={() => setStep(2)}>NEXT →</button>
-        </div>
-      )}
-
-      {/* Step 2: City */}
-      {step === 2 && (
-        <div className="ob-section">
-          <div className="ob-sec-head">
-            <span className="ob-num">03</span>
-            <span className="ob-sec-label">Your City</span>
-          </div>
-          <div className="grid2">
-            {CITIES.map(c => (
-              <button type="button" role="radio" aria-checked={city === c.id} key={c.id} className={`sel${city === c.id ? ' on' : ''}`} onClick={() => setCity(c.id)}>
-                <div className="sel-icon">
-                  <span style={{ fontFamily:'var(--font-mono)', fontSize:12, fontWeight:700, color:'var(--text-muted)' }}>{c.flag}</span>
-                </div>
-                <div className="sel-label">{c.label}</div>
-                <div className="sel-sub">{c.scene}</div>
-              </button>
-            ))}
-          </div>
-          <button className="btn btn-primary btn-full" style={{ marginTop:16 }} disabled={!city} onClick={() => setStep(3)}>NEXT →</button>
-        </div>
-      )}
-
-      {/* Step 3: Career */}
-      {step === 3 && (
-        <div className="ob-section">
-          <div className="ob-sec-head">
-            <span className="ob-num">04</span>
-            <span className="ob-sec-label">Career Path</span>
-          </div>
-          {CAREER_TYPES.map(c => (
-            <button
-              type="button" role="radio" aria-checked={careerType === c.id}
-              key={c.id}
-              className={`career-card${careerType === c.id ? ' on' : ''}`}
-              onClick={() => setCareerType(c.id)}
-            >
-              <div className="career-top">
-                <div style={{ width:32, height:32, borderRadius:8, background:'var(--surface-2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <MicIcon />
-                </div>
-                <span className="career-name">{c.label}</span>
-              </div>
-              <div className="career-desc">{c.desc}</div>
-              <span className="career-perk">✦ {c.perk}</span>
-              {careerType === c.id && (
-                <div className="stats-preview" style={{ marginTop:10 }}>
-                  {[['SW', c.stats.sw + (selectedGenre?.swBonus || 0)], ['VC', c.stats.vc + (selectedGenre?.vcBonus || 0)], ['PD', c.stats.pd + (selectedGenre?.pdBonus || 0)], ['LP', c.stats.lp + (selectedGenre?.lpBonus || 0)], ['HST', c.stats.hustle], ['CHR', c.stats.charisma]].map(([l, v]) => (
-                    <div key={l} className="sp-chip">
-                      <div className="sp-chip-l">{l}</div>
-                      <div className="sp-chip-v">{v}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </button>
-          ))}
-          {career && (
-            <div style={{ background:'var(--surface-1)', borderRadius:'var(--r)', padding:'12px 14px', marginTop:12 }}>
-              <div style={{ fontSize:9, letterSpacing:2, textTransform:'uppercase', color:'var(--text-muted)', marginBottom:6 }}>Starting Stats</div>
-              <div style={{ display:'flex', gap:16, fontSize:13, fontWeight:700 }}>
-                <span style={{ color:'var(--accent-gold-lt)' }}>{fmtN(career.money, currency)}</span>
-                <span style={{ color:'var(--accent-cyan)' }}>{fmt(career.fans)} fans</span>
-                <span style={{ color:'var(--text-muted)', fontSize:11 }}>SE: {career.se}/wk</span>
-              </div>
-            </div>
-          )}
-          <button className="btn btn-primary btn-full" style={{ marginTop:16 }} disabled={!canStart} onClick={handleStart}>
-            BEGIN CAREER →
-          </button>
-        </div>
-      )}
-
-      <div style={{ height:32 }} />
-    </div>
-  );
-}
-
-// ── APP ROOT ──────────────────────────────────────────────────────────────────
-export default function App() {
-  const [gs, setGs] = useState(() => ({ ...makeDefault(), screen:'start' }));
-
-  const patch   = useCallback(upd => setGs(prev => ({ ...prev, ...upd })), []);
-  const patchFn = useCallback(fn  => setGs(prev => ({ ...prev, ...fn(prev) })), []);
-
-  const handleNew = () => patch({ screen:'onboard' });
-  const handleContinue = (slotId) => { const saved = loadGame(slotId); if (saved) setGs({ ...saved, screen:'game' }); };
-  const handleDeleteSave = (slotId) => {
-    if (window.confirm('Delete this career slot permanently?')) {
-      deleteSave(slotId);
-      setGs((current) => ({ ...current }));
-    }
-  };
-
-  const handleBegin = ({ stageName, realName, startAge, currency, genre, city, careerType }) => {
-    const career    = CAREER_TYPES.find(c => c.id === careerType);
-    const genreData = GENRES.find(g => g.id === genre);
-
-    const platforms = {
-      soundify: Math.round(career.socialFollowers * 0.3),
-      instapic:    Math.round(career.socialFollowers * 0.25),
-      chirp:       Math.round(career.socialFollowers * 0.15),
-      vidtube:     Math.round(career.socialFollowers * 0.15),
-      rhythmtok:   Math.round(career.socialFollowers * 0.1),
-      wavelog:  Math.round(career.socialFollowers * 0.05),
-    };
-
-    const npcCatalog    = generateNPCCatalog();
-    const npcCareers    = seedNPCCareers(npcCatalog);
-    const npcLastRelease = {};
-    for (const npc of NPC_ARTISTS) {
-      npcLastRelease[npc.id] = -(npc.releaseFrequency + Math.floor(Math.random() * 4));
-    }
-
-    const newState = {
-      ...makeDefault(),
-      screen: 'game',
-      stageName, realName, startAge, currency, genre, city, careerType, startYear: 2024,
-      money:    career.money,
-      fans:     career.fans,
-      socialPlatforms: platforms,
-      sw: career.stats.sw + (genreData?.swBonus || 0), vc: career.stats.vc + (genreData?.vcBonus || 0),
-      pd: career.stats.pd + (genreData?.pdBonus || 0), lp: career.stats.lp + (genreData?.lpBonus || 0),
-      hustle: career.stats.hustle, charisma: career.stats.charisma, network: career.stats.network,
-      genreBonus: { [genre]: 0 },
-      maxSe: career.se, se: career.se,
-      maxSp:3, sp:3,
-      npcCatalog, npcCareers,
-      npcLastRelease,
-      news: [{ msg: `${stageName}'s career begins. The journey to legendary starts now.`, type: 'milestone', week: 0 }],
-    };
-    // Seed initial charts so StatsTab isn't empty from day one
-    newState.charts = buildCharts(newState.catalog, newState.npcCatalog, newState);
-    const created = createCareerSlot(newState);
-    if (!created) {
-      window.alert('Could not create a career slot. Delete a save or free device storage, then try again.');
-      setGs({ ...newState, screen:'onboard' });
-      return;
-    }
-    setGs(created);
-  };
-
-  const saveSlots = getSaveSlots();
-
-  if (gs.screen === 'start') return <StartScreen onNew={handleNew} onContinue={handleContinue} onDelete={handleDeleteSave} saveSlots={saveSlots} />;
-  if (gs.screen === 'onboard') return <OnboardScreen onStart={handleBegin} />;
-  return <Game gs={gs} setGs={setGs} />;
+  const pageContent={home:<HomePage/>,music:<MusicPage/>,studio:<StudioPage/>,analytics:<AnalyticsPage/>,career:<CareerPage/>,world:<WorldPage/>,profile:<ProfilePage/>}[page];
+  return <div className="app"><aside className="sidebar" aria-label="Primary navigation"><div className="logo">TREBLR<span>®</span></div><div className="sidebar-kicker">YOUR CAREER</div><nav className="nav" aria-label="Primary navigation">{NAV.map(item=><button type="button" key={item.id} className={page===item.id?'active':''} aria-current={page===item.id?'page':undefined} onClick={()=>navigate(item.id)}><Icon name={item.icon}/><span>{item.label}</span>{item.id==='career'&&!game.careerMoveUsed&&<i className="nav-dot"/>}</button>)}</nav><div className="sidebar-world"><span className="online-dot"/><div><b>One world. Many scenes.</b><small>Your career is global.</small></div><Icon name="world"/></div><button className="mini-profile" onClick={()=>navigate('profile')}><span className="avatar">{game.artist.slice(0,2).toUpperCase()}</span><span><strong>{game.artist}</strong><small>Independent artist</small></span><span className="mini-arrow">↗</span></button></aside><main className="main"><header className="topbar"><div><div className="eyebrow">Career headquarters</div><h1 className="page-title">{pageName}</h1></div><div className="topbar-right"><span className="week"><i/>{formatWeek(game)}</span><span className="topbar-cash">{cashFmt(game.cash)} <small>USD</small></span></div></header><div className={`page active page-${page}`}>{pageContent}</div></main><nav className="mobile-nav" aria-label="Mobile navigation">{MOBILE_NAV.map(id=>{const item=NAV.find(link=>link.id===id);return <button type="button" key={id} className={page===id?'active':''} aria-current={page===id?'page':undefined} onClick={()=>navigate(id)}><Icon name={item.icon}/><span>{item.label}</span>{id==='career'&&!game.careerMoveUsed&&<i className="mobile-nav-dot"/>}</button>;})}</nav>{notice&&<div className="toast" role="status">{notice}</div>}
+  {(selectedRelease||selectedStory)&&<div className="modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget){setSelectedRelease(null);setSelectedStory(null);}}}><section className="detail-modal" role="dialog" aria-modal="true" aria-label={selectedRelease?`${selectedRelease.title} release details`:selectedStory.title}><button type="button" className="modal-close" aria-label="Close details" onClick={()=>{setSelectedRelease(null);setSelectedStory(null);}}><Icon name="close"/></button>{selectedRelease?<><div className="detail-hero"><Cover release={selectedRelease} large/><div><span className="eyebrow">RELEASE DETAIL · WEEK {selectedRelease.releaseWeek}</span><h2>{selectedRelease.title}</h2><p>{selectedRelease.subtitle}</p><span className="release-badge"><i/>{selectedRelease.status}<span>· {selectedRelease.trend}</span></span></div></div><div className="detail-stats"><div><b>{compact(selectedRelease.streams)}</b><small>Total streams</small></div><div><b>{compact(selectedRelease.listeners)}</b><small>Monthly listeners</small></div><div><b>{selectedRelease.markets.length}</b><small>Leading markets</small></div></div><div className="detail-section"><span className="eyebrow">WHERE IT'S TRAVELLING</span><div className="tag-list">{selectedRelease.markets.map(market=><span className="tag" key={market}><Icon name="world"/>{market}</span>)}</div></div><div className="detail-chart"><span className="eyebrow">LISTENING MOMENTUM · LAST 7 WEEKS</span><div className="mini-chart">{selectedRelease.weekly.map((value,index)=><i key={`${index}-${value}`} style={{height:`${Math.max(18,value)}%`}}/>)}</div></div><div className="modal-actions"><Button onClick={()=>{setSelectedRelease(null);navigate('analytics');}}>Open analytics</Button><Button kind="primary" onClick={()=>{setSelectedRelease(null);navigate('studio');}}>Plan a release session <Icon name="arrow"/></Button></div></>:<><span className="eyebrow">{selectedStory.category}</span><h2 className="story-modal-title">{selectedStory.title}</h2><p className="story-modal-body">{selectedStory.body}</p><span className="news-byline">{selectedStory.byline}</span><div className="modal-actions"><Button kind="primary" onClick={()=>setSelectedStory(null)}>Back to World desk</Button></div></>}</section></div>}
+  </div>;
 }

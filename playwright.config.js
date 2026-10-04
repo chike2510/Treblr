@@ -9,7 +9,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: 'list',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:4174',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:4178',
     headless: true,
     viewport: { width: 430, height: 900 },
     trace: 'retain-on-failure',
@@ -18,8 +18,8 @@ export default defineConfig({
       : {},
   },
   webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
-    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4174 --strictPort',
-    url: 'http://127.0.0.1:4174',
+    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4178 --strictPort',
+    url: 'http://127.0.0.1:4178',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

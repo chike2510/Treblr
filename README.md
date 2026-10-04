@@ -1,74 +1,75 @@
-# Treblr — Music Career Simulation
+# Treblr — Global Music Career
 
-Build an artist career one week at a time. Record and release music, grow a catalog, build relationships, tour regional venues, navigate label deals, and compete for charts and awards.
+Treblr is a touch-first, local-first game about building an artist’s career across five connected music markets. The player’s weekly decisions—not a music-making interface—drive the experience: spend limited career actions, decide when to release a project, choose gigs and deals, build an audience, manage energy and health, and keep relationships moving.
 
-## Requirements
+## The seven desks
 
-- Node.js **20.19+** or **22.12+** (Node 24 is supported)
-- npm
+- **Home:** see the current week and choose the next move from action-first career prompts.
+- **Music:** decide when a studio project becomes a release and select its independent, press, or visual campaign. Listener counts and release milestones are simulated career events; players do not compose individual tracks.
+- **Studio:** book a songwriting session to develop a release-ready project, rehearse for live work, take career coaching, or spend an action on recovery. Sessions improve skills and affect energy; collaborators and relationships matter.
+- **Contracts:** book local gigs and away-market tour stops, track familiarity and fan growth, accept eligible festival invitations, take paid calls, and weigh fictional label advances against future royalty shares.
+- **Social:** choose from in-game publicity moments. Each choice models reach, fans, reputation, and a relationship effect; nothing is posted to an external service.
+- **Discover:** take press opportunities, follow global-market progress, and review career milestones and recent events.
+- **Settings:** rename the artist, export or import a versioned career backup, or reset the current local career.
+
+The five available markets are **Lagos, Atlanta, London, Accra, and Toronto**. They form one global circuit. Local gigs and away-market tour stops build familiarity; travel has a visible game-credit cost, while energy and health influence show outcomes and weekly recovery.
+
+## Weekly play
+
+Each week gives the player three career actions and three separate publicity choices. A songwriting session develops a release candidate with modeled quality from career skills and collaborator trust. The player then chooses whether to release it and which campaign to fund. Other actions include local gigs, tour stops, festivals, label contracts, paid calls, press interviews, live rehearsal, coaching, and recovery. The tour log records every show played away from the artist’s home market.
+
+Closing the week settles modeled listeners and music income, adds fans and reputation, restores action budgets and energy, and recovers health. Low energy can carry a health cost; taking recovery time and keeping a constructive relationship with the manager can improve the next week. The local save contains market familiarity, project/release status, skills, resources, label terms, relationships, and the career log.
+
+## Fictional simulation and local saves
+
+Social reach, venues, label contracts, listener counts, and credits are in-game models only. The app does not connect to external platforms, accounts, labels, or analytics and does not publish content. Game credits are not real money.
+
+Career data is stored locally under a new, versioned save key. The prior rebuild save is left untouched and is not loaded into this career model. Settings can export a JSON backup, import a compatible backup, or reset only the current local career.
 
 ## Run locally
 
+Requirements: Node.js **20.19+** (or 22.12+) and npm.
+
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Vite prints the local development URL. The game stores careers in this browser's local storage; it does not require a database account or environment variables.
-
-## Verify changes
+Vite prints the development URL. To build and preview the static production app:
 
 ```bash
-npm test             # simulation, migration, and save-slot unit tests
-npx playwright install chromium  # one-time browser setup for Playwright
-npm run test:smoke    # production-preview browser boot/onboarding/social smoke test
-npm run build         # production bundle
-npm run preview       # serve the built bundle locally
+npm run build
+npm run preview
 ```
 
-The Playwright smoke test builds the production bundle, serves it with `vite preview`, enters a new career, opens the core screens, posts through Chirp compose, and fails on browser JavaScript, console, or HTTP errors. If Chromium is already installed system-wide, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to its path instead (for example, `/usr/bin/chromium`).
+## Validate changes
 
-## How to play
+```bash
+npm test             # career engine and local-save tests
+npm run build         # production bundle
+npm run test:smoke    # production-preview Playwright browser suite
+```
 
-1. Choose an artist identity, genre, home city, and career path.
-2. Each week grants **3 action points** for recording, training, releases, projects, videos, jobs, team, business, and touring. Social posts use their separate Social Energy budget.
-3. Record with a producer, optionally feature collaborators, and release a single or sequence tracks into an EP/album.
-4. Pick a release rollout, lead track, and project order. Catalog tracks accumulate weekly/lifetime streams, sales, and video views.
-5. Promote specific releases on social platforms, take city-specific opportunities, or book a tour route shaped by local demand and venue capacity.
-6. Advance the week to resolve earnings, taxes, jobs, label obligations, rivals, charts, events, awards, and any tour stop.
+The Playwright suite checks the weekly career loop, all seven tabs, all five markets, release and gig progression, save export, and responsive play at **320×800**, **390×844**, **430×900**, and desktop widths. Screenshots are written to `screenshots/treblr-mobile.png`, `screenshots/treblr-studio-mobile.png`, `screenshots/treblr-contracts-mobile.png`, `screenshots/treblr-desktop.png`, and `screenshots/treblr-studio-desktop.png`.
 
-Career paths have gameplay effects. Lagos and Accra have dedicated Afrobeats scenes, and every home city affects genre demand, collaborator affinity, local events, and tour routing.
-
-## Careers and saves
-
-Treblr is a **single-player, local-first browser game**. Save data stays in the current browser profile. Career saves are versioned and migrated as the game changes. Up to eight career slots are supported; the Profile settings can save, export a JSON backup, import a backup into a new slot, and switch careers. Keep an exported backup if you want to move a career to another browser or device.
-
-## Deploy to Vercel
-
-This is a static Vite single-page application. The repository's `vercel.json` supplies an SPA fallback rewrite; there are no Vercel serverless functions, API routes, database connections, authentication service, or environment variables in the shipped game.
-
-- Framework preset: **Vite**
-- Build command: `npm run build`
-- Output directory: `dist`
-- Node.js: **24.x** is the verified Treblr project setting; Node.js 20.19+ or 22.12+ is also compatible with the installed Vite version.
-
-A deployment is not considered verified merely because the local build succeeds. Check the Vercel Production deployment status and then open the public game and complete the start flow.
-
-## Project layout
+## Source layout
 
 ```text
 treblr/
 ├── src/
-│   ├── App.jsx                  # Save-slot picker and career onboarding
-│   ├── Game.jsx                 # Game shell, navigation, weekly report, events
-│   ├── components/              # Shared controls, reports, error boundary
-│   ├── data/                    # Genres, cities, careers, labels, events, artists
-│   ├── engine/                  # Weekly simulation, economy, charts, saves, tests
-│   └── tabs/                    # Home, Create, Social, Business, Profile
-├── tests/e2e/                   # Production-preview Playwright smoke test
+│   ├── App.jsx
+│   ├── rebuild/
+│   │   ├── GlobalCareerGame.jsx  # Seven-tab touch-first career game
+│   │   ├── gameData.js           # Markets, weekly choices, contracts, and content
+│   │   ├── gameEngine.js         # Local career progression and weekly settlement
+│   │   ├── gameEngine.test.js    # Career and save tests
+│   │   ├── saveStore.js          # Versioned local save and JSON transfer
+│   │   └── styles.css            # Responsive mobile-first game UI
+│   └── main.jsx
+├── tests/e2e/                    # Responsive Playwright gameplay tests
+├── screenshots/                  # Verified app screenshots
 ├── index.html
 ├── vite.config.js
 ├── playwright.config.js
-├── package.json
-└── vercel.json
+└── package.json
 ```

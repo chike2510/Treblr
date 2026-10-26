@@ -25,8 +25,8 @@ function makeReleasedSong(state, producer = 'hitmaker') {
 describe('world data is global', () => {
   it('spans many countries, genres and markets', () => {
     expect(new Set(CITIES.map((c) => c.country)).size).toBeGreaterThanOrEqual(20);
-    expect(new Set(RIVALS.map((r) => r.country)).size).toBeGreaterThanOrEqual(12);
-    expect(new Set(RIVALS.map((r) => r.genre)).size).toBeGreaterThanOrEqual(12);
+    expect(new Set(RIVALS.map((r) => r.country)).size).toBeGreaterThanOrEqual(20);
+    expect(new Set(RIVALS.map((r) => r.genre)).size).toBeGreaterThanOrEqual(13);
     expect(GENRES.length).toBe(14);
     expect(MARKETS.map((m) => m.code)).toEqual(['US', 'UK', 'CA', 'DE', 'FR', 'JP', 'KR', 'BR', 'MX', 'NG', 'AU', 'IN']);
     expect(CHARTS.length).toBe(16);
@@ -60,7 +60,7 @@ describe('actions', () => {
     const s = fresh();
     const r = writeSong(s, { title: 'Hello', genre: 'pop', theme: 'Love', length: 180, cowriter: 'none' });
     expect(r.ok).toBe(true);
-    expect(r.state.player.energy).toBe(75);
+    expect(r.state.player.energy).toBe(70);
     expect(r.state.songs[0].status).toBe('written');
     expect(s.songs).toHaveLength(0); // original untouched
   });
@@ -86,10 +86,11 @@ describe('actions', () => {
 describe('weekly tick', () => {
   it('advances the week, refills energy, charges rent and writes a report', () => {
     let s = fresh();
-    s.player.energy = 5;
+    s.player.energy = 60;
     const n = advanceWeek(s);
     expect(n.week).toBe(2);
-    expect(n.player.energy).toBe(100);
+    expect(n.player.energy).toBe(n.player.maxEnergy - (n.lastReport.events.some((e) => /Food poisoning/.test(e)) ? 25 : 0));
+    expect(n.player.maxEnergy).toBe(100);
     expect(n.lastReport.week).toBe(1);
     expect(n.lastReport.expense.rent).toBe(250);
     expect(typeof n.lastReport.headline).toBe('string');
@@ -147,8 +148,8 @@ describe('charts', () => {
   });
   it('a strong player song can enter charts and is flagged as the player', () => {
     let { state } = makeReleasedSong(fresh({ path: 'plant', city: 'los', genre: 'afrobeats' }), 'legend');
-    state.player.fans = 300000;
-    state.player.monthlyListeners = 2_000_000;
+    state.player.fans = 3_000_000;
+    state.player.monthlyListeners = 25_000_000;
     const n = advanceWeek(state);
     const pos = playerPositions(n);
     expect(pos.length).toBeGreaterThan(0);
@@ -185,7 +186,7 @@ describe('save / load / migrate', () => {
     expect(slots[1].stageName).toBe('SAMLEE');
     expect(slots[0].empty).toBe(true);
   });
-  it('migrates v1 saves to the current version', () => {
+  it('migrates v1 saves through v2 to the current version', () => {
     const s = fresh();
     const v1 = JSON.parse(JSON.stringify(s));
     v1.version = 1;

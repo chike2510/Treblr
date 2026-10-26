@@ -7,6 +7,14 @@ export * from './charts.js';
 export * from './actions.js';
 export * from './goals.js';
 export { advanceWeek } from './tick.js';
+export * from './npc.js';
+export * from './features.js';
+export * from './weekly.js';
+export * from './journal.js';
+export * from './comments.js';
+export * from './headlines.js';
+export { MESSAGE_TEMPLATES, artistType } from './systems.js';
+export { REAL_ARTISTS_SOURCE, ARTIST_ROSTER } from './realArtists.js';
 import { AWARD_SHOWS } from './data.js';
 
 // Upcoming calendar items: releases, award shows, offer expiries.

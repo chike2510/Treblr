@@ -4,13 +4,19 @@ import { clone, clamp, uid, fmtMoney, fmtNum } from './util.js';
 import {
   COWRITERS, PRODUCERS, ROLLOUTS, JOBS, VENUES, STAFF, LABELS, cityById, CITIES, genreName,
 } from './data.js';
-import { projectWriteQuality, projectRecordQuality, lengthFit } from './model.js';
+import { projectWriteQuality, projectRecordQuality, lengthFit, gainHype, skillGain } from './model.js';
 import { checkGoals } from './goals.js';
+import { stat } from './weekly.js';
+import { fanComments } from './comments.js';
+import { pushNotif, logTimeline, eraOf } from './journal.js';
+import { VIDEO_DIRECTORS, VIDEO_CONCEPTS } from './data.js';
 
-export const ENERGY = { write: 25, record: 15, release: 5, video: 20, press: 15, radio: 20, interview: 10, tour: 70 };
-export const SOCIAL = { chirp: 8, snapshot: 10, clipz: 15, pitch: 5 };
+export const ENERGY = { write: 30, record: 20, release: 10, video: 25, press: 15, radio: 20, interview: 10, tour: 40, train: 20 };
+// Artist's share of ticket gross after venue, promoter and crew.
+export const ARTIST_CUT = 0.3;
+export const SOCIAL = { chirp: 8, snapshot: 10, clipz: 15, pitch: 5, live: 20, date: 10 };
 
-function run(state, fn) {
+export function run(state, fn) {
   const s = clone(state);
   const rng = createRng(s.rng || s.seed);
   const res = fn(s, rng) || {};
@@ -23,6 +29,7 @@ export function earn(s, cat, amount, label) {
   amount = Math.round(amount);
   s.player.cash += amount;
   s.ledger.income[cat] = (s.ledger.income[cat] || 0) + amount;
+  if (cat !== 'advance' && amount > 0) stat(s, 'earned', amount);
   s.transactions.unshift({ week: s.week, label, amount });
   s.transactions.length = Math.min(s.transactions.length, 200);
 }
@@ -37,31 +44,34 @@ const fail = (msg) => ({ ok: false, msg });
 function needEnergy(s, n) { return s.player.energy >= n; }
 function needSocial(s, n) { return s.player.socialEnergy >= n; }
 function needCash(s, n) { return s.player.cash >= n; }
-const bump = (p, skill, by) => { p.skills[skill] = clamp(+(p.skills[skill] + by).toFixed(1), 0, 100); };
+export const bump = (p, skill, by) => { p.skills[skill] = clamp(+(p.skills[skill] + skillGain(p.skills[skill], by)).toFixed(2), 0, 100); };
 export function pushNews(s, headline, aboutPlayer = false, tag = 'Industry') {
   s.news.unshift({ week: s.week, headline, aboutPlayer, tag });
   s.news.length = Math.min(s.news.length, 120);
 }
 
 // ---------- Studio ----------
-export function writeSong(state, { title, genre, theme, length = 180, cowriter = 'none' }) {
+export function writeSong(state, { title, genre, theme, length = 180, cowriter = 'none', diss = null }) {
   return run(state, (s, rng) => {
     const p = s.player;
     const cw = COWRITERS.find((c) => c.id === cowriter) || COWRITERS[0];
     if (!title?.trim()) return fail('Give your song a title.');
     if (!needEnergy(s, ENERGY.write)) return fail('Not enough energy to write. Rest or wait for next week.');
     if (!needCash(s, cw.fee)) return fail(`You need ${fmtMoney(cw.fee)} for that co-writer.`);
-    const proj = projectWriteQuality(p, { genre, length, cowriter });
+    const era = eraOf(s);
+    const proj = projectWriteQuality(p, { genre, length, cowriter, eraQuality: era?.vibe === 'dark' ? 2 : 0 });
     const q = clamp(Math.round(proj.expected + rng.float(-8, 8)), 1, 100);
     p.energy -= ENERGY.write;
     if (cw.fee) spend(s, 'cowriters', cw.fee, `Co-writer: ${title}`);
-    bump(p, 'songwriting', 1.2);
+    bump(p, 'songwriting', 0.9);
+    stat(s, 'write');
     const song = {
       id: uid(s, 's'), title: title.trim(), genre, theme, length, cowriter: cw.id, cowriterShare: cw.share,
       writeQuality: q, quality: q, status: 'written', writtenWeek: s.week,
       weeklyStreams: 0, lifetimeStreams: 0, history: [], playlists: 0, viral: 1, videoViews: 0, radio: 0, peaks: {}, cert: null,
-      cover: { gradient: rng.int(0, 7) },
+      cover: { gradient: rng.int(0, 7), ...(era ? { tint: era.color } : {}) },
     };
+    if (diss) { song.diss = diss; song.theme = 'Diss'; }
     s.songs.unshift(song);
     return { msg: `“${song.title}” written — quality ${q}.`, data: song };
   });
@@ -74,14 +84,16 @@ export function recordSong(state, { songId, producerId }) {
     if (!song || song.status !== 'written') return fail('Pick a written song to record.');
     if (!prod) return fail('Pick a producer.');
     if (!needEnergy(s, ENERGY.record)) return fail('Not enough energy to record.');
-    if (!needCash(s, prod.price)) return fail(`${prod.name} costs ${fmtMoney(prod.price)}.`);
+    const price = producerPrice(s, prod);
+    if (!needCash(s, price)) return fail(`${prod.name} costs ${fmtMoney(price)}.`);
     s.player.energy -= ENERGY.record;
-    if (prod.price) spend(s, 'studio', prod.price, `Studio: ${song.title}`);
+    if (price) spend(s, 'studio', price, `Studio: ${song.title}`);
+    stat(s, 'record');
     song.quality = projectRecordQuality(s.player, song, prod.id);
     song.producer = prod.id;
     song.status = 'recorded';
-    bump(s.player, 'vocals', 0.8);
-    if (prod.id === 'self') bump(s.player, 'production', 1);
+    bump(s.player, 'vocals', 0.5);
+    if (prod.id === 'self') bump(s.player, 'production', 0.8);
     return { msg: `“${song.title}” recorded — final quality ${song.quality}.` };
   });
 }
@@ -91,7 +103,9 @@ export function releaseMusic(state, { type = 'single', title, songIds, rollout =
     const ro = ROLLOUTS.find((r) => r.id === rollout) || ROLLOUTS[1];
     const songs = songIds.map((id) => s.songs.find((x) => x.id === id)).filter(Boolean);
     if (!songs.length) return fail('Choose at least one recorded song.');
-    if (songs.some((x) => x.status !== 'recorded')) return fail('Only recorded, unreleased songs can be released.');
+    const preSingles = type === 'single' ? [] : songs.filter((x) => x.status === 'released' && !s.releases.some((r) => r.type !== 'single' && r.songIds.includes(x.id)));
+    if (songs.some((x) => x.status !== 'recorded' && !preSingles.includes(x))) return fail('Only recorded songs (or released singles on a project) can be released.');
+    if (preSingles.length === songs.length) return fail('A project needs at least one new song.');
     if (type === 'single' && songs.length !== 1) return fail('A single is one song.');
     if (type === 'ep' && (songs.length < 3 || songs.length > 6)) return fail('An EP needs 3–6 songs.');
     if (type === 'album' && songs.length < 7) return fail('An album needs at least 7 songs.');
@@ -99,15 +113,37 @@ export function releaseMusic(state, { type = 'single', title, songIds, rollout =
     if (!needCash(s, ro.cost)) return fail(`${ro.name} costs ${fmtMoney(ro.cost)}.`);
     s.player.energy -= ENERGY.release;
     if (ro.cost) spend(s, 'marketing', ro.cost, `Rollout: ${title || songs[0].title}`);
+    const era = eraOf(s);
+    const relCover = { ...(cover || songs[0].cover) };
+    if (era) relCover.tint = era.color;
     const rel = {
       id: uid(s, 'rel'), type, title: (title || songs[0].title).trim(), songIds: songs.map((x) => x.id),
-      cover: cover || songs[0].cover, rollout: ro.id, releaseWeek: s.week + clamp(weeksFromNow, 0, 6), status: 'scheduled', announcedWeek: s.week,
+      cover: relCover, rollout: ro.id, releaseWeek: s.week + clamp(weeksFromNow, 0, 6), status: 'scheduled', announcedWeek: s.week,
+      eraId: era?.id || null, leadSingles: preSingles.map((x) => x.id), sequencing: type === 'single' ? null : sequencingScore(songs),
     };
-    for (const song of songs) { song.status = 'scheduled'; song.releaseId = rel.id; song.cover = rel.cover; }
+    for (const song of songs) { if (preSingles.includes(song)) continue; song.status = 'scheduled'; song.releaseId = rel.id; song.cover = rel.cover; }
     s.releases.unshift(rel);
-    s.player.hype = clamp(s.player.hype + ro.hype * 0.3, 0, 100);
+    gainHype(s.player, ro.hype * 0.3);
     return { msg: weeksFromNow ? `“${rel.title}” scheduled for week ${rel.releaseWeek}.` : `“${rel.title}” drops this week. Hit Next Week to see how it lands.`, data: rel };
   });
+}
+
+export function producerPrice(s, prod) {
+  const c = (s.contacts || []).find((x) => x.role === 'producer');
+  const disc = c && prod.id === 'rising' && c.rel >= 60 ? 0.7 : c && c.rel >= 80 && prod.id === 'hitmaker' ? 0.85 : 1;
+  return Math.round(prod.price * disc);
+}
+
+// Album/EP sequencing: strong opener and front-loaded best tracks score higher (0..1).
+export function sequencingScore(songs) {
+  if (songs.length < 2) return 0.5;
+  const qs = songs.map((x) => x.quality);
+  const sorted = [...qs].sort((a, b) => b - a);
+  const top3 = new Set(sorted.slice(0, 3));
+  const opener = qs[0] >= sorted[Math.min(2, sorted.length - 1)] ? 0.4 : 0.1;
+  const front = qs.slice(0, 4).filter((q) => top3.has(q)).length / Math.min(3, qs.length) * 0.4;
+  const closer = qs[qs.length - 1] >= sorted[Math.floor(sorted.length / 2)] ? 0.2 : 0.05;
+  return Math.min(1, opener + front + closer);
 }
 
 // ---------- Phone / social ----------
@@ -123,8 +159,9 @@ export function postChirp(state, { text }) {
     const likes = Math.round(reach * rng.float(0.05, 0.25) * (1 + p.skills.charisma / 100));
     const gain = Math.round(likes * rng.float(0.1, 0.4));
     p.followers.chirp += gain;
-    p.hype = clamp(p.hype + rng.float(1, 4) * (1 + p.skills.charisma / 150), 0, 100);
-    const replies = rng.shuffle(CHIRP_REPLIES).slice(0, rng.int(2, 3)).map((t) => ({ user: `@${rng.pick(['luv', 'stan', 'beats', 'wave', 'nite', 'echo'])}${rng.int(10, 999)}`, text: t }));
+    gainHype(p, rng.float(1, 4) * (1 + p.skills.charisma / 150));
+    const replies = fanComments(s, rng, { kind: 'post', n: rng.int(2, 4) });
+    stat(s, 'post');
     s.social.chirp.unshift({ id: uid(s, 'c'), week: s.week, text: text.trim(), likes, reposts: Math.round(likes * 0.2), replies, mine: true });
     s.social.chirp.length = Math.min(s.social.chirp.length, 60);
     bump(p, 'charisma', 0.4);
@@ -141,8 +178,9 @@ export function postSnapshot(state, { caption, image }) {
     const gain = Math.round(likes * rng.float(0.05, 0.25));
     p.followers.snapshot += gain;
     p.fans += Math.round(gain * 0.2);
-    p.hype = clamp(p.hype + rng.float(1, 3), 0, 100);
-    s.social.snapshot.unshift({ id: uid(s, 'ig'), week: s.week, caption: caption || '', image: image || null, gradient: rng.int(0, 7), likes, comments: Math.round(likes * 0.04) });
+    gainHype(p, rng.float(1, 3));
+    stat(s, 'post');
+    s.social.snapshot.unshift({ id: uid(s, 'ig'), week: s.week, caption: caption || '', image: image || null, gradient: rng.int(0, 7), likes, comments: Math.round(likes * 0.04), replies: fanComments(s, rng, { kind: 'post', n: 3 }) });
     s.social.snapshot.length = Math.min(s.social.snapshot.length, 30);
     return { msg: `${fmtNum(likes)} likes. +${fmtNum(gain)} followers.` };
   });
@@ -162,12 +200,14 @@ export function promoteClip(state, { songId }) {
     p.followers.clipz += gain;
     song.viral = Math.max(song.viral || 1, viral ? rng.float(2.2, 4) : 1.15);
     if (viral) {
-      p.hype = clamp(p.hype + 20, 0, 100);
+      gainHype(p, 20);
       p.fans += Math.round(gain * 0.3);
       pushNews(s, `“${song.title}” by ${p.stageName} is blowing up on Clipz`, true, 'Viral');
       s.weekFlags.viral = song.title;
     }
-    s.social.clipz.unshift({ id: uid(s, 'cz'), week: s.week, songId, title: song.title, views, viral });
+    stat(s, 'post');
+    if (viral) logTimeline(s, 'viral', `“${song.title}” went viral on TreblrTok`, `${fmtNum(views)} views`);
+    s.social.clipz.unshift({ id: uid(s, 'cz'), week: s.week, songId, title: song.title, views, viral, likes: Math.round(views * rng.float(0.06, 0.14)), shares: Math.round(views * rng.float(0.004, 0.02)), replies: fanComments(s, rng, { kind: 'song', song, n: 3 }) });
     s.social.clipz.length = Math.min(s.social.clipz.length, 30);
     return { msg: viral ? `It's going viral! ${fmtNum(views)} views.` : `${fmtNum(views)} views. Not quite viral.`, data: { viral } };
   });
@@ -183,6 +223,7 @@ export function pitchPlaylist(state, { songId }) {
     s.player.socialEnergy -= SOCIAL.pitch;
     spend(s, 'marketing', 50, `Playlist pitch: ${song.title}`);
     song.pitchedWeek = s.week;
+    stat(s, 'pitch');
     const chance = clamp(0.1 + song.quality / 200 + s.player.popularity / 300 + (s.player.label ? 0.1 : 0), 0.05, 0.85);
     if (rng.chance(chance)) {
       song.playlists = (song.playlists || 0) + 1;
@@ -195,25 +236,31 @@ export function pitchPlaylist(state, { songId }) {
 }
 
 export const VIDEO_TIERS = [
-  { id: 'phone', name: 'Phone shoot', cost: 0, mult: 0.5 },
-  { id: 'indie', name: 'Indie director', cost: 3000, mult: 1.5 },
-  { id: 'pro', name: 'Pro production', cost: 20000, mult: 4 },
-  { id: 'blockbuster', name: 'Blockbuster', cost: 120000, mult: 10 },
+  ...VIDEO_DIRECTORS,
 ];
-export function makeVideo(state, { songId, tier }) {
+export function makeVideo(state, { songId, tier, director, concept = 'performance' }) {
   return run(state, (s, rng) => {
     const song = s.songs.find((x) => x.id === songId);
-    const t = VIDEO_TIERS.find((x) => x.id === tier);
+    const t = VIDEO_TIERS.find((x) => x.id === (director || tier));
+    const c = VIDEO_CONCEPTS.find((x) => x.id === concept) || VIDEO_CONCEPTS[0];
     if (!song || !['released', 'scheduled'].includes(song.status)) return fail('Pick a released or scheduled song.');
     if (s.social.videos.some((v) => v.songId === songId)) return fail('This song already has a video.');
-    if (!t) return fail('Pick a budget.');
-    if (!needEnergy(s, ENERGY.video)) return fail('Not enough energy for a shoot.');
-    if (!needCash(s, t.cost)) return fail(`${t.name} costs ${fmtMoney(t.cost)}.`);
-    s.player.energy -= ENERGY.video;
-    if (t.cost) spend(s, 'videoProd', t.cost, `Music video: ${song.title}`);
-    s.social.videos.unshift({ id: uid(s, 'v'), songId, title: song.title, tier: t.id, week: s.week, views: 0, weekly: Math.round((s.player.followers.viewtube + 500) * t.mult * rng.float(0.8, 1.4) * (song.quality / 50)), gradient: song.cover?.gradient ?? 0 });
-    s.player.hype = clamp(s.player.hype + 3 * t.mult, 0, 100);
-    return { msg: `Video for “${song.title}” is live on ViewTube.` };
+    if (!t) return fail('Pick a director.');
+    const energy = ENERGY.video + (c.energy || 0);
+    const cost = Math.round(t.cost * (c.costMult || 1));
+    if (!needEnergy(s, energy)) return fail('Not enough energy for a shoot.');
+    if (!needCash(s, cost)) return fail(`${t.name} costs ${fmtMoney(cost)}.`);
+    s.player.energy -= energy;
+    if (cost) spend(s, 'videoProd', cost, `Music video: ${song.title}`);
+    const fit = c.genres ? (c.genres.includes(song.genre) ? 1.2 : 0.85) : 1;
+    const vq = clamp(Math.round(t.quality * 0.6 + song.quality * 0.3 + s.player.skills.charisma * 0.1 + rng.float(-6, 6) + (fit > 1 ? 4 : fit < 1 ? -4 : 0)), 1, 100);
+    const weekly = Math.round((s.player.followers.viewtube + 500) * t.mult * c.views * fit * rng.float(0.8, 1.3) * (song.quality / 50) * (vq / 60));
+    s.social.videos.unshift({ id: uid(s, 'v'), songId, title: song.title, tier: t.id, concept: c.id, quality: vq, week: s.week, views: 0, weekly, likes: 0, gradient: song.cover?.gradient ?? 0, comments: fanComments(s, rng, { kind: 'song', song, n: 4 }) });
+    gainHype(s.player, 3 * Math.sqrt(t.mult) * c.hype);
+    s.player.fans += Math.round(weekly * 0.002 * c.fans);
+    if (c.id === 'dance') song.viral = Math.max(song.viral || 1, 1 + 0.2 * c.viral * fit);
+    if (t.mult >= 3.5) logTimeline(s, 'video', `Music video: “${song.title}”`, `${t.name} · ${c.name}`);
+    return { msg: `“${song.title}” video is live on TreblrTube — video score ${vq}.`, data: { quality: vq } };
   });
 }
 
@@ -227,7 +274,7 @@ export function doJob(state, { jobId }) {
     s.player.energy -= j.energy;
     const pay = Math.round(j.pay * rng.float(0.9, 1.15));
     earn(s, 'jobs', pay, j.name);
-    bump(s.player, j.skill, 0.8);
+    bump(s.player, j.skill, 0.4);
     return { msg: `Earned ${fmtMoney(pay)} from ${j.name.toLowerCase()}.` };
   });
 }
@@ -235,7 +282,15 @@ export function doJob(state, { jobId }) {
 export function gigDemand(state, cityId) {
   const p = state.player;
   const heat = p.fanHeat[cityId] || 0;
-  return Math.round(heat * 0.35 + p.fans * 0.02 + p.hype * 3 + p.skills.performance * 2);
+  return Math.round(heat * 0.3 + p.fans * 0.015 + p.hype * 2 + p.skills.performance * 1.5);
+}
+
+// Regulars: repeat plays of the same room in the same city lose pull (recovers ~15%/week).
+export function gigFatigue(state, cityId, venueId) {
+  const g = state.player.gigLog?.[`${cityId}|${venueId}`];
+  if (!g) return 1;
+  const recent = g.count * Math.pow(0.85, state.week - g.week);
+  return Math.max(0.25, Math.pow(0.78, recent));
 }
 
 export function playGig(state, { venueId, cityId }) {
@@ -243,58 +298,36 @@ export function playGig(state, { venueId, cityId }) {
     const v = VENUES.find((x) => x.id === venueId);
     const city = cityById(cityId);
     if (!v) return fail('Pick a venue.');
+    if (s.tour) return fail('You\u2019re on tour — finish or cancel it first.');
     if (s.player.fans < v.minFans) return fail(`Promoters want ${fmtNum(v.minFans)}+ fans for a ${v.name.toLowerCase()}.`);
     if (!needEnergy(s, v.energy)) return fail('Not enough energy for this show.');
     const travel = cityId === s.player.city ? 0 : Math.round(150 + v.capacity * 0.6);
     if (!needCash(s, travel)) return fail(`Travel and crew cost ${fmtMoney(travel)}.`);
     s.player.energy -= v.energy;
     if (travel) spend(s, 'touring', travel, `Travel: ${city.name}`);
-    const demand = gigDemand(s, cityId) * rng.float(0.8, 1.2);
+    const fat = gigFatigue(s, cityId, v.id);
+    const demand = gigDemand(s, cityId) * rng.float(0.8, 1.2) * (0.5 + 0.5 * fat);
     const sold = Math.min(v.capacity, Math.round(demand));
+    const key = `${cityId}|${v.id}`;
+    const prev = s.player.gigLog[key];
+    s.player.gigLog[key] = { count: (prev ? prev.count * Math.pow(0.85, s.week - prev.week) : 0) + 1, week: s.week };
+    stat(s, 'gig');
     const soldOut = sold >= v.capacity;
-    const pay = sold * v.ticket * (s.player.staff.booking ? 1.2 : 1);
+    const pay = sold * v.ticket * ARTIST_CUT * (s.player.staff.booking ? 1.2 : 1);
     earn(s, 'gigs', pay, `${v.name} — ${city.name}`);
-    const newFans = Math.round(sold * rng.float(0.08, 0.2) * (1 + s.player.skills.performance / 100));
+    const roomFit = clamp(v.capacity / Math.max(80, s.player.fans * 0.05), 0.15, 1);
+    const newFans = Math.round(sold * rng.float(0.06, 0.16) * (1 + s.player.skills.performance / 100) * fat * roomFit);
     s.player.fans += newFans;
     s.player.fanHeat[cityId] = (s.player.fanHeat[cityId] || 0) + newFans;
-    s.player.hype = clamp(s.player.hype + (soldOut ? 5 : 1), 0, 100);
-    bump(s.player, 'performance', 1.2);
+    gainHype(s.player, (soldOut ? 4 : 1) * fat * roomFit);
+    bump(s.player, 'performance', 0.9);
     if (soldOut) {
       s.player.sellouts += 1;
       if (v.capacity >= 2000) pushNews(s, `${s.player.stageName} sells out ${city.name}'s ${v.name.toLowerCase()}`, true, 'Live');
-      s.weekFlags.sellout = `${v.name} in ${city.name}`;
+      if (fat > 0.7 && roomFit > 0.5) s.weekFlags.sellout = { venue: v.name, city: city.name };
     }
-    return { msg: `${soldOut ? 'SOLD OUT! ' : ''}${fmtNum(sold)}/${fmtNum(v.capacity)} tickets · ${fmtMoney(pay)} · +${fmtNum(newFans)} fans`, data: { sold, soldOut, pay } };
-  });
-}
-
-export function bookTour(state, { venueId, cityIds }) {
-  return run(state, (s, rng) => {
-    const v = VENUES.find((x) => x.id === venueId);
-    if (!v || !cityIds?.length) return fail('Pick a venue size and cities.');
-    if (cityIds.length < 3) return fail('A tour needs at least 3 cities.');
-    if (s.player.fans < v.minFans * 1.5) return fail(`Touring ${v.name.toLowerCase()}s needs ${fmtNum(v.minFans * 1.5)}+ fans.`);
-    if (!needEnergy(s, ENERGY.tour)) return fail('A tour needs 70 energy.');
-    const cost = Math.round(cityIds.length * (400 + v.capacity * 1.2));
-    if (!needCash(s, cost)) return fail(`Tour production costs ${fmtMoney(cost)}.`);
-    s.player.energy -= ENERGY.tour;
-    spend(s, 'touring', cost, `Tour production (${cityIds.length} cities)`);
-    let total = 0; let sellouts = 0; let fans = 0;
-    for (const cid of cityIds) {
-      const sold = Math.min(v.capacity, Math.round(gigDemand(s, cid) * rng.float(0.8, 1.25)));
-      if (sold >= v.capacity) sellouts++;
-      total += sold * v.ticket * (s.player.staff.booking ? 1.2 : 1);
-      const nf = Math.round(sold * rng.float(0.1, 0.22));
-      fans += nf;
-      s.player.fanHeat[cid] = (s.player.fanHeat[cid] || 0) + nf;
-    }
-    earn(s, 'gigs', total, `Tour: ${cityIds.length} ${v.name.toLowerCase()}s`);
-    s.player.fans += fans;
-    s.player.sellouts += sellouts;
-    s.player.hype = clamp(s.player.hype + 8, 0, 100);
-    bump(s.player, 'performance', 3);
-    pushNews(s, `${s.player.stageName} wraps a ${cityIds.length}-city tour${sellouts ? ` with ${sellouts} sell-outs` : ''}`, true, 'Live');
-    return { msg: `Tour grossed ${fmtMoney(total)} · ${sellouts} sell-outs · +${fmtNum(fans)} fans` };
+    const note = fat < 0.7 ? ' · The regulars have seen you — try a bigger room or a new city.' : roomFit < 0.4 ? ' · You\u2019ve outgrown this room.' : '';
+    return { msg: `${soldOut ? 'SOLD OUT! ' : ''}${fmtNum(sold)}/${fmtNum(v.capacity)} tickets · ${fmtMoney(pay)} · +${fmtNum(newFans)} fans${note}`, data: { sold, soldOut, pay, fatigue: fat } };
   });
 }
 
@@ -302,9 +335,11 @@ export function rest(state) {
   return run(state, (s) => {
     if (s.player.rested) return fail('You already rested this week.');
     s.player.rested = true;
-    s.player.energy = clamp(s.player.energy + 25, 0, s.player.maxEnergy);
+    s.player.energy = clamp(s.player.energy + 15, 0, s.player.maxEnergy);
     s.player.socialEnergy = clamp(s.player.socialEnergy + 10, 0, s.player.maxSocial);
-    return { msg: 'Recharged: +25 energy, +10 social.' };
+    s.player.burnout = clamp((s.player.burnout || 0) - 12, 0, 100);
+    stat(s, 'rest');
+    return { msg: 'Rest day: +15 energy, +10 social, burnout eased.' };
   });
 }
 
@@ -323,7 +358,7 @@ export function respondOffer(state, { id, accept }) {
     m.read = true;
     if (!accept) {
       m.status = 'declined';
-      if (m.subtype === 'feature') s.player.hype = clamp(s.player.hype - 1, 0, 100);
+      if (m.subtype === 'feature') gainHype(s.player, -(1));
       return { msg: 'Offer declined.' };
     }
     const o = m.payload;
@@ -333,14 +368,18 @@ export function respondOffer(state, { id, accept }) {
     m.status = 'accepted';
     if (m.subtype === 'brand') {
       earn(s, 'brand', o.cash, `Brand deal: ${o.brand}`);
-      p.hype = clamp(p.hype + 3, 0, 100);
+      s.brandHistory = { ...(s.brandHistory || {}), [o.brand]: s.week };
+      if (o.cash >= 5000) logTimeline(s, 'deal', `Brand deal with ${o.brand}`, fmtMoney(o.cash));
+      gainHype(p, 3);
       if (o.cash > 5000) p.fans = Math.round(p.fans * 0.995); // some fans call it selling out
       return { msg: `Deal signed with ${o.brand}: ${fmtMoney(o.cash)}.` };
     }
     if (m.subtype === 'feature') {
       earn(s, 'features', o.cash, `Feature for ${o.artist}`);
+      if (o.rivalId) { const c = (s.contacts || []).find((x) => x.rivalId === o.rivalId); if (c) c.rel = clamp(c.rel + 10, -100, 100); }
+      logTimeline(s, 'collab', `Featured on a ${o.artist} single`, fmtMoney(o.cash));
       p.fans += o.fans;
-      p.hype = clamp(p.hype + 8, 0, 100);
+      gainHype(p, 8);
       pushNews(s, `${o.artist} taps ${p.stageName} for a new collab`, true, 'Collab');
       return { msg: `Feature recorded with ${o.artist}: ${fmtMoney(o.cash)}, +${fmtNum(o.fans)} fans.` };
     }
@@ -354,6 +393,7 @@ export function respondOffer(state, { id, accept }) {
     if (m.subtype === 'label') {
       p.label = { id: o.labelId, name: o.label, royalty: o.royalty, signedWeek: s.week };
       earn(s, 'advance', o.advance, `Advance: ${o.label}`);
+      logTimeline(s, 'deal', `Signed to ${o.label}`, `${fmtMoney(o.advance)} advance`);
       pushNews(s, `${p.stageName} signs with ${o.label}`, true, 'Business');
       return { msg: `Signed to ${o.label}. ${fmtMoney(o.advance)} advance.` };
     }
@@ -380,6 +420,7 @@ export function signLabel(state, { labelId }) {
     if (s.player.popularity < l.minPop) return fail(`${l.name} wants popularity ${l.minPop}+.`);
     s.player.label = { id: l.id, name: l.name, royalty: l.royalty, signedWeek: s.week };
     earn(s, 'advance', l.advance, `Advance: ${l.name}`);
+    logTimeline(s, 'deal', `Signed to ${l.name}`, `${fmtMoney(l.advance)} advance`);
     pushNews(s, `${s.player.stageName} signs with ${l.name}`, true, 'Business');
     return { msg: `Signed to ${l.name}. ${fmtMoney(l.advance)} advance, ${Math.round(l.royalty * 100)}% royalty.` };
   });
@@ -423,7 +464,7 @@ export function doMedia(state, { kind }) {
     p.energy -= e;
     if (kind === 'press') {
       const good = rng.chance(0.65 + p.skills.charisma / 400);
-      p.hype = clamp(p.hype + (good ? 10 : -4), 0, 100);
+      gainHype(p, (good ? 10 : -4));
       pushNews(s, good ? `Critics are calling ${p.stageName} one to watch` : `Mixed reviews for ${p.stageName}'s press run`, true, 'Press');
       return { msg: good ? 'Glowing write-up. Hype up.' : 'Lukewarm reviews. Hype dipped.' };
     }
@@ -431,12 +472,12 @@ export function doMedia(state, { kind }) {
       const song = s.songs.find((x) => x.status === 'released');
       if (!song) return fail('Release a song before a radio tour.');
       song.radioBoost = (song.radioBoost || 0) + 0.6;
-      p.hype = clamp(p.hype + 4, 0, 100);
+      gainHype(p, 4);
       return { msg: `Radio tour done — “${song.title}” gets more spins.` };
     }
     const fans = Math.round((Math.min(20000, p.fans * 0.02) + 50) * (1 + p.skills.charisma / 100));
     p.fans += fans;
-    p.hype = clamp(p.hype + 6, 0, 100);
+    gainHype(p, 6);
     bump(p, 'charisma', 1);
     return { msg: `Great interview. +${fmtNum(fans)} fans.` };
   });

@@ -1,5 +1,6 @@
 import { CHARTS, MARKETS } from './data.js';
 import { marketShares, decay } from './model.js';
+import { artistShares } from './npc.js';
 
 const shareCache = new Map();
 function shares(genre, country) {
@@ -17,7 +18,8 @@ function songCandidates(state) {
   const rivalById = Object.fromEntries(state.rivals.map((r) => [r.id, r]));
   for (const s of state.rivalSongs) {
     if (!s.weeklyStreams) continue;
-    out.push({ id: s.id, pl: false, streams: s.weeklyStreams, radio: s.radio || 0, sh: shares(s.genre, rivalById[s.rivalId]?.country) });
+    const r = rivalById[s.rivalId];
+    out.push({ id: s.id, pl: false, streams: s.weeklyStreams, radio: s.radio || 0, sh: r?.markets ? artistShares(r) : shares(s.genre, r?.country) });
   }
   return out;
 }
@@ -87,11 +89,11 @@ export function chartItem(state, chartId, entry) {
   }
   if (entry.pl) {
     const s = state.songs.find((x) => x.id === entry.id);
-    return { title: s?.title || '—', artist: state.player.stageName, cover: s?.cover, pl: true };
+    return { title: s?.title || '—', artist: s?.featName ? `${state.player.stageName} feat. ${s.featName}` : state.player.stageName, cover: s?.cover, pl: true, featId: s?.feat || null };
   }
   const s = state.rivalSongs.find((x) => x.id === entry.id);
   const r = state.rivals.find((x) => x.id === s?.rivalId);
-  return { title: s?.title || '—', artist: r?.name || '—', cover: s?.cover, pl: false, country: r?.country };
+  return { title: s?.title || '—', artist: r?.name || '—', cover: s?.cover, pl: false, country: r?.country, rivalId: r?.id || null };
 }
 
 // All chart positions currently held by the player.

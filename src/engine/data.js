@@ -128,12 +128,12 @@ export const JOBS = [
 ];
 
 export const VENUES = [
-  { id: 'bar', name: 'Open-mic bar', capacity: 80, ticket: 8, minFans: 0, energy: 20 },
-  { id: 'club', name: 'Club', capacity: 400, ticket: 15, minFans: 800, energy: 25 },
-  { id: 'theatre', name: 'Theatre', capacity: 2000, ticket: 30, minFans: 8000, energy: 30 },
-  { id: 'hall', name: 'Concert hall', capacity: 6000, ticket: 45, minFans: 40000, energy: 35 },
-  { id: 'arena', name: 'Arena', capacity: 18000, ticket: 70, minFans: 200000, energy: 45 },
-  { id: 'stadium', name: 'Stadium', capacity: 55000, ticket: 95, minFans: 1000000, energy: 60 },
+  { id: 'bar', name: 'Open-mic bar', capacity: 80, ticket: 8, minFans: 0, energy: 25 },
+  { id: 'club', name: 'Club', capacity: 400, ticket: 15, minFans: 800, energy: 30 },
+  { id: 'theatre', name: 'Theatre', capacity: 2000, ticket: 30, minFans: 8000, energy: 35 },
+  { id: 'hall', name: 'Concert hall', capacity: 6000, ticket: 45, minFans: 40000, energy: 40 },
+  { id: 'arena', name: 'Arena', capacity: 18000, ticket: 70, minFans: 200000, energy: 50 },
+  { id: 'stadium', name: 'Stadium', capacity: 55000, ticket: 95, minFans: 1000000, energy: 65 },
 ];
 
 export const LABELS = [
@@ -145,18 +145,6 @@ export const LABELS = [
 ];
 
 export const BRANDS = ['Volt Energy', 'Nimbus Audio', 'Kinetic Sneakers', 'Lumen Mobile', 'Glaze Cosmetics', 'Orbit Rideshare', 'Tidewater Apparel', 'Halo Headphones', 'Sora Watches', 'Pulse Soda', 'Fable Fashion', 'Ridge Outdoor'];
-
-// ~30 fictional rival artists from around the world.
-export const RIVALS = [
-  ['Nova Lane', 'US', 'pop', 92], ['Kai Monroe', 'US', 'hiphop', 88], ['Sienna Vale', 'UK', 'pop', 80], ['Rio Santos', 'BR', 'latin', 74],
-  ['DJ Halcyon', 'DE', 'electronic', 70], ['Jun-ho', 'KR', 'kpop', 86], ['LUMA', 'KR', 'kpop', 78], ['Tems Adé', 'NG', 'afrobeats', 72],
-  ['Wren Callahan', 'US', 'country', 76], ['Mateo Cruz', 'MX', 'latin', 82], ['Bad Lune', 'PR', 'reggaeton', 90], ['Odessa Grey', 'CA', 'rnb', 68],
-  ['The Paper Kites Club', 'AU', 'indie', 55], ['Kenji Arai', 'JP', 'rock', 60], ['Iron Meridian', 'DE', 'metal', 52], ['Celeste Dubois', 'FR', 'pop', 63],
-  ['Marcus Bell', 'US', 'jazz', 40], ['Priya Rao', 'IN', 'pop', 66], ['Zane Okoro', 'UK', 'hiphop', 58], ['Lila Moreno', 'ES', 'reggaeton', 61],
-  ['Frost & Fable', 'SE', 'electronic', 57], ['Ash Holloway', 'US', 'alternative', 64], ['Kofi Mensah', 'GH', 'afrobeats', 48], ['Hana Sato', 'JP', 'pop', 50],
-  ['Dakota Rhodes', 'US', 'country', 45], ['Velvet Static', 'UK', 'rock', 42], ['Amara Lin', 'CA', 'indie', 38], ['Yuna Park', 'KR', 'rnb', 44],
-  ['Thiago Reis', 'BR', 'electronic', 36], ['Jaylen Brooks', 'US', 'rnb', 54], ['Noor Haddad', 'AE', 'pop', 33], ['Sable Rose', 'AU', 'alternative', 30],
-].map(([name, country, genre, pop], i) => ({ id: `r${i}`, name, country, genre, basePop: pop }));
 
 export const CHARTS = [
   { id: 'hot100', name: 'Hot 100', size: 100, kind: 'songs' },
@@ -200,3 +188,59 @@ export function weekDate(week) {
 export function formatWeekDate(week, opts = { month: 'short', day: 'numeric', year: 'numeric' }) {
   return weekDate(week).toLocaleDateString('en-US', { ...opts, timeZone: 'UTC' });
 }
+
+// ---------- v3 content ----------
+export const VIDEO_DIRECTORS = [
+  { id: 'phone', name: 'Phone shoot (you)', tier: 'DIY', cost: 0, mult: 0.5, quality: 30 },
+  { id: 'indie', name: 'Indie director', tier: 'Tier 1', cost: 3000, mult: 1.4, quality: 52 },
+  { id: 'pro', name: 'Commercial director', tier: 'Tier 2', cost: 20000, mult: 3.5, quality: 70 },
+  { id: 'auteur', name: 'Award-winning auteur', tier: 'Tier 3', cost: 90000, mult: 7, quality: 86 },
+  { id: 'blockbuster', name: 'Blockbuster studio', tier: 'Tier 4', cost: 250000, mult: 12, quality: 94 },
+];
+export const VIDEO_CONCEPTS = [
+  { id: 'performance', name: 'Performance', desc: 'You, a band, a big room. Converts viewers into fans.', views: 1.0, fans: 1.4, hype: 1.0, viral: 1.0, energy: 0 },
+  { id: 'story', name: 'Story', desc: 'A short film. Press loves it; slower burn.', views: 0.9, fans: 1.1, hype: 1.6, viral: 0.9, energy: 5, genres: ['country', 'rnb', 'indie', 'rock', 'pop'] },
+  { id: 'dance', name: 'Dance', desc: 'Choreo built for TreblrTok. Viral upside.', views: 1.25, fans: 1.0, hype: 1.1, viral: 1.6, energy: 10, genres: ['kpop', 'pop', 'latin', 'reggaeton', 'afrobeats', 'hiphop', 'electronic'] },
+  { id: 'visualizer', name: 'Visualizer', desc: 'Looping art piece. Cheap and quick.', views: 0.6, fans: 0.7, hype: 0.6, viral: 0.8, energy: -10, costMult: 0.35 },
+];
+export const ERA_COLORS = ['#C6FF3D', '#FF6B4A', '#6C7BFF', '#FFB020', '#2DD4BF', '#F472B6', '#E11D48', '#A78BFA', '#FFFFFF', '#38BDF8'];
+export const ERA_VIBES = [
+  { id: 'bright', name: 'Bright', desc: 'Sunny, poppy, everywhere.', bonus: { hype: 6 } },
+  { id: 'dark', name: 'Dark', desc: 'Moody visuals, mystery.', bonus: { quality: 2 } },
+  { id: 'raw', name: 'Raw', desc: 'Unpolished, honest, live.', bonus: { performance: 2 } },
+  { id: 'retro', name: 'Retro', desc: 'Vintage textures and nostalgia.', bonus: { fans: 0.03 } },
+  { id: 'dreamy', name: 'Dreamy', desc: 'Soft focus, pastel, floaty.', bonus: { charisma: 2 } },
+  { id: 'chaos', name: 'Chaos', desc: 'Loud, unpredictable, viral.', bonus: { viral: 0.05 } },
+];
+export const OUTFITS = [
+  { id: 'classic', name: 'Classic tailoring', press: 1, risk: 0 },
+  { id: 'bold', name: 'Bold designer look', press: 3, risk: 0.15 },
+  { id: 'avantgarde', name: 'Avant-garde statement', press: 5, risk: 0.35 },
+  { id: 'casual', name: 'Streetwear, unbothered', press: 0, risk: 0.05 },
+];
+export const SPEECHES = [
+  { id: 'humble', name: 'Humble thank-you', hype: 4, fans: 0.01 },
+  { id: 'fans', name: 'Shout out the fans', hype: 6, fans: 0.02 },
+  { id: 'statement', name: 'Make a statement', hype: 10, fans: 0.015, risk: 0.25 },
+  { id: 'short', name: 'Keep it short', hype: 2, fans: 0.005 },
+];
+export const TRAINING = [
+  { id: 'songwriting', name: 'Songwriting workshop', energy: 20, base: 60 },
+  { id: 'vocals', name: 'Vocal coaching', energy: 20, base: 60 },
+  { id: 'production', name: 'Production course', energy: 20, base: 60 },
+  { id: 'performance', name: 'Stage rehearsal', energy: 20, base: 40 },
+  { id: 'charisma', name: 'Media training', energy: 15, base: 50 },
+];
+// Fictional people only (dating & friendships). Real artists are never datable.
+export const FICTIONAL_PEOPLE = [
+  ['Jamie Cho', 'photographer', 'sel'], ['Lucía Vega', 'dancer', 'mad'], ['Theo Laurent', 'stylist', 'par'], ['Ama Owusu', 'DJ', 'acc'],
+  ['Kai Nakamura', 'barista-turned-poet', 'tyo'], ['Rafa Costa', 'surf instructor', 'rio'], ['Mira Kapoor', 'film editor', 'bom'], ['Noah Fischer', 'session drummer', 'ber'],
+  ['Zoe Adeyemi', 'fashion designer', 'lon'], ['Diego Ramos', 'chef', 'mex'], ['Sasha Petrov', 'ballet dancer', 'nyc'], ['Leila Haddad', 'architect', 'dxb'],
+  ['Elliot Park', 'game designer', 'tor'], ['Ines Moreau', 'gallery curator', 'par'], ['Tomás Silva', 'skater', 'sao'], ['Hana Ito', 'illustrator', 'tyo'],
+  ['Marcus Reid', 'radio host', 'atl'], ['Freya Lund', 'actor', 'sto'], ['Ola Bankole', 'tech founder', 'los'], ['Priya Nair', 'doctor', 'bom'],
+];
+export const CONTACT_SEED = [
+  { id: 'mgr', name: 'Jules Marlowe', role: 'manager', rel: 40, blurb: 'Your manager-in-waiting. Brutally honest.' },
+  { id: 'prod', name: 'Mika Laine', role: 'producer', rel: 25, blurb: 'Rising producer. Owns the "Rising producer" tier rate card.' },
+  { id: 'bff', name: 'Sam Okoye', role: 'friend', rel: 60, blurb: 'Your oldest friend. Hype person, part-time voice of reason.' },
+];

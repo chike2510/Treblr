@@ -1,4 +1,5 @@
 import { GOALS, cityById } from './data.js';
+import { gainHype } from './model.js';
 import { clamp, fmtMoney, fmtNum } from './util.js';
 
 function metric(s, m) {
@@ -48,7 +49,7 @@ export function checkGoals(s) {
         s.transactions.unshift({ week: s.week, label: `Milestone: ${g.name}`, amount: r.cash });
       }
       if (r.fans) s.player.fans += r.fans;
-      if (r.hype) s.player.hype = clamp(s.player.hype + r.hype, 0, 100);
+      if (r.hype) gainHype(s.player, r.hype);
       s.player.awards = [...(s.player.awards || []), { week: s.week, name: g.name, kind: 'milestone' }];
       done.push(g);
     }
@@ -81,6 +82,8 @@ export function upNext(s) {
 
 export function staffCost(s) {
   const sal = { manager: 600, publicist: 450, booking: 400 };
+  const mgrRel = (s.contacts || []).find((c) => c.role === 'manager')?.rel ?? 0;
+  if (mgrRel >= 70) sal.manager = 450; // a manager who likes you takes a smaller cut
   return Object.entries(s.player.staff).reduce((a, [k, v]) => a + (v ? sal[k] : 0), 0);
 }
 export function weeklyExpenses(s) {

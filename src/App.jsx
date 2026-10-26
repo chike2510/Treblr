@@ -1,332 +1,169 @@
-import { useState, useCallback } from 'react';
-import { GENRES, CITIES, CAREER_TYPES, CURRENCIES } from './data/constants';
-import { NPC_ARTISTS } from './data/artists';
-import { makeDefault, loadGame, getSaveSlots, createCareerSlot, deleteSave } from './engine/gameState';
-import { fmt, fmtN, getTier, getEra } from './engine/utils';
-import { generateNPCCatalog, buildCharts, seedNPCCareers } from './engine/npcEngine';
-import Game from './Game';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  advanceWeek, saveGame, loadGame, listSaves, lastSlot, rest, unreadCount, formatWeekDate, fmtMoney,
+} from './engine/index.js';
+import { GameCtx, Icon, AREA, facePhoto, CountUp, DEFAULT_FACE } from './ui/kit.jsx';
+import Onboarding, { GENRE_COLORWAYS } from './screens/Onboarding.jsx';
+import Home from './screens/Home.jsx';
+import Studio from './screens/Studio.jsx';
+import Phone from './screens/Phone.jsx';
+import Charts from './screens/Charts.jsx';
+import World from './screens/World.jsx';
+import Profile from './screens/Profile.jsx';
+import Reveal from './screens/Reveal.jsx';
 
-// ── SVG ICONS ─────────────────────────────────────────────────────────────────
-const MicIcon = () => (
-  <svg viewBox="0 0 24 24" className="tab-icon-svg"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-);
+const TABS = [
+  { id: 'home', label: 'Home', icon: 'home' },
+  { id: 'studio', label: 'Studio', icon: 'mic' },
+  { id: 'phone', label: 'Phone', icon: 'phone' },
+  { id: 'charts', label: 'Charts', icon: 'chart' },
+  { id: 'world', label: 'World', icon: 'globe' },
+];
 
-// ── START SCREEN ──────────────────────────────────────────────────────────────
-function StartScreen({ onNew, onContinue, saveSlots, onDelete }) {
-  return (
-    <main className="start-screen">
-      <h1 className="start-logo">TREBLR</h1>
-      <div className="start-tagline">Build Your Legacy</div>
-      <div style={{ maxWidth:380, width:'100%', maxHeight:'52vh', overflowY:'auto', margin:'18px 0' }}>
-        {saveSlots.length > 0 && <div className="save-label" style={{ marginBottom:8 }}>YOUR CAREERS · {saveSlots.length}/8</div>}
-        {saveSlots.map((slot) => (
-          <article key={slot.id} className="save-card" style={{ marginBottom:10 }}>
-            <div className="save-label">{slot.totalWeeks ? `WEEK ${slot.totalWeeks}` : 'NEW CAREER'}</div>
-            <div className="save-name">{slot.name}</div>
-            <div className="save-info">{GENRES.find(g => g.id === slot.genre)?.label || 'Genre TBD'} · {CITIES.find(c => c.id === slot.city)?.label || 'City TBD'}</div>
-            <div style={{ display:'flex', gap:12, fontSize:12, fontWeight:700, marginTop:8, marginBottom:10 }}>
-              <span style={{ color:'var(--accent-cyan)' }}>{fmt(slot.fans || 0)} fans</span>
-              <span style={{ color:'var(--text-muted)' }}>{slot.money ? fmtN(slot.money, slot.currency) : 'Career save'}</span>
-            </div>
-            <div style={{ display:'flex', gap:8 }}>
-              <button className="btn btn-primary" style={{ flex:1 }} onClick={() => onContinue(slot.id)}>CONTINUE</button>
-              <button className="btn btn-outline" aria-label={`Delete ${slot.name}`} onClick={() => onDelete(slot.id)}>DELETE</button>
-            </div>
-          </article>
-        ))}
-      </div>
-      <button className={`btn btn-full ${saveSlots.length ? 'btn-outline' : 'btn-primary'}`} style={{ maxWidth:320 }} onClick={onNew} disabled={saveSlots.length >= 8}>
-        {saveSlots.length ? 'NEW CAREER' : 'START CAREER'}
-      </button>
-      {saveSlots.length >= 8 && <div style={{ fontSize:11, color:'var(--accent-orange)', marginTop:8 }}>Delete or export a save to free one of your 8 slots.</div>}
-      <div style={{ position:'absolute', bottom:24, fontSize:10, color:'var(--text-muted)', letterSpacing:2, textTransform:'uppercase' }}>v4.0 · LOCAL SAVES</div>
-    </main>
-  );
-}
+export default function App() {
+  const [slot, setSlot] = useState(() => lastSlot() || 1);
+  const [state, setState] = useState(() => {
+    const s = lastSlot();
+    return s ? loadGame(s) : null;
+  });
+  const [mode, setMode] = useState(() => (state ? 'game' : 'title'));
 
-// ── ONBOARDING ────────────────────────────────────────────────────────────────
-function OnboardScreen({ onStart }) {
-  const [step, setStep]               = useState(0);
-  const [stageName, setStageName]     = useState('');
-  const [realName, setRealName]       = useState('');
-  const [startAge, setStartAge]       = useState(22);
-  const [currency, setCurrency]       = useState('NGN');
-  const [genre, setGenre]             = useState(null);
-  const [city, setCity]               = useState(null);
-  const [careerType, setCareerType]   = useState(null);
+  useEffect(() => {
+    if (state && mode === 'game') saveGame(state, slot);
+  }, [state, slot, mode]);
 
-  const career = CAREER_TYPES.find(c => c.id === careerType);
-  const selectedGenre = GENRES.find(g => g.id === genre);
-  const canStart = stageName.trim() && realName.trim() && genre && city && careerType;
-
-  const steps = [
-    { label: 'Identity', done: !!(stageName.trim() && realName.trim()) },
-    { label: 'Genre',    done: !!genre },
-    { label: 'City',     done: !!city },
-    { label: 'Career',   done: !!careerType },
-  ];
-
-  const handleStart = () => {
-    if (!canStart) return;
-    onStart({ stageName: stageName.trim(), realName: realName.trim(), startAge, currency, genre, city, careerType });
+  const startNew = (s) => { setSlot(s); setMode('onboarding'); };
+  const loadSlot = (s) => {
+    const g = loadGame(s);
+    if (g) { setSlot(s); setState(g); setMode('game'); }
   };
 
-  return (
-    <div className="ob-screen">
-      <div className="ob-logo">TREBLR</div>
-      <div className="ob-subtitle">Build Your Legacy</div>
-
-      {/* Step indicators */}
-      <div style={{ display:'flex', gap:8, marginBottom:24, width:'100%', maxWidth:440 }}>
-        {steps.map((s, i) => (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={i === step}
-            key={s.label}
-            onClick={() => setStep(i)}
-            style={{
-              appearance:'none', background:'transparent', border:0, font:'inherit',
-              flex:1, textAlign:'center', cursor:'pointer',
-              borderBottom: `2px solid ${i === step ? 'var(--accent-gold)' : s.done ? 'var(--accent-green)' : 'var(--border)'}`,
-              paddingBottom:6,
-            }}
-          >
-            <div style={{ fontSize:9, letterSpacing:1, textTransform:'uppercase', color: i === step ? 'var(--accent-gold-lt)' : s.done ? 'var(--accent-green)' : 'var(--text-muted)' }}>
-              {s.done && i !== step ? '✓ ' : ''}{s.label}
-            </div>
-          </button>
-        ))}
+  if (mode === 'title') return <div className="app"><Title onNew={startNew} onLoad={loadSlot} /></div>;
+  if (mode === 'onboarding') {
+    return (
+      <div className="app">
+        <Onboarding onCancel={() => setMode(state ? 'game' : 'title')} onDone={(g) => { setState(g); saveGame(g, slot); setMode('game'); }} />
       </div>
+    );
+  }
+  return <Game state={state} setState={setState} slot={slot} onSwitch={(s) => { if (!loadGame(s)) startNew(s); else loadSlot(s); }} onNew={startNew} onTitle={() => setMode('title')} />;
+}
 
-      {/* Step 0: Identity */}
-      {step === 0 && (
-        <div className="ob-section">
-          <div className="ob-sec-head">
-            <span className="ob-num">01</span>
-            <span className="ob-sec-label">Your Identity</span>
-          </div>
-          <div className="ob-input-row">
-            <div>
-              <label className="form-label" htmlFor="stage-name">Stage Name</label>
-              <input id="stage-name" className="ob-input" placeholder="e.g. CANDELAR" value={stageName} onChange={e => setStageName(e.target.value)} maxLength={18} />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="real-name">Real Name</label>
-              <input id="real-name" className="ob-input" placeholder="Given name" value={realName} onChange={e => setRealName(e.target.value)} maxLength={24} />
-            </div>
-          </div>
-          <div className="ob-input-row">
-            <div>
-              <label className="form-label" htmlFor="starting-age">Starting Age</label>
-              <select
-                id="starting-age"
-                className="ob-input"
-                value={startAge}
-                onChange={e => setStartAge(Number(e.target.value))}
-                style={{ appearance:'none' }}
-              >
-                {Array.from({ length: 20 }, (_, i) => 16 + i).map(a => (
-                  <option key={a} value={a}>{a} years old</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="form-label" htmlFor="display-currency">Display Currency</label>
-              <select
-                id="display-currency"
-                className="ob-input"
-                value={currency}
-                onChange={e => setCurrency(e.target.value)}
-                style={{ appearance:'none' }}
-              >
-                {CURRENCIES.map(item => <option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}
-              </select>
-            </div>
-          </div>
-          <div style={{ marginTop:-4, fontSize:10, lineHeight:1.45, color:'var(--text-muted)' }}>
-            Display only. Existing game amounts stay the same; no exchange conversion is applied.
-          </div>
-          <button className="btn btn-primary btn-full" style={{ marginTop:16 }} disabled={!stageName.trim() || !realName.trim()} onClick={() => setStep(1)}>
-            NEXT →
-          </button>
-        </div>
-      )}
-
-      {/* Step 1: Genre */}
-      {step === 1 && (
-        <div className="ob-section">
-          <div className="ob-sec-head">
-            <span className="ob-num">02</span>
-            <span className="ob-sec-label">Your Genre</span>
-          </div>
-          <div className="grid2">
-            {GENRES.map(g => (
-              <button
-                type="button" role="radio" aria-checked={genre === g.id}
-                key={g.id}
-                className={`sel${genre === g.id ? ' on' : ''}`}
-                onClick={() => setGenre(g.id)}
-                style={genre === g.id ? { borderColor: g.color, background: g.color + '14' } : {}}
-              >
-                <div className="sel-icon">
-                  <div style={{ width:28, height:28, borderRadius:8, background:g.color + '30', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <span style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:700, color:g.color }}>{g.initials}</span>
-                  </div>
-                </div>
-                <div className="sel-label">{g.label}</div>
-                <div className="sel-sub">{g.desc}</div>
-              </button>
-            ))}
-          </div>
-          <button className="btn btn-primary btn-full" style={{ marginTop:16 }} disabled={!genre} onClick={() => setStep(2)}>NEXT →</button>
-        </div>
-      )}
-
-      {/* Step 2: City */}
-      {step === 2 && (
-        <div className="ob-section">
-          <div className="ob-sec-head">
-            <span className="ob-num">03</span>
-            <span className="ob-sec-label">Your City</span>
-          </div>
-          <div className="grid2">
-            {CITIES.map(c => (
-              <button type="button" role="radio" aria-checked={city === c.id} key={c.id} className={`sel${city === c.id ? ' on' : ''}`} onClick={() => setCity(c.id)}>
-                <div className="sel-icon">
-                  <span style={{ fontFamily:'var(--font-mono)', fontSize:12, fontWeight:700, color:'var(--text-muted)' }}>{c.flag}</span>
-                </div>
-                <div className="sel-label">{c.label}</div>
-                <div className="sel-sub">{c.scene}</div>
-              </button>
-            ))}
-          </div>
-          <button className="btn btn-primary btn-full" style={{ marginTop:16 }} disabled={!city} onClick={() => setStep(3)}>NEXT →</button>
-        </div>
-      )}
-
-      {/* Step 3: Career */}
-      {step === 3 && (
-        <div className="ob-section">
-          <div className="ob-sec-head">
-            <span className="ob-num">04</span>
-            <span className="ob-sec-label">Career Path</span>
-          </div>
-          {CAREER_TYPES.map(c => (
-            <button
-              type="button" role="radio" aria-checked={careerType === c.id}
-              key={c.id}
-              className={`career-card${careerType === c.id ? ' on' : ''}`}
-              onClick={() => setCareerType(c.id)}
-            >
-              <div className="career-top">
-                <div style={{ width:32, height:32, borderRadius:8, background:'var(--surface-2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <MicIcon />
-                </div>
-                <span className="career-name">{c.label}</span>
-              </div>
-              <div className="career-desc">{c.desc}</div>
-              <span className="career-perk">✦ {c.perk}</span>
-              {careerType === c.id && (
-                <div className="stats-preview" style={{ marginTop:10 }}>
-                  {[['SW', c.stats.sw + (selectedGenre?.swBonus || 0)], ['VC', c.stats.vc + (selectedGenre?.vcBonus || 0)], ['PD', c.stats.pd + (selectedGenre?.pdBonus || 0)], ['LP', c.stats.lp + (selectedGenre?.lpBonus || 0)], ['HST', c.stats.hustle], ['CHR', c.stats.charisma]].map(([l, v]) => (
-                    <div key={l} className="sp-chip">
-                      <div className="sp-chip-l">{l}</div>
-                      <div className="sp-chip-v">{v}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+export function Title({ onNew, onLoad }) {
+  const saves = listSaves();
+  return (
+    <div className="ts">
+      <div className="ts-glow" aria-hidden="true" />
+      <div className="ts-brand">
+        <h1 className="ts-word" aria-label="Treblr">{'TREBLR'.split('').map((c, i) => <span key={i} style={{ animationDelay: `${i * 0.12}s` }}>{c}</span>)}</h1>
+        <div className="ts-eq" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ animationDelay: `${((i * 37) % 11) * -0.11}s`, animationDuration: `${0.9 + ((i * 13) % 7) * 0.12}s` }} />)}</div>
+        <p className="ts-tag">A global music career, one issue a week. Write, release, chart in twelve countries and tour the world.</p>
+      </div>
+      <div className="ts-rack">
+        <div className="ts-rack-head"><span>On the rack</span><span>{`${saves.filter((s) => !s.empty).length}/3 careers`}</span></div>
+        <div className="ts-covers">
+          {saves.map((s) => (s.empty ? (
+            <button key={s.slot} className="ts-cover blank" onClick={() => onNew(s.slot)} aria-label={`Start a new career in slot ${s.slot}`}>
+              <span className="ts-plus"><Icon name="plus" size={26} /></span>
+              <span className="ts-new">New career</span>
             </button>
-          ))}
-          {career && (
-            <div style={{ background:'var(--surface-1)', borderRadius:'var(--r)', padding:'12px 14px', marginTop:12 }}>
-              <div style={{ fontSize:9, letterSpacing:2, textTransform:'uppercase', color:'var(--text-muted)', marginBottom:6 }}>Starting Stats</div>
-              <div style={{ display:'flex', gap:16, fontSize:13, fontWeight:700 }}>
-                <span style={{ color:'var(--accent-gold-lt)' }}>{fmtN(career.money, currency)}</span>
-                <span style={{ color:'var(--accent-cyan)' }}>{fmt(career.fans)} fans</span>
-                <span style={{ color:'var(--text-muted)', fontSize:11 }}>SE: {career.se}/wk</span>
-              </div>
-            </div>
-          )}
-          <button className="btn btn-primary btn-full" style={{ marginTop:16 }} disabled={!canStart} onClick={handleStart}>
-            BEGIN CAREER →
-          </button>
+          ) : (
+            <button key={s.slot} className="ts-cover" onClick={() => onLoad(s.slot)} aria-label={`Continue ${s.stageName}, issue ${s.week}`} style={{ '--ca': (GENRE_COLORWAYS[s.genre] || [])[0] || '#C6FF3D' }}>
+              <img src={s.photo || DEFAULT_FACE} alt="" />
+              <span className="ts-cover-shade" />
+              <span className="ts-cover-mast">TREBLR</span>
+              <span className="ts-cover-issue">{`ISSUE ${s.week}`}</span>
+              <span className="ts-cover-name">{s.stageName}</span>
+              <span className="ts-continue">Continue <Icon name="chev" size={12} stroke={2.6} /></span>
+            </button>
+          )))}
         </div>
-      )}
-
-      <div style={{ height:32 }} />
+      </div>
     </div>
   );
 }
 
-// ── APP ROOT ──────────────────────────────────────────────────────────────────
-export default function App() {
-  const [gs, setGs] = useState(() => ({ ...makeDefault(), screen:'start' }));
+function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
+  const [nav, setNav] = useState({ tab: 'home', n: 0 });
+  const [toast, setToast] = useState(null);
+  const [reveal, setReveal] = useState(false);
+  const [profile, setProfile] = useState(false);
+  const scrollRef = useRef(null);
+  const timer = useRef(null);
 
-  const patch   = useCallback(upd => setGs(prev => ({ ...prev, ...upd })), []);
-  const patchFn = useCallback(fn  => setGs(prev => ({ ...prev, ...fn(prev) })), []);
+  const showToast = useCallback((msg, ok = true) => {
+    if (!msg) return;
+    clearTimeout(timer.current);
+    setToast({ msg, ok, k: Date.now() });
+    timer.current = setTimeout(() => setToast(null), 2600);
+  }, []);
 
-  const handleNew = () => patch({ screen:'onboard' });
-  const handleContinue = (slotId) => { const saved = loadGame(slotId); if (saved) setGs({ ...saved, screen:'game' }); };
-  const handleDeleteSave = (slotId) => {
-    if (window.confirm('Delete this career slot permanently?')) {
-      deleteSave(slotId);
-      setGs((current) => ({ ...current }));
-    }
-  };
+  const latest = useRef(state);
+  latest.current = state;
+  const act = useCallback((fn, payload, { silent = false } = {}) => {
+    const res = fn(latest.current, payload);
+    latest.current = res.state;
+    setState(res.state);
+    if (!silent || !res.ok) showToast(res.msg, res.ok);
+    return res;
+  }, [setState, showToast]);
 
-  const handleBegin = ({ stageName, realName, startAge, currency, genre, city, careerType }) => {
-    const career    = CAREER_TYPES.find(c => c.id === careerType);
-    const genreData = GENRES.find(g => g.id === genre);
+  const nextWeek = useCallback(() => {
+    const n = advanceWeek(latest.current);
+    latest.current = n;
+    setState(n);
+    setReveal(true);
+  }, [setState]);
 
-    const platforms = {
-      soundify: Math.round(career.socialFollowers * 0.3),
-      instapic:    Math.round(career.socialFollowers * 0.25),
-      chirp:       Math.round(career.socialFollowers * 0.15),
-      vidtube:     Math.round(career.socialFollowers * 0.15),
-      rhythmtok:   Math.round(career.socialFollowers * 0.1),
-      wavelog:  Math.round(career.socialFollowers * 0.05),
-    };
+  const go = useCallback((to) => {
+    if (!to) return;
+    if (to.action === 'rest') { act(rest); return; }
+    if (to.action === 'next') { nextWeek(); return; }
+    setNav((n) => ({ tab: to.tab || n.tab, section: to.section, app: to.app, n: n.n + 1 }));
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [act, nextWeek]);
 
-    const npcCatalog    = generateNPCCatalog();
-    const npcCareers    = seedNPCCareers(npcCatalog);
-    const npcLastRelease = {};
-    for (const npc of NPC_ARTISTS) {
-      npcLastRelease[npc.id] = -(npc.releaseFrequency + Math.floor(Math.random() * 4));
-    }
+  const ctx = useMemo(() => ({ state, act, go, nav, nextWeek, toast: showToast, slot, onSwitch, onNew, onTitle, openProfile: () => setProfile(true), setState }), [state, act, go, nav, nextWeek, showToast, slot, onSwitch, onNew, onTitle, setState]);
+  const p = state.player;
+  const unread = unreadCount(state);
+  const accent = AREA[nav.tab];
 
-    const newState = {
-      ...makeDefault(),
-      screen: 'game',
-      stageName, realName, startAge, currency, genre, city, careerType, startYear: 2024,
-      money:    career.money,
-      fans:     career.fans,
-      socialPlatforms: platforms,
-      sw: career.stats.sw + (genreData?.swBonus || 0), vc: career.stats.vc + (genreData?.vcBonus || 0),
-      pd: career.stats.pd + (genreData?.pdBonus || 0), lp: career.stats.lp + (genreData?.lpBonus || 0),
-      hustle: career.stats.hustle, charisma: career.stats.charisma, network: career.stats.network,
-      genreBonus: { [genre]: 0 },
-      maxSe: career.se, se: career.se,
-      maxSp:3, sp:3,
-      npcCatalog, npcCareers,
-      npcLastRelease,
-      news: [{ msg: `${stageName}'s career begins. The journey to legendary starts now.`, type: 'milestone', week: 0 }],
-    };
-    // Seed initial charts so StatsTab isn't empty from day one
-    newState.charts = buildCharts(newState.catalog, newState.npcCatalog, newState);
-    const created = createCareerSlot(newState);
-    if (!created) {
-      window.alert('Could not create a career slot. Delete a save or free device storage, then try again.');
-      setGs({ ...newState, screen:'onboard' });
-      return;
-    }
-    setGs(created);
-  };
+  return (
+    <GameCtx.Provider value={ctx}>
+      <div className="app" style={{ '--accent': accent }}>
+        <header className="topbar">
+          <button onClick={() => setProfile(true)} aria-label="Profile"><img className="avatar" src={facePhoto(p)} alt="" /></button>
+          <div className="wk">
+            <b>WEEK {state.week}</b>
+            <span>{formatWeekDate(state.week, { month: 'short', day: 'numeric' })}</span>
+          </div>
+          <span className="stat-chip" title="Energy"><Icon name="bolt" size={14} color="#C6FF3D" fill="#C6FF3D" stroke={0} />{p.energy}</span>
+          <span className="stat-chip" title="Cash" style={{ color: p.cash < 0 ? 'var(--red)' : 'var(--green)' }}><CountUp value={p.cash} format={(v) => fmtMoney(v)} /></span>
+          <button className="next-btn" onClick={nextWeek}>Next Week <Icon name="chev" size={16} stroke={2.6} /></button>
+        </header>
 
-  const saveSlots = getSaveSlots();
+        <main className="scroll" ref={scrollRef}>
+          {nav.tab === 'home' && <Home key={`h${nav.n}`} />}
+          {nav.tab === 'studio' && <Studio key={`s${nav.n}`} initial={nav.section} />}
+          {nav.tab === 'phone' && <Phone key={`p${nav.n}`} initialApp={nav.app} />}
+          {nav.tab === 'charts' && <Charts key={`c${nav.n}`} />}
+          {nav.tab === 'world' && <World key={`w${nav.n}`} initial={nav.section} />}
+        </main>
 
-  if (gs.screen === 'start') return <StartScreen onNew={handleNew} onContinue={handleContinue} onDelete={handleDeleteSave} saveSlots={saveSlots} />;
-  if (gs.screen === 'onboard') return <OnboardScreen onStart={handleBegin} />;
-  return <Game gs={gs} setGs={setGs} />;
+        <nav className="bottomnav">
+          {TABS.map((t) => (
+            <button key={t.id} className={`tab ${nav.tab === t.id ? 'on' : ''}`} style={{ '--tc': AREA[t.id] }} onClick={() => go({ tab: t.id })} aria-label={t.label}>
+              <Icon name={t.icon} size={22} />
+              <span>{t.label}</span>
+              {t.id === 'phone' && unread > 0 && <i className="badge">{unread > 9 ? '9+' : unread}</i>}
+            </button>
+          ))}
+        </nav>
+
+        {toast && <div key={toast.k} className={`toast ${toast.ok ? 'ok' : 'err'}`}><Icon name={toast.ok ? 'check' : 'close'} size={18} color={toast.ok ? '#C6FF3D' : '#FF4D5E'} />{toast.msg}</div>}
+        {profile && <Profile onClose={() => setProfile(false)} />}
+        {reveal && state.lastReport && <Reveal report={state.lastReport} onClose={() => setReveal(false)} />}
+      </div>
+    </GameCtx.Provider>
+  );
 }

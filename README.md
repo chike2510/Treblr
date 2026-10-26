@@ -50,3 +50,8 @@ public/            artist.jpg (default portrait), cover1-3.jpg (sample cover art
 ## Deploy
 
 Vercel builds with `npm run build` and serves `dist/`; `vercel.json` rewrites all routes to `index.html` (SPA).
+
+## v3 (save format 3)
+- Real-world NPC roster: 100 real artists seeded from Spotify monthly listeners (kworb.net snapshot, 2026-10-26; see `src/engine/realArtists.js`, regenerate with `scripts/gen-artists.py`) plus 9 fictional rising acts. Titles are generated; avatars are generative art (players can set their own photo per artist and share photo packs). Dating is fictional characters only.
+- New systems: career timeline, weekly goals, chart streak, spotlight, eras, Treblrchat contacts, fan comments, beef & diss tracks, live streams, notifications, collabs, video directors/concepts, album sequencing, award shows, PR crises, Wrapped, multi-week tours, training, burnout.
+- Balance: `node scripts/balance-sim.mjs` (results in `scripts/balance-results.md`).

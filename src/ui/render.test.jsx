@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import {
   createNewGame, advanceWeek, writeSong, recordSong, releaseMusic, promoteClip, postChirp, makeVideo, playGig,
+  goLive, startEra, openCrisis, setArtistPhoto, contactForRival, meetPerson, createRng,
 } from '../engine/index.js';
 import { GameCtx } from './kit.jsx';
 import Home from '../screens/Home.jsx';
@@ -35,10 +36,28 @@ function midCareer() {
   return s;
 }
 
-const states = { fresh: createNewGame({ stageName: 'Neo', city: 'lon', genre: 'indie', path: 'bedroom' }, 1), mid: midCareer() };
+function richState() {
+  let s = midCareer();
+  s.player.cash += 1e6;
+  s = startEra(s, { name: 'Glass Hearts', color: '#F472B6', vibe: 'dreamy' }).state;
+  s = goLive(s, { platform: 'treblrtok' }).state;
+  s = setArtistPhoto(s, { rivalId: s.rivals[0].id, photo: 'data:image/jpeg;base64,AAAA' }).state;
+  s = JSON.parse(JSON.stringify(s));
+  contactForRival(s, s.rivals[1].id).thread.push({ from: 'them', text: 'yo', week: s.week, choices: [{ label: 'hey!', fx: { rel: 3 } }], answered: false });
+  meetPerson(s, createRng(1), 'a party');
+  s.drama = { id: 'd1', rivalId: s.rivals[2].id, text: 'stay humble', week: s.week, status: 'open', likes: 900 };
+  s.spotlight = { id: 'sp', week: s.week, rivalId: s.rivals[3].id, text: `${s.rivals[3].name} takes #1`, resolved: null };
+  s.awardEvent = { id: 'aw', show: 'Treblr Music Awards', week: s.week, category: 'Breakthrough Artist', winChance: 0.5, nominees: s.rivals.slice(0, 4).map((r) => r.id), winnerName: s.rivals[0].name, status: 'pending' };
+  openCrisis(s, 'leak', 'Demos leak', 'oops');
+  s.wrapped.push({ year: 1, week: 52, streams: 1000, listeners: 500, fans: 10, bestPeak: 40, topSongs: [{ id: 'x', title: 'Song', streams: 900 }], topCountries: [{ code: 'KR', name: 'South Korea', flag: '🇰🇷', streams: 400 }], type: { name: 'The Workhorse', desc: 'd' }, awards: 0 });
+  s.tour = { id: 't', venueId: 'club', perWeek: 2, reserve: 35, startWeek: s.week, cost: 1, gross: 0, fans: 0, sellouts: 0, stops: [{ cityId: 'sel', week: s.week, done: false }, { cityId: 'tyo', week: s.week + 1, done: false }, { cityId: 'lon', week: s.week + 1, done: false }] };
+  return s;
+}
+
+const states = { fresh: createNewGame({ stageName: 'Neo', city: 'lon', genre: 'indie', path: 'bedroom' }, 1), mid: midCareer(), rich: richState() };
 
 function wrap(state, el) {
-  const ctx = { state, act: () => ({ ok: true }), go: () => {}, nav: { tab: 'home' }, nextWeek: () => {}, toast: () => {}, slot: 1, onSwitch: () => {}, onNew: () => {}, onTitle: () => {}, openProfile: () => {}, setState: () => {} };
+  const ctx = { state, act: () => ({ ok: true }), go: () => {}, nav: { tab: 'home' }, nextWeek: () => {}, toast: () => {}, slot: 1, onSwitch: () => {}, onNew: () => {}, onTitle: () => {}, openProfile: () => {}, setState: () => {}, openArtist: () => {}, openOverlay: () => {} };
   return renderToString(<GameCtx.Provider value={ctx}>{el}</GameCtx.Provider>);
 }
 
@@ -54,7 +73,7 @@ describe.each(Object.keys(states))('renders (%s save)', (k) => {
     for (const a of APPS) expect(wrap(s, <Phone initialApp={a.id} />)).toContain(a.name);
   });
   it('world sheets', () => {
-    for (const id of ['jobs', 'gigs', 'tours', 'labels', 'merch', 'brands', 'press', 'radio', 'interview', 'payola']) expect(wrap(s, <World initial={id} />).length).toBeGreaterThan(100);
+    for (const id of ['jobs', 'gigs', 'tours', 'training', 'labels', 'merch', 'brands', 'press', 'radio', 'interview', 'payola']) expect(wrap(s, <World initial={id} />).length).toBeGreaterThan(100);
   });
 });
 
@@ -118,6 +137,7 @@ it('full app shell renders title screen and a loaded game', () => {
   saveGame(states.mid, 2);
   const html = renderToString(<App />);
   expect(html).toContain('Next Week');
+  expect(html).toContain('Notifications');
   expect(html).toContain('WEEK');
   delete globalThis.localStorage;
 });

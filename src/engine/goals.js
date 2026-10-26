@@ -72,8 +72,8 @@ export function upNext(s) {
   if (!s.songs.length) out.push({ id: 'write', title: 'Write your first song', body: 'Every career starts with one.', cta: 'Write', to: { tab: 'studio', section: 'write' }, tone: 'studio' });
   if (unread) out.push({ id: 'inbox', title: `${unread} unread in your inbox`, body: 'Offers expire — don\u2019t sleep on them.', cta: 'Open', to: { tab: 'phone', app: 'inbox' }, tone: 'phone' });
   const released = s.songs.find((x) => x.status === 'released' && x.pitchedWeek !== s.week && s.week - x.releasedWeek < 8);
-  if (released && p.socialEnergy >= 5) out.push({ id: 'pitch', title: 'Pitch to playlists', body: `“${released.title}” could land on a playlist.`, cta: 'Pitch', to: { tab: 'phone', app: 'streamify' }, tone: 'phone' });
-  if (p.socialEnergy >= 15 && s.songs.some((x) => x.status === 'released')) out.push({ id: 'clip', title: 'Try for a viral moment', body: 'Promote a snippet on Clipz.', cta: 'Clipz', to: { tab: 'phone', app: 'clipz' }, tone: 'phone' });
+  if (released && p.socialEnergy >= 5) out.push({ id: 'pitch', title: 'Pitch to playlists', body: `“${released.title}” could land on a playlist.`, cta: 'Pitch', to: { tab: 'phone', app: 'treblify' }, tone: 'phone' });
+  if (p.socialEnergy >= 15 && s.songs.some((x) => x.status === 'released')) out.push({ id: 'clip', title: 'Try for a viral moment', body: 'Promote a snippet on TreblrTok.', cta: 'TreblrTok', to: { tab: 'phone', app: 'treblrtok' }, tone: 'phone' });
   if (p.energy >= 25 && p.fans >= 50) out.push({ id: 'gig', title: 'Play a show', body: 'Gigs pay and grow your local fan heat.', cta: 'Gigs', to: { tab: 'world', section: 'gigs' }, tone: 'world' });
   if (!s.songs.length || s.songs.every((x) => x.status === 'released')) out.push({ id: 'write2', title: 'Keep the catalogue growing', body: 'New music keeps listeners coming back.', cta: 'Write', to: { tab: 'studio', section: 'write' }, tone: 'studio' });
   const seen = new Set();

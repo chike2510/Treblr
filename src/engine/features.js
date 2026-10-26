@@ -139,6 +139,10 @@ export function messageArtist(state, { rivalId }) {
   });
 }
 
+export function readContact(state, { contactId }) {
+  return run(state, (s) => { const c = s.contacts.find((x) => x.id === contactId); if (c) c.unread = 0; });
+}
+
 // ---------- spotlight ----------
 export function spotlightReact(state, { choice }) {
   return run(state, (s, rng) => {

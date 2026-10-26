@@ -2,7 +2,7 @@ import { fmtMoney, fmtNum, formatWeekDate } from '../engine/index.js';
 import { Mono, Delta, facePhoto } from '../ui/kit.jsx';
 
 const LABELS = {
-  streams: 'Streaming', gigs: 'Gigs & tours', jobs: 'Jobs', brand: 'Brand deals', features: 'Features', merch: 'Merch', video: 'ViewTube',
+  streams: 'Streaming', gigs: 'Gigs & tours', jobs: 'Jobs', brand: 'Brand deals', features: 'Features', merch: 'Merch', video: 'TreblrTube', live: 'Live tips', training: 'Training',
   advance: 'Label advance', rewards: 'Milestones', other: 'Other', rent: 'Rent', living: 'Living costs', staff: 'Team salaries', studio: 'Studio time',
   cowriters: 'Co-writers', marketing: 'Marketing', touring: 'Touring costs', videoProd: 'Music videos', 
 };

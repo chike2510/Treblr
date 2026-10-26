@@ -202,7 +202,7 @@ export function promoteClip(state, { songId }) {
     if (viral) {
       gainHype(p, 20);
       p.fans += Math.round(gain * 0.3);
-      pushNews(s, `“${song.title}” by ${p.stageName} is blowing up on Clipz`, true, 'Viral');
+      pushNews(s, `“${song.title}” by ${p.stageName} is blowing up on TreblrTok`, true, 'Viral');
       s.weekFlags.viral = song.title;
     }
     stat(s, 'post');

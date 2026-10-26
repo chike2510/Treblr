@@ -71,7 +71,7 @@ export function AwardShow({ onClose }) {
       )}
       {step === 'done' && (
         <div className="col gap12 mt16" style={{ textAlign: 'center' }}>
-          <div className="muted">{a.won ? 'Trophy on the shelf.' : 'That\u2019s a wrap on this year\u2019s show.'}</div>
+          <div className="muted">{a.won ? 'Trophy on the shelf.' : 'That’s a wrap on this year’s show.'}</div>
           <button className="btn primary block" onClick={onClose}>Close</button>
         </div>
       )}

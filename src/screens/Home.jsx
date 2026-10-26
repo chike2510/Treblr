@@ -270,7 +270,7 @@ function WeeklyGoals() {
   if (!goals.length) return null;
   return (
     <div className="section">
-      <SectionHead title={`This week\u2019s goals`} />
+      <SectionHead title={`This week’s goals`} />
       <div className="card">
         {goals.map((g, i) => (
           <div key={g.id} className={i ? 'mt16' : ''}>

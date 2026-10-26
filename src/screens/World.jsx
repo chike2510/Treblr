@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
-  CITIES, VENUES, JOBS, LABELS, MERCH_TIERS, ENERGY, cityById, gigDemand, playGig, bookTour, doJob, signLabel, leaveLabel,
-  dropMerch, doMedia, payola, fmtMoney, fmtNum,
+  CITIES, VENUES, JOBS, LABELS, MERCH_TIERS, ENERGY, cityById, gigDemand, gigFatigue, playGig, planTour, cancelTour, tourQuote, doJob, signLabel, leaveLabel,
+  dropMerch, doMedia, payola, fmtMoney, fmtNum, TRAINING, trainSkill, trainingCost, ARTIST_CUT,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, Bar, Empty, AREA } from '../ui/kit.jsx';
 
@@ -17,7 +17,7 @@ const LAND = [
 const proj = (lng, lat) => [((lng + 180) / 360) * 360, ((80 - lat) / 138) * 180];
 
 const SECTIONS = [
-  { title: 'Career', items: [{ id: 'jobs', name: 'Jobs', icon: 'briefcase', live: true }, { id: 'labels', name: 'Record Labels', icon: 'disc' }, { id: 'merch', name: 'Merch', icon: 'shirt' }, { id: 'brands', name: 'Brand Deals', icon: 'star' }] },
+  { title: 'Career', items: [{ id: 'jobs', name: 'Jobs', icon: 'briefcase', live: true }, { id: 'training', name: 'Training', icon: 'sparkle' }, { id: 'labels', name: 'Record Labels', icon: 'disc' }, { id: 'merch', name: 'Merch', icon: 'shirt' }, { id: 'brands', name: 'Brand Deals', icon: 'star' }] },
   { title: 'Live', items: [{ id: 'gigs', name: 'Gigs', icon: 'ticket', live: true }, { id: 'tours', name: 'Tours', icon: 'globe' }] },
   { title: 'Media', items: [{ id: 'press', name: 'Press', icon: 'news' }, { id: 'radio', name: 'Radio', icon: 'radio' }, { id: 'interview', name: 'Interviews', icon: 'mic' }] },
   { title: 'Shady', items: [{ id: 'payola', name: 'Payola', icon: 'skull' }] },
@@ -76,6 +76,7 @@ export default function World({ initial }) {
         {open === 'jobs' && <Jobs />}
         {open === 'gigs' && <Gigs />}
         {open === 'tours' && <Tours />}
+        {open === 'training' && <Training />}
         {open === 'labels' && <Labels />}
         {open === 'merch' && <Merch />}
         {open === 'brands' && <div><p className="muted" style={{ marginTop: 0 }}>Brands reach out through your Inbox once you pass 1.5K fans. Bigger fan bases and a manager mean bigger cheques.</p><div className="card tight row between"><span>Pending brand offers</span><b>{pendingBrands}</b></div><button className="btn accent block mt16" onClick={() => { setOpen(null); go({ tab: 'phone', app: 'inbox' }); }}>Open Inbox</button></div>}
@@ -91,7 +92,8 @@ function subtitle(id, s, brands) {
   switch (id) {
     case 'jobs': return 'Quick cash, costs energy';
     case 'gigs': return `${cityById(p.city).name} + ${Object.keys(p.fanHeat).length - 1} cities`;
-    case 'tours': return 'Multi-city runs';
+    case 'tours': return s.tour ? `On tour · ${s.tour.stops.filter((x) => !x.done).length} shows left` : 'Multi-week runs';
+    case 'training': return 'Grow your skills';
     case 'labels': return p.label ? p.label.name : 'Independent';
     case 'merch': return s.merch?.active ? `${s.merch.stock} units left` : 'Drop a collection';
     case 'brands': return brands ? `${brands} pending` : 'Sponsorships';
@@ -137,13 +139,15 @@ function Gigs() {
       <div className="small muted">Estimated demand: <b style={{ color: '#2DD4BF' }}>~{fmtNum(demand)} tickets</b>{city !== p.city && ' · travel costs apply'}</div>
       {VENUES.map((v) => {
         const locked = p.fans < v.minFans;
-        const est = Math.min(v.capacity, demand);
+        const fat = gigFatigue(state, city, v.id);
+        const est = Math.min(v.capacity, Math.round(demand * (0.5 + 0.5 * fat)));
         return (
           <div key={v.id} className="card tight" style={{ opacity: locked ? 0.5 : 1 }}>
             <div className="row between"><b>{v.name}</b><span className="small">{fmtNum(v.capacity)} cap · ${v.ticket}</span></div>
             <div className="mt8"><Bar pct={est / v.capacity} color={est >= v.capacity ? '#3DDC84' : '#2DD4BF'} /></div>
-            <div className="row between mt8 tiny muted"><span>{locked ? `Needs ${fmtNum(v.minFans)} fans` : `Est. ${fmtNum(est)} sold · ~${fmtMoney(est * v.ticket)}`}</span><span>{v.energy} energy</span></div>
-            {!locked && <button className="btn sm accent mt12" disabled={p.energy < v.energy} onClick={() => act(playGig, { venueId: v.id, cityId: city })}>Play show</button>}
+            <div className="row between mt8 tiny muted"><span>{locked ? `Needs ${fmtNum(v.minFans)} fans` : `Est. ${fmtNum(est)} sold · ~${fmtMoney(est * v.ticket * ARTIST_CUT)} your cut`}</span><span>{v.energy} energy</span></div>
+            {!locked && fat < 0.8 && <div className="tiny mt8" style={{ color: 'var(--amber)' }}>The regulars have seen you here. Try a bigger room or a new city.</div>}
+            {!locked && <button className="btn sm accent mt12" disabled={p.energy < v.energy || !!state.tour} onClick={() => act(playGig, { venueId: v.id, cityId: city })}>{state.tour ? 'On tour' : 'Play show'}</button>}
           </div>
         );
       })}
@@ -154,25 +158,87 @@ function Gigs() {
 function Tours() {
   const { state, act } = useGame();
   const p = state.player;
-  const venues = VENUES.filter((v) => p.fans >= v.minFans * 1.5);
+  const venues = VENUES.filter((v) => p.fans >= v.minFans * 1.2);
   const [venue, setVenue] = useState(venues[venues.length - 1]?.id);
   const [sel, setSel] = useState([]);
-  if (!venues.length) return <Empty icon="globe">Touring opens at {fmtNum(VENUES[0].minFans * 1.5 || 120)} fans — you need more of a following. Play single gigs first.</Empty>;
+  const [perWeek, setPerWeek] = useState(2);
+  const t = state.tour;
+  if (t) {
+    const v = VENUES.find((x) => x.id === t.venueId);
+    return (
+      <div className="col">
+        <div className="card tight"><Mono>On tour · {v.name}s</Mono><div className="small muted mt8">{t.reserve} energy reserved each week · {fmtMoney(t.gross)} your cut so far · {t.sellouts} sell-outs</div></div>
+        {t.stops.map((x, i) => {
+          const c = cityById(x.cityId);
+          return (
+            <div key={i} className="list-item">
+              <span className="num" style={{ width: 22 }}>{i + 1}</span>
+              <div className="grow"><b className="small">{c.flag} {c.name}</b><div className="tiny muted">Week {x.week}{x.done ? ` · ${fmtNum(x.sold)}/${fmtNum(v.capacity)} sold · ${fmtMoney(x.gross)}` : x.week === state.week ? ' · this week' : ''}</div></div>
+              {x.done ? <Icon name="check" size={18} color={x.soldOut ? '#3DDC84' : '#9A9AA5'} /> : <span className="chip sm">Upcoming</span>}
+            </div>
+          );
+        })}
+        <button className="btn danger block" onClick={() => act(cancelTour)}>Cancel remaining shows (refunds + hype hit)</button>
+      </div>
+    );
+  }
+  if (!venues.length) return <Empty icon="globe">Touring opens once you can fill clubs in several cities (about {fmtNum(VENUES[1].minFans * 1.2)} fans). Play single gigs first.</Empty>;
   const v = VENUES.find((x) => x.id === venue);
-  const cost = Math.round(sel.length * (400 + (v?.capacity || 0) * 1.2));
+  const q = tourQuote(state, { venueId: venue, cityIds: sel, perWeek });
   const cities = [...CITIES].sort((a, b) => (p.fanHeat[b.id] || 0) - (p.fanHeat[a.id] || 0));
+  const est = sel.reduce((a, cid) => a + Math.min(v.capacity, gigDemand(state, cid)) * v.ticket * ARTIST_CUT, 0);
+  const move = (i, d) => { const n = [...sel]; const j = i + d; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; setSel(n); };
   return (
     <div className="col">
-      <div className="small muted">A tour plays 3+ cities in one week for {ENERGY.tour} energy.</div>
+      <div className="small muted">Plan a route. Stops resolve week by week ({perWeek} per week) with nightly results in your weekly report. Energy is reserved while you tour.</div>
       <div className="pills">{venues.map((x) => <button key={x.id} className={`pill ${venue === x.id ? 'on' : ''}`} onClick={() => setVenue(x.id)}>{x.name}s</button>)}</div>
+      <div className="row between"><Mono>Shows per week</Mono><div className="seg" style={{ width: 160 }}>{[1, 2, 3].map((n) => <button key={n} className={perWeek === n ? 'on' : ''} onClick={() => setPerWeek(n)}>{n}</button>)}</div></div>
       <div className="row wrap gap6">
         {cities.map((c) => {
           const on = sel.includes(c.id);
-          return <button key={c.id} className="chip" style={on ? { background: '#2DD4BF', color: '#0B0B0F', borderColor: 'transparent' } : {}} onClick={() => setSel(on ? sel.filter((x) => x !== c.id) : sel.length < 8 ? [...sel, c.id] : sel)}>{c.flag} {c.name}</button>;
+          return <button key={c.id} className="chip" style={on ? { background: '#2DD4BF', color: '#0B0B0F', borderColor: 'transparent' } : {}} onClick={() => setSel(on ? sel.filter((x) => x !== c.id) : sel.length < 12 ? [...sel, c.id] : sel)}>{c.flag} {c.name} · {fmtNum(p.fanHeat[c.id] || 0)}</button>;
         })}
       </div>
-      <div className="card tight row between"><span className="small">{sel.length} cities · production</span><b>{fmtMoney(cost)}</b></div>
-      <button className="btn accent block" disabled={sel.length < 3 || p.energy < ENERGY.tour || p.cash < cost} onClick={() => { if (act(bookTour, { venueId: venue, cityIds: sel }).ok) setSel([]); }}>Book tour</button>
+      {sel.length > 0 && (
+        <div className="card tight">
+          <Mono>Route</Mono>
+          {sel.map((cid, i) => (
+            <div key={cid} className="list-item">
+              <span className="num" style={{ width: 22 }}>{i + 1}</span>
+              <div className="grow small">{cityById(cid).flag} {cityById(cid).name}<div className="tiny muted">Week {state.week + Math.floor(i / perWeek)} · demand ~{fmtNum(gigDemand(state, cid))}</div></div>
+              <button className="icon-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><Icon name="up" size={16} /></button>
+              <button className="icon-btn" aria-label="Move down" disabled={i === sel.length - 1} onClick={() => move(i, 1)}><Icon name="down" size={16} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="card tight">
+        <div className="row between small"><span>{sel.length} stops · {q?.weeks || 0} weeks</span><b>{fmtMoney(q?.cost || 0)} production</b></div>
+        <div className="row between small mt8"><span className="muted">Energy reserved / week</span><span>{q?.reserve}</span></div>
+        <div className="row between small mt8"><span className="muted">Projected cut</span><span className="up">~{fmtMoney(est)}</span></div>
+      </div>
+      <button className="btn accent block" disabled={sel.length < 3 || p.cash < (q?.cost || 0) || p.energy < (q?.reserve || 0)} onClick={() => { if (act(planTour, { venueId: venue, cityIds: sel, perWeek }).ok) setSel([]); }}>Book tour</button>
+    </div>
+  );
+}
+
+function Training() {
+  const { state, act } = useGame();
+  const p = state.player;
+  const used = state.weekStats?.train || 0;
+  return (
+    <div className="col">
+      <div className="small muted">Up to 2 sessions a week. Gains shrink as a skill climbs. Songwriting drives song quality; vocals and production shape the final recording.</div>
+      {TRAINING.map((t) => {
+        const cost = trainingCost(p, t.id);
+        return (
+          <div key={t.id} className="card tight">
+            <div className="row between"><b>{t.name}</b><span className="small">{fmtMoney(cost)} · {t.energy} energy</span></div>
+            <div className="row gap6 mt8"><span className="tiny muted" style={{ width: 90, textTransform: 'capitalize' }}>{t.id} {Math.round(p.skills[t.id])}</span><div className="grow"><Bar pct={p.skills[t.id] / 100} color="#2DD4BF" /></div></div>
+            <button className="btn sm accent mt12" disabled={used >= 2 || p.energy < t.energy || p.cash < cost} onClick={() => act(trainSkill, { skill: t.id })}>{used >= 2 ? 'Done for the week' : 'Train'}</button>
+          </div>
+        );
+      })}
     </div>
   );
 }

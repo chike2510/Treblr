@@ -67,6 +67,12 @@ export function ReportBody({ report, state }) {
         )) : <div className="muted small mt8">Not charting yet{state?.songs?.some((s) => s.status === 'released') ? ' — keep pushing.' : '. Release something!'}</div>}
       </div>
 
+      {report.tour?.nights?.length > 0 && (
+        <div className="card">
+          <Mono>Tour nights</Mono>
+          {report.tour.nights.map((n, i) => <div key={i} className="row between small mt8"><span>{n.flag} {n.city}{n.soldOut ? ' · sold out' : ''}</span><span>{fmtNum(n.sold)}/{fmtNum(n.cap)} · {fmtMoney(n.gross)} · +{fmtNum(n.fans)} fans</span></div>)}
+        </div>
+      )}
       {report.events?.length > 0 && (
         <div className="card">
           <Mono>What happened</Mono>

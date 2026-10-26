@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { CHARTS, chartItem, movement, playerPositions, fmtNum } from '../engine/index.js';
-import { useGame, Icon, Mono, Cover } from '../ui/kit.jsx';
+import { useGame, Icon, Mono, Cover, ArtistAvatar } from '../ui/kit.jsx';
 
 export default function Charts() {
-  const { state } = useGame();
+  const { state, openArtist } = useGame();
   const [id, setId] = useState('hot100');
   const [limit, setLimit] = useState(30);
   const chart = CHARTS.find((c) => c.id === id);
@@ -37,8 +37,9 @@ export default function Charts() {
         {entries.slice(0, limit).map((e) => {
           const it = chartItem(state, id, e);
           const mv = movement(e);
+          const rival = it.rivalId ? state.rivals.find((r) => r.id === it.rivalId) : chart.kind === 'albums' && !e.pl ? state.rivals.find((r) => r.name === it.artist) : it.featId ? state.rivals.find((r) => r.id === it.featId) : null;
           return (
-            <div key={e.id} className={`chart-row ${e.pl ? 'me' : ''}`}>
+            <div key={e.id} className={`chart-row ${e.pl ? 'me' : ''}`} onClick={rival ? () => openArtist(rival.id) : undefined} role={rival ? 'button' : undefined} style={rival ? { cursor: 'pointer' } : undefined}>
               <div className="rk" style={{ color: e.r <= 3 ? '#FFB020' : undefined }}>{e.r}</div>
               <div className={`mv ${mv.kind}`}>{mv.label}</div>
               <Cover cover={it.cover} size={44} />
@@ -46,6 +47,7 @@ export default function Charts() {
                 <div className="ellipsis" style={{ fontWeight: 600, color: e.pl ? '#C6FF3D' : undefined }}>{it.title}</div>
                 <div className="tiny muted ellipsis">{it.artist}{e.pk < e.r ? ` · peak #${e.pk}` : ''}</div>
               </div>
+              {rival && <ArtistAvatar rival={rival} size={28} />}
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div className="small num">{fmtNum(e.s)}</div>
                 <div className="tiny muted">{e.w}w</div>

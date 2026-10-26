@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { COVER_GRADIENTS, fmtNum, fmtMoney } from '../engine/index.js';
+import { COVER_GRADIENTS, fmtNum, fmtMoney, createRng, hashString } from '../engine/index.js';
 
 export const GameCtx = createContext(null);
 export const useGame = () => useContext(GameCtx);
@@ -51,6 +51,19 @@ const P = {
   skull: 'M12 3a8 8 0 0 0-5 14v3h10v-3a8 8 0 0 0-5-14zM9 12h.01M15 12h.01M10 20v-2m4 2v-2',
   users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 10a7 7 0 0 1 14 0m1-10a3 3 0 1 0 0-6m2 16a6 6 0 0 0-3-5',
   check: 'm5 12 5 5 9-10',
+  bell: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zm4 4h4',
+  share: 'M4 12v7h16v-7M12 3v12m-4-8 4-4 4 4',
+  bookmark: 'M6 3h12v18l-6-4-6 4z',
+  dots: 'M5 12h.01M12 12h.01M19 12h.01',
+  reel: 'M4 4h16v16H4zm0 5h16M9 4l3 5m3-5 3 5m-8 3v5l5-2.5z',
+  compass: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm3.5-12.5-2 5-5 2 2-5z',
+  library: 'M4 4v16m5-16v16m5-14 4 14',
+  live: 'M5 8a9 9 0 0 0 0 8m14-8a9 9 0 0 1 0 8M8.5 10a4 4 0 0 0 0 4m7-4a4 4 0 0 1 0 4M12 12h.01',
+  gift: 'M4 10h16v10H4zm-1-4h18v4H3zm9 0v14M12 6S10 2 8 3s0 3 4 3m0 0s2-4 4-3 0 3-4 3',
+  palette: 'M12 3a9 9 0 0 0 0 18c1.5 0 2-1 2-2s-1-1.5-1-2.5 1-1.5 2-1.5h2a4 4 0 0 0 4-4c0-4.5-4-8-9-8zM7.5 11h.01M10 7h.01M15 7h.01',
+  list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+  up: 'm6 15 6-6 6 6',
+  down: 'm6 9 6 6 6-6',
 };
 
 export function Icon({ name, size = 22, color = 'currentColor', fill = 'none', stroke = 2 }) {
@@ -105,6 +118,7 @@ export function Cover({ cover, title, size = 52, radius }) {
   return (
     <div className="cover" style={style}>
       {cover?.image ? <img src={cover.image} alt="" /> : size >= 44 && title ? <div className="ct" style={{ fontSize: Math.max(8, size * 0.15) }}>{title}</div> : null}
+      {cover?.tint && <i className="cover-tint" style={{ background: `linear-gradient(160deg, ${cover.tint}55, transparent 60%)`, boxShadow: `inset 0 0 0 2px ${cover.tint}88` }} />}
     </div>
   );
 }
@@ -198,4 +212,55 @@ export function Empty({ icon = 'sparkle', children }) {
 
 export function facePhoto(player) {
   return player?.photo || DEFAULT_FACE;
+}
+
+// ---------- NPC artist artwork ----------
+export const GENRE_COLORS = {
+  pop: ['#F472B6', '#A78BFA', '#FDE68A'], hiphop: ['#FFB020', '#E11D48', '#111827'], rnb: ['#7C3AED', '#F472B6', '#1E1B4B'],
+  rock: ['#E11D48', '#111827', '#F5F5F7'], country: ['#D97706', '#FDE68A', '#78350F'], kpop: ['#38BDF8', '#F472B6', '#C6FF3D'],
+  latin: ['#FF6B4A', '#FFB020', '#E11D48'], electronic: ['#2DD4BF', '#6C7BFF', '#0B0B0F'], afrobeats: ['#3DDC84', '#FFB020', '#FF6B4A'],
+  indie: ['#A3E635', '#38BDF8', '#F5F5F7'], metal: ['#9CA3AF', '#111827', '#E11D48'], jazz: ['#B45309', '#1E3A8A', '#FDE68A'],
+  reggaeton: ['#C6FF3D', '#FF6B4A', '#7C3AED'], alternative: ['#6C7BFF', '#2DD4BF', '#F472B6'],
+};
+
+// Unique generative abstract artwork per artist: layered gradient blobs, rings and a waveform. No text.
+export function ArtistArt({ name, genres = ['pop'], size = 44, radius }) {
+  const h = hashString(name || '?');
+  const r = createRng(h);
+  const cols = (GENRE_COLORS[genres[0]] || GENRE_COLORS.pop).concat(GENRE_COLORS[genres[1]] || []);
+  const id = `aa${h.toString(36)}`;
+  const angle = r.int(0, 359);
+  const blobs = Array.from({ length: 3 + r.int(0, 2) }, () => ({ cx: r.int(5, 95), cy: r.int(5, 95), rr: r.int(22, 48), c: r.pick(cols) }));
+  const motif = r.int(0, 2);
+  const amp = r.int(8, 20); const freq = r.int(3, 7); const yMid = r.int(45, 70);
+  const wave = Array.from({ length: 21 }, (_, i) => `${i * 5},${(yMid + Math.sin((i / 20) * Math.PI * freq + h) * amp * (0.4 + r.next() * 0.6)).toFixed(1)}`).join(' ');
+  return (
+    <svg className="artist-art" width={size} height={size} viewBox="0 0 100 100" style={{ borderRadius: radius ?? size / 2, flexShrink: 0, display: 'block' }} aria-hidden="true">
+      <defs>
+        <linearGradient id={`${id}g`} gradientTransform={`rotate(${angle} .5 .5)`}><stop offset="0" stopColor={cols[0]} /><stop offset="1" stopColor={cols[2] || '#0B0B0F'} /></linearGradient>
+        {blobs.map((b, i) => <radialGradient key={i} id={`${id}b${i}`}><stop offset="0" stopColor={b.c} stopOpacity=".9" /><stop offset="1" stopColor={b.c} stopOpacity="0" /></radialGradient>)}
+      </defs>
+      <rect width="100" height="100" fill={`url(#${id}g)`} />
+      {blobs.map((b, i) => <circle key={i} cx={b.cx} cy={b.cy} r={b.rr} fill={`url(#${id}b${i})`} />)}
+      {motif === 0 && <polyline points={wave} fill="none" stroke="#fff" strokeOpacity=".75" strokeWidth="2.4" strokeLinecap="round" />}
+      {motif === 1 && [18, 28, 38].map((rr) => <circle key={rr} cx={blobs[0].cx} cy={blobs[0].cy} r={rr} fill="none" stroke="#fff" strokeOpacity=".35" strokeWidth="1.6" />)}
+      {motif === 2 && Array.from({ length: 9 }, (_, i) => <rect key={i} x={10 + i * 9} y={yMid - (4 + ((h >> i) & 15) * 1.6)} width="4" height={8 + ((h >> i) & 15) * 3.2} rx="2" fill="#fff" fillOpacity=".7" />)}
+    </svg>
+  );
+}
+
+// Player-set photo (artistPhotos) wins over generative art.
+export function ArtistAvatar({ rival, size = 44, radius, onClick }) {
+  const g = useContext(GameCtx);
+  const photo = rival && g?.state?.artistPhotos?.[rival.id];
+  const r = radius ?? size / 2;
+  const inner = photo
+    ? <img src={photo} alt="" style={{ width: size, height: size, borderRadius: r, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
+    : <ArtistArt name={rival?.name || '?'} genres={rival?.genres || [rival?.genre || 'pop']} size={size} radius={r} />;
+  if (!onClick) return inner;
+  return <button className="press" onClick={onClick} aria-label={`Open ${rival?.name}`} style={{ borderRadius: r, flexShrink: 0 }}>{inner}</button>;
+}
+
+export function tint(cover, era) {
+  return era ? { ...cover, tint: era.color } : cover;
 }

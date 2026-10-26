@@ -125,8 +125,14 @@ describe('balance mechanics', () => {
     const g = [];
     for (const lvl of [30, 80]) { s.player.skills.songwriting = lvl; s.player.energy = 100; s.weekStats = {}; const n = ok(E.trainSkill(s, { skill: 'songwriting' })); g.push(n.player.skills.songwriting - lvl); }
     expect(g[0]).toBeGreaterThan(g[1] * 2.5);
-    s.weekStats = { train: 2 }; s.player.energy = 100;
-    expect(E.trainSkill(s, { skill: 'vocals' }).ok).toBe(false);
+    // no hard cap; repeating one skill in a week fades, a different skill keeps full value
+    s.weekStats = { train: 5, train_vocals: 3 }; s.player.energy = 100; s.player.skills.vocals = 30; s.player.skills.production = 30;
+    const rep = ok(E.trainSkill(s, { skill: 'vocals' })).player.skills.vocals - 30;
+    const freshSkill = ok(E.trainSkill(s, { skill: 'production' })).player.skills.production - 30;
+    expect(rep).toBeGreaterThan(0);
+    expect(freshSkill).toBeGreaterThan(rep * 2);
+    s.player.energy = 5;
+    expect(E.trainSkill(s, { skill: 'charisma' }).ok).toBe(false);
   });
   it('gig ladder: repeating a small room gets diminishing returns', () => {
     let s = fresh(); s.player.fans = 20000; s.player.fanHeat.tor = 15000;

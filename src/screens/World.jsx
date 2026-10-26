@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   CITIES, VENUES, JOBS, LABELS, MERCH_TIERS, ENERGY, cityById, gigDemand, gigFatigue, playGig, planTour, cancelTour, tourQuote, doJob, signLabel, leaveLabel,
-  dropMerch, doMedia, payola, fmtMoney, fmtNum, TRAINING, trainSkill, trainingCost, ARTIST_CUT,
+  dropMerch, doMedia, payola, fmtMoney, fmtNum, TRAINING, trainSkill, trainingCost, trainingFocus, ARTIST_CUT,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, Bar, Empty, AREA } from '../ui/kit.jsx';
 
@@ -225,17 +225,17 @@ function Tours() {
 function Training() {
   const { state, act } = useGame();
   const p = state.player;
-  const used = state.weekStats?.train || 0;
   return (
     <div className="col">
-      <div className="small muted">Up to 2 sessions a week. Gains shrink as a skill climbs. Songwriting drives song quality; vocals and production shape the final recording.</div>
+      <div className="small muted">Train as often as your energy and cash allow. Repeating the same skill in one week gives less each time, so mix it up. Gains also shrink as a skill climbs. Songwriting drives song quality; vocals and production shape the final recording.</div>
       {TRAINING.map((t) => {
         const cost = trainingCost(p, t.id);
+        const focus = trainingFocus(state.weekStats?.['train_' + t.id] || 0);
         return (
           <div key={t.id} className="card tight">
-            <div className="row between"><b>{t.name}</b><span className="small">{fmtMoney(cost)} · {t.energy} energy</span></div>
+            <div className="row between"><b>{t.name}</b><span className="small">{fmtMoney(cost)} · {t.energy} energy{focus < 1 ? ` · ${Math.round(focus * 100)}% focus` : ''}</span></div>
             <div className="row gap6 mt8"><span className="tiny muted" style={{ width: 90, textTransform: 'capitalize' }}>{t.id} {Math.round(p.skills[t.id])}</span><div className="grow"><Bar pct={p.skills[t.id] / 100} color="#2DD4BF" /></div></div>
-            <button className="btn sm accent mt12" disabled={used >= 2 || p.energy < t.energy || p.cash < cost} onClick={() => act(trainSkill, { skill: t.id })}>{used >= 2 ? 'Done for the week' : 'Train'}</button>
+            <button className="btn sm accent mt12" disabled={p.energy < t.energy || p.cash < cost} onClick={() => act(trainSkill, { skill: t.id })}>{p.energy < t.energy ? 'Not enough energy' : 'Train'}</button>
           </div>
         );
       })}

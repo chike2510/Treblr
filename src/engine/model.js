@@ -34,7 +34,7 @@ export function hypeDecay(hype, publicist = false) {
 }
 // Skill growth with diminishing returns.
 export function skillGain(skill, base) {
-  return base * Math.max(0.04, 1 - skill / 100);
+  return base * Math.max(0.05, 1 - skill / 100);
 }
 // Release fatigue: dropping again within 3 weeks of the previous release cuts discovery and hype gain.
 export function releaseFatigue(weeksSincePrev) {

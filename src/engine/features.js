@@ -34,15 +34,22 @@ export function trainSkill(state, { skill }) {
     const cost = Math.round(t.base + lvl * 4);
     if (p.energy < t.energy) return fail('Not enough energy to train.');
     if (p.cash < cost) return fail(`${t.name} costs ${fmtMoney(cost)}.`);
-    if ((s.weekStats?.train || 0) >= 2) return fail('Two sessions a week is the max. Let it sink in.');
+    // No hard weekly cap: energy and cash limit you. Repeating the same skill in one week
+    // gives less each time (focus fades); switching skills keeps full value.
+    const reps = s.weekStats?.['train_' + skill] || 0;
+    const focus = trainingFocus(reps);
     p.energy -= t.energy;
     spend(s, 'training', cost, t.name);
     const before = p.skills[skill];
-    bump(p, skill, 2.2);
+    bump(p, skill, 3.4 * focus);
     stat(s, 'train');
-    return { msg: `${t.name}: ${skill} ${Math.round(before)} → ${Math.round(p.skills[skill] * 10) / 10}.` };
+    stat(s, 'train_' + skill);
+    const note = focus < 1 ? ` (${Math.round(focus * 100)}% focus: try a different skill)` : '';
+    return { msg: `${t.name}: ${skill} ${Math.round(before)} → ${Math.round(p.skills[skill] * 10) / 10}${note}.` };
   });
 }
+export const TRAINING_FOCUS = [1, 0.7, 0.5, 0.35, 0.25];
+export const trainingFocus = (reps) => TRAINING_FOCUS[Math.min(reps, TRAINING_FOCUS.length - 1)];
 export function trainingCost(p, skill) {
   const t = TRAINING.find((x) => x.id === skill);
   return t ? Math.round(t.base + p.skills[skill] * 4) : 0;

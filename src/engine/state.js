@@ -1,9 +1,12 @@
 import { createRng, hashString } from './rng.js';
-import { RIVALS, cityById, pathById, TITLE_WORDS, COVER_GRADIENTS, MARKETS } from './data.js';
+import { cityById, pathById, TITLE_WORDS, COVER_GRADIENTS, MARKETS, CONTACT_SEED } from './data.js';
+import { RIVALS, npcTitle, TIERS } from './npc.js';
 import { computeCharts } from './charts.js';
+import { generateWeeklyGoalsFor } from './weekly.js';
+import { createRng as _rng } from './rng.js';
 import { rivalSongPotential } from './model.js';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export function randomTitle(rng) {
   const r = rng || { pick: (a) => a[Math.floor(Math.random() * a.length)], chance: (p) => Math.random() < p };
@@ -22,7 +25,7 @@ function makeRivalSong(state, rng, rival, releasedWeek) {
   return {
     id: `rs${state.nextId}`,
     rivalId: rival.id,
-    title: randomTitle(rng),
+    title: npcTitle(rng, rival),
     genre: rival.genre,
     quality: q,
     releasedWeek,
@@ -80,7 +83,7 @@ export function createNewGame(setup, seed) {
     },
     songs: [],
     releases: [],
-    rivals: RIVALS.map((r) => ({ ...r, monthlyListeners: rivalBaseListeners(r.basePop), lastMove: 'Quiet week in the studio', lastReleaseWeek: -rng.int(1, 12) })),
+    rivals: [],
     rivalSongs: [],
     rivalAlbums: [],
     charts: {},
@@ -94,11 +97,34 @@ export function createNewGame(setup, seed) {
     weekFlags: {},
     lastReport: null,
   };
+  addV3Fields(state);
   state.player.popularity = popularityFromListeners(state.player.monthlyListeners);
 
-  // Seed rival back-catalogues so charts are full on week 1.
+  seedRivalWorld(state, rng);
+  state.inbox.push({
+    id: 'welcome', type: 'dm', from: 'Treblr', subject: `Welcome to Treblr, ${state.player.stageName}`,
+    body: `Your career starts now in ${city.name}. Write a song in the Studio, keep an eye on your energy, and hit Next Week when you're done. The world is listening.`,
+    week: 1, read: false,
+  });
+  state.charts = computeCharts(state, {}, true);
+  state.weekly = generateWeeklyGoalsFor(state, rng);
+  state.rng = rng.state();
+  void MARKETS;
+  return state;
+}
+
+// Rivals (real-world roster + a few fictional rising acts) with back-catalogues so charts are full.
+export function seedRivalWorld(state, rng) {
+  state.rivals = RIVALS.map((r) => ({
+    ...r,
+    monthlyListeners: Math.round(r.baseML * rng.float(0.97, 1.03)),
+    lastMove: 'Quiet week in the studio',
+    lastReleaseWeek: -rng.int(1, Math.round(1 / (TIERS[r.tier]?.cadence || 0.01) / 6)),
+  }));
+  state.rivalSongs = [];
+  state.rivalAlbums = [];
   for (const rival of state.rivals) {
-    const n = rng.int(3, 5);
+    const n = rival.tier === 'superstar' ? rng.int(3, 5) : rival.tier === 'star' ? rng.int(2, 4) : rng.int(1, 3);
     for (let i = 0; i < n; i++) {
       const song = makeRivalSong(state, rng, rival, -rng.int(0, 24));
       const age = Math.max(0, 1 - song.releasedWeek);
@@ -106,18 +132,42 @@ export function createNewGame(setup, seed) {
       song.lifetimeStreams = song.weeklyStreams * (age + 1) * 1.6;
       state.rivalSongs.push(song);
     }
-    state.nextId += 1;
-    state.rivalAlbums.push({ id: `ra${state.nextId}`, rivalId: rival.id, title: randomTitle(rng), releasedWeek: -rng.int(0, 30), cover: { gradient: rng.int(0, 7) } });
+    if (rival.tier !== 'rising' || rng.chance(0.4)) {
+      state.nextId += 1;
+      state.rivalAlbums.push({ id: `ra${state.nextId}`, rivalId: rival.id, title: npcTitle(rng, rival), releasedWeek: -rng.int(0, 30), cover: { gradient: rng.int(0, 7) } });
+    }
   }
-  state.inbox.push({
-    id: 'welcome', type: 'dm', from: 'Treblr', subject: `Welcome to Treblr, ${state.player.stageName}`,
-    body: `Your career starts now in ${city.name}. Write a song in the Studio, keep an eye on your energy, and hit Next Week when you're done. The world is listening.`,
-    week: 1, read: false,
-  });
-  state.charts = computeCharts(state, {}, true);
-  state.rng = rng.state();
-  void MARKETS;
-  return state;
+}
+
+// Fields added in save v3 (new games and migrated saves).
+export function addV3Fields(s) {
+  const p = s.player;
+  p.burnout = p.burnout ?? 0;
+  p.chartStreak = p.chartStreak ?? 0;
+  p.bestStreak = p.bestStreak ?? 0;
+  p.gigLog = p.gigLog || {};
+  p.lastReleaseWeek = p.lastReleaseWeek ?? null;
+  p.relationship = p.relationship || { status: 'single', partnerId: null, since: null };
+  p.maxEnergy = p.maxEnergy || 100;
+  s.timeline = s.timeline || [];
+  s.weekStats = s.weekStats || {};
+  s.weekly = s.weekly || null;
+  s.spotlight = s.spotlight ?? null;
+  s.eras = s.eras || [];
+  s.eraId = s.eraId ?? null;
+  s.contacts = s.contacts || CONTACT_SEED.map((c) => ({ ...c, thread: [{ from: 'them', text: c.role === 'manager' ? 'Saw your stuff online. Let\u2019s talk when you\u2019re ready to get serious.' : c.role === 'producer' ? 'Got some beats you might like. Studio\u2019s open.' : 'Proud of you for actually doing this!! 🎉', week: s.week }], unread: 1 }));
+  s.drama = s.drama ?? null;
+  s.crisis = s.crisis ?? null;
+  s.notifications = s.notifications || [];
+  s.awardEvent = s.awardEvent ?? null;
+  s.wrapped = s.wrapped || [];
+  s.yearStats = s.yearStats || { streams: 0, songs: {}, countries: {}, bestPeak: null, startListeners: p.monthlyListeners, startFans: p.fans };
+  s.tour = s.tour ?? null;
+  s.artistPhotos = s.artistPhotos || {};
+  s.headlineLog = s.headlineLog || [];
+  s.social = s.social || {};
+  for (const k of ['chirp', 'snapshot', 'clipz', 'videos', 'streams']) s.social[k] = s.social[k] || [];
+  return s;
 }
 
 export function popularityFromListeners(ml) {
@@ -136,6 +186,20 @@ const MIGRATIONS = {
     s.goals = s.goals || {};
     s.social = s.social || { chirp: [], snapshot: [], clipz: [], videos: [] };
     s.version = 2;
+    return s;
+  },
+  // v2 -> v3: real-world NPC roster, new systems (timeline, goals, eras, contacts, tours...).
+  // The old fictional rival roster is replaced; player songs, peaks and releases are kept.
+  2: (s) => {
+    const rng = _rng((s.seed ^ 0x5eed) >>> 0);
+    addV3Fields(s);
+    seedRivalWorld(s, rng);
+    for (const song of s.songs) if (song.status === 'released') song.releasedWeek = song.releasedWeek ?? s.week;
+    const lastOut = s.releases.filter((r) => r.status === 'out').sort((a, b) => b.releaseWeek - a.releaseWeek)[0];
+    s.player.lastReleaseWeek = lastOut ? lastOut.releaseWeek : null;
+    s.charts = computeCharts(s, {});
+    s.weekly = generateWeeklyGoalsFor(s, rng);
+    s.version = 3;
     return s;
   },
 };

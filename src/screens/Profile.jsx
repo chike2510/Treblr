@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { cityById, genreName, pathById, updatePlayer, fmtNum, fmtMoney, CERTS, listSaves } from '../engine/index.js';
+import { WrappedCard } from './Overlays.jsx';
 import { useGame, Icon, Mono, Cover, Bar, UploadButton, facePhoto, Empty } from '../ui/kit.jsx';
 
 export default function Profile({ onClose }) {
@@ -7,6 +8,8 @@ export default function Profile({ onClose }) {
   const p = state.player;
   const city = cityById(p.city);
   const [tab, setTab] = useState('overview');
+  const [wrap, setWrap] = useState(null);
+  const partner = p.relationship?.status === 'dating' ? state.contacts?.find((c) => c.id === p.relationship.partnerId) : null;
   const out = state.releases.filter((r) => r.status === 'out');
   const saves = listSaves();
   return (
@@ -22,11 +25,12 @@ export default function Profile({ onClose }) {
           <Mono style={{ color: '#C6FF3D' }}>{city.flag} {city.name} · {genreName(p.genre)}{p.subgenres?.length ? ` / ${p.subgenres.join(', ')}` : ''}</Mono>
           <h1 style={{ fontSize: 38, lineHeight: 1 }}>{p.stageName}</h1>
           <div className="small muted">{p.firstName} {p.lastName}, {p.age} · {pathById(p.path).name}{p.label ? ` · ${p.label.name}` : ' · Independent'}</div>
+          <div className="small" style={{ marginTop: 2 }}>{partner ? `💞 Dating ${partner.name} since week ${p.relationship.since}` : '🤍 Single'}</div>
         </div>
       </div>
       <div className="app-body">
         <div className="seg">
-          {['overview', 'discography', 'awards', 'saves'].map((t) => <button key={t} className={tab === t ? 'on' : ''} style={{ textTransform: 'capitalize', fontSize: 13 }} onClick={() => setTab(t)}>{t}</button>)}
+          {['overview', 'discography', 'awards', 'wrapped', 'saves'].map((t) => <button key={t} className={tab === t ? 'on' : ''} style={{ textTransform: 'capitalize', fontSize: 13 }} onClick={() => setTab(t)}>{t}</button>)}
         </div>
         {tab === 'overview' && (
           <div className="col gap16 mt16">
@@ -73,6 +77,13 @@ export default function Profile({ onClose }) {
             )) : <Empty icon="trophy">Trophies and milestones land here.</Empty>}
           </div>
         )}
+        {tab === 'wrapped' && (
+          <div className="mt16">
+            {state.wrapped?.length ? state.wrapped.slice().reverse().map((w) => (
+              <button key={w.year} className="sp-wrapped press" onClick={() => setWrap(w)}><span className="mono sm" style={{ color: '#0B0B0F' }}>Year {w.year} Wrapped</span><b>{fmtNum(w.streams)} streams</b><span>{w.type.name}</span></button>
+            )) : <Empty icon="gift">Your Wrapped card arrives at week 52.</Empty>}
+          </div>
+        )}
         {tab === 'saves' && (
           <div className="mt16 card">
             {saves.map((s) => (
@@ -84,6 +95,7 @@ export default function Profile({ onClose }) {
           </div>
         )}
       </div>
+      {wrap && <WrappedCard wrapped={wrap} onClose={() => setWrap(null)} />}
     </div>
   );
 }

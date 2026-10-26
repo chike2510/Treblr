@@ -3,6 +3,14 @@ import { MARKETS, PRODUCERS, COWRITERS } from './data.js';
 import { clamp } from './util.js';
 
 export const PAY_PER_STREAM = 0.0035;
+// Stream model constants (tuned with scripts/balance-sim.mjs).
+export const DISCOVERY_K = 900;
+export const DISC_ML = 25;
+export const DISC_SAT = 4e6;
+export const FAN_FROM_DISC = 0.04;
+export const FAN_FROM_AUD = 0.0003;
+export const AUD_FANS = 3;
+export const AUD_ML = 0.45;
 
 // Weekly decay curve: slight climb in week 2, then exponential decay; higher quality decays slower.
 export function decay(quality, age) {
@@ -12,10 +20,35 @@ export function decay(quality, age) {
   return Math.max(0.025, Math.exp(-d * (age - 1)));
 }
 
+// Soft-capped hype: gains shrink as hype rises (diminishing returns); losses apply in full.
+export function gainHype(p, amt) {
+  if (!Number.isFinite(amt)) return p.hype;
+  const d = amt > 0 ? amt * Math.pow(Math.max(0, 1 - p.hype / 110), 1.3) : amt;
+  p.hype = clamp(p.hype + d, 0, 100);
+  return p.hype;
+}
+// Weekly hype decay: faster at high values.
+export function hypeDecay(hype, publicist = false) {
+  const rate = (0.1 + hype / 400) * (publicist ? 0.75 : 1);
+  return hype * (1 - rate);
+}
+// Skill growth with diminishing returns.
+export function skillGain(skill, base) {
+  return base * Math.max(0.04, 1 - skill / 100);
+}
+// Release fatigue: dropping again within 3 weeks of the previous release cuts discovery and hype gain.
+export function releaseFatigue(weeksSincePrev) {
+  if (weeksSincePrev == null) return 1;
+  if (weeksSincePrev <= 1) return 0.45;
+  if (weeksSincePrev === 2) return 0.65;
+  if (weeksSincePrev === 3) return 0.85;
+  return 1;
+}
+
 function songMult(song) {
   const lists = 1 + 0.15 * (song.playlists || 0);
   const video = 1 + Math.min(0.5, (song.videoViews || 0) / 2e7);
-  return lists * (song.viral || 1) * (song.rolloutMult || 1) * video;
+  return lists * (song.viral || 1) * (song.rolloutMult || 1) * video * (song.diss ? 1.25 : 1) * (song.albumBoost || 1);
 }
 
 // Weekly streams for every released player song. Two sources:
@@ -27,13 +60,15 @@ export function playerStreams(player, songs, week) {
   const hype = 1 + player.hype / 100;
   const pull = released.map((s) => decay(s.quality, week - s.releasedWeek) * Math.pow(s.quality / 55, 2) * songMult(s));
   const totalPull = pull.reduce((a, b) => a + b, 0);
-  const audience = (player.fans * 4 + player.monthlyListeners * 0.3) * hype;
+  const audience = (player.fans * AUD_FANS + player.monthlyListeners * AUD_ML) * hype;
   const out = {};
   released.forEach((s, i) => {
     const age = week - s.releasedWeek;
-    const discovery = Math.pow(s.quality / 40, 4) * 900 * (1 + player.popularity / 35) * decay(s.quality, age) * songMult(s) * hype;
+    const fat = s.fatigue ?? 1;
+    const discovery = DISCOVERY_K * Math.pow(s.quality / 50, 4) * (1 + Math.sqrt(player.monthlyListeners) / DISC_ML / Math.sqrt(1 + player.monthlyListeners / DISC_SAT)) * decay(s.quality, age) * songMult(s) * hype * fat;
+    const feat = (s.featBoost || 0) * decay(s.quality, age) * Math.pow(s.quality / 60, 2);
     const aud = audience * (pull[i] / Math.max(1, totalPull)) * Math.min(1, totalPull);
-    out[s.id] = { discovery, audience: aud, total: discovery + aud };
+    out[s.id] = { discovery: discovery + feat, audience: aud, total: discovery + feat + aud };
   });
   return out;
 }
@@ -76,10 +111,10 @@ export function lengthFit(seconds) {
 }
 
 // Deterministic part of write quality; actual write adds ±8 randomness.
-export function projectWriteQuality(player, { genre, length, cowriter }) {
+export function projectWriteQuality(player, { genre, length, cowriter, eraQuality = 0 }) {
   const cw = COWRITERS.find((c) => c.id === cowriter) || COWRITERS[0];
-  const genreFit = genre === player.genre ? 6 : 0;
-  const base = 18 + player.skills.songwriting * 0.55 + cw.bonus + lengthFit(length).bonus + genreFit;
+  const genreFit = genre === player.genre ? 4 : 0;
+  const base = 12 + player.skills.songwriting * 0.62 + cw.bonus + lengthFit(length).bonus + genreFit + (eraQuality || 0);
   const expected = clamp(Math.round(base), 5, 99);
   return { expected, min: clamp(expected - 8, 1, 99), max: clamp(expected + 8, 1, 100) };
 }
@@ -87,5 +122,5 @@ export function projectWriteQuality(player, { genre, length, cowriter }) {
 export function projectRecordQuality(player, song, producerId) {
   const p = PRODUCERS.find((x) => x.id === producerId) || PRODUCERS[0];
   const prod = producerId === 'self' ? Math.max(p.quality, player.skills.production * 0.9) : p.quality;
-  return clamp(Math.round(song.writeQuality * 0.6 + prod * 0.25 + player.skills.vocals * 0.15 + 4), 1, 100);
+  return clamp(Math.round(song.writeQuality * 0.6 + prod * 0.25 + player.skills.vocals * 0.15 + 4 + (song.feat ? 3 : 0)), 1, 100);
 }

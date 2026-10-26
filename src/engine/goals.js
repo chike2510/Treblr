@@ -1,4 +1,5 @@
 import { GOALS, cityById } from './data.js';
+import { gainHype } from './model.js';
 import { clamp, fmtMoney, fmtNum } from './util.js';
 
 function metric(s, m) {
@@ -48,7 +49,7 @@ export function checkGoals(s) {
         s.transactions.unshift({ week: s.week, label: `Milestone: ${g.name}`, amount: r.cash });
       }
       if (r.fans) s.player.fans += r.fans;
-      if (r.hype) s.player.hype = clamp(s.player.hype + r.hype, 0, 100);
+      if (r.hype) gainHype(s.player, r.hype);
       s.player.awards = [...(s.player.awards || []), { week: s.week, name: g.name, kind: 'milestone' }];
       done.push(g);
     }
@@ -71,8 +72,8 @@ export function upNext(s) {
   if (!s.songs.length) out.push({ id: 'write', title: 'Write your first song', body: 'Every career starts with one.', cta: 'Write', to: { tab: 'studio', section: 'write' }, tone: 'studio' });
   if (unread) out.push({ id: 'inbox', title: `${unread} unread in your inbox`, body: 'Offers expire — don\u2019t sleep on them.', cta: 'Open', to: { tab: 'phone', app: 'inbox' }, tone: 'phone' });
   const released = s.songs.find((x) => x.status === 'released' && x.pitchedWeek !== s.week && s.week - x.releasedWeek < 8);
-  if (released && p.socialEnergy >= 5) out.push({ id: 'pitch', title: 'Pitch to playlists', body: `“${released.title}” could land on a playlist.`, cta: 'Pitch', to: { tab: 'phone', app: 'streamify' }, tone: 'phone' });
-  if (p.socialEnergy >= 15 && s.songs.some((x) => x.status === 'released')) out.push({ id: 'clip', title: 'Try for a viral moment', body: 'Promote a snippet on Clipz.', cta: 'Clipz', to: { tab: 'phone', app: 'clipz' }, tone: 'phone' });
+  if (released && p.socialEnergy >= 5) out.push({ id: 'pitch', title: 'Pitch to playlists', body: `“${released.title}” could land on a playlist.`, cta: 'Pitch', to: { tab: 'phone', app: 'treblify' }, tone: 'phone' });
+  if (p.socialEnergy >= 15 && s.songs.some((x) => x.status === 'released')) out.push({ id: 'clip', title: 'Try for a viral moment', body: 'Promote a snippet on TreblrTok.', cta: 'TreblrTok', to: { tab: 'phone', app: 'treblrtok' }, tone: 'phone' });
   if (p.energy >= 25 && p.fans >= 50) out.push({ id: 'gig', title: 'Play a show', body: 'Gigs pay and grow your local fan heat.', cta: 'Gigs', to: { tab: 'world', section: 'gigs' }, tone: 'world' });
   if (!s.songs.length || s.songs.every((x) => x.status === 'released')) out.push({ id: 'write2', title: 'Keep the catalogue growing', body: 'New music keeps listeners coming back.', cta: 'Write', to: { tab: 'studio', section: 'write' }, tone: 'studio' });
   const seen = new Set();
@@ -81,6 +82,8 @@ export function upNext(s) {
 
 export function staffCost(s) {
   const sal = { manager: 600, publicist: 450, booking: 400 };
+  const mgrRel = (s.contacts || []).find((c) => c.role === 'manager')?.rel ?? 0;
+  if (mgrRel >= 70) sal.manager = 450; // a manager who likes you takes a smaller cut
   return Object.entries(s.player.staff).reduce((a, [k, v]) => a + (v ? sal[k] : 0), 0);
 }
 export function weeklyExpenses(s) {

@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import {
   GENRES, THEMES, COWRITERS, PRODUCERS, ROLLOUTS, COVER_GRADIENTS, CERTS, ENERGY, CHARTS,
   writeSong, recordSong, releaseMusic, projectWriteQuality, projectRecordQuality, lengthFit, randomTitle,
-  fmtMoney, fmtNum, fmtLength, genreName,
+  fmtMoney, fmtNum, fmtLength, genreName, producerPrice, sequencingScore, requestFeature, featureQuote, tierLabel, eraOf,
+  releaseFatigue,
 } from '../engine/index.js';
-import { useGame, Icon, Mono, Cover, Seg, Bar, Sheet, UploadButton, Empty, SAMPLE_COVERS } from '../ui/kit.jsx';
+import { useGame, Icon, Mono, Cover, Seg, Bar, Sheet, UploadButton, Empty, SAMPLE_COVERS, ArtistAvatar } from '../ui/kit.jsx';
 
-const TABS = [{ value: 'write', label: 'Write' }, { value: 'record', label: 'Record' }, { value: 'release', label: 'Release' }, { value: 'catalog', label: 'Catalog' }];
+const TABS = [{ value: 'write', label: 'Write' }, { value: 'record', label: 'Record' }, { value: 'collab', label: 'Collab' }, { value: 'release', label: 'Release' }, { value: 'catalog', label: 'Catalog' }];
 
-export default function Studio({ initial }) {
+export default function Studio({ initial, rival }) {
   const [tab, setTab] = useState(initial || 'write');
   return (
     <div className="screen">
@@ -20,6 +21,7 @@ export default function Studio({ initial }) {
       <div key={tab} style={{ animation: 'fade .25s' }}>
         {tab === 'write' && <Write onDone={() => setTab('record')} />}
         {tab === 'record' && <Record onDone={() => setTab('release')} />}
+        {tab === 'collab' && <Collab initialRival={rival} />}
         {tab === 'release' && <Release onDone={() => setTab('catalog')} />}
         {tab === 'catalog' && <Catalog />}
       </div>
@@ -37,7 +39,8 @@ function Write({ onDone }) {
   const [theme, setTheme] = useState(THEMES[0]);
   const [length, setLength] = useState(195);
   const [cowriter, setCowriter] = useState('none');
-  const proj = projectWriteQuality(p, { genre, length, cowriter });
+  const era = eraOf(state);
+  const proj = projectWriteQuality(p, { genre, length, cowriter, eraQuality: era?.vibe === 'dark' ? 2 : 0 });
   const fit = lengthFit(length);
   const cw = COWRITERS.find((c) => c.id === cowriter);
   const submit = () => {
@@ -92,6 +95,7 @@ function Record({ onDone }) {
   const song = written.find((s) => s.id === songId) || written[0];
   if (!written.length) return <div className="card mt16"><Empty icon="pen">No demos waiting. Write a song first.</Empty></div>;
   const pr = PRODUCERS.find((x) => x.id === prod);
+  const price = producerPrice(state, pr);
   const q = song ? projectRecordQuality(state.player, song, prod) : 0;
   return (
     <div className="col gap16 mt16">
@@ -99,7 +103,7 @@ function Record({ onDone }) {
         {written.map((s) => (
           <button key={s.id} className={`option press row ${song?.id === s.id ? 'on' : ''}`} onClick={() => setSongId(s.id)}>
             <Cover cover={s.cover} size={40} />
-            <div className="grow"><b className="ellipsis">{s.title}</b><div className="tiny muted">{genreName(s.genre)} · {s.theme} · {fmtLength(s.length)}</div></div>
+            <div className="grow"><b className="ellipsis">{s.title}</b><div className="tiny muted">{s.diss ? '🔥 Diss track · ' : ''}{genreName(s.genre)} · {s.theme} · {fmtLength(s.length)}{s.featName ? ` · feat. ${s.featName}` : ''}</div></div>
             <span className="num" style={{ color: qColor(s.writeQuality) }}>{s.writeQuality}</span>
           </button>
         ))}
@@ -107,16 +111,17 @@ function Record({ onDone }) {
       <div className="col gap6"><Mono>Producer</Mono>
         {PRODUCERS.map((x) => (
           <button key={x.id} className={`option press ${prod === x.id ? 'on' : ''}`} onClick={() => setProd(x.id)}>
-            <div className="row between"><b>{x.name}</b><span className="small">{x.price ? fmtMoney(x.price) : 'Free'}</span></div>
+            <div className="row between"><b>{x.name}</b><span className="small">{x.price ? <>{producerPrice(state, x) < x.price && <s className="muted">{fmtMoney(x.price)}</s>} {fmtMoney(producerPrice(state, x))}</> : 'Free'}</span></div>
             <div className="row between tiny muted mt8"><span>{x.tier} · {x.desc}</span><span>Sound {x.quality}</span></div>
           </button>
         ))}
       </div>
       <div className="card row between">
         <div><Mono>Final quality</Mono><div className="qmeter" style={{ color: qColor(q) }}>{q}</div></div>
-        <div style={{ textAlign: 'right' }} className="small muted">{ENERGY.record} energy<br />{pr.price ? fmtMoney(pr.price) : 'Free'}</div>
+        <div style={{ textAlign: 'right' }} className="small muted">{ENERGY.record} energy<br />{price ? fmtMoney(price) : 'Free'}</div>
       </div>
-      <button className="btn accent block" disabled={state.player.cash < pr.price || state.player.energy < ENERGY.record} onClick={() => { const r = act(recordSong, { songId: song.id, producerId: prod }); if (r.ok && written.length === 1) onDone?.(); }}>Record “{song?.title}”</button>
+      {song?.feat && <div className="tiny muted">feat. {song.featName} (+3 quality)</div>}
+      <button className="btn accent block" disabled={state.player.cash < price || state.player.energy < ENERGY.record} onClick={() => { const r = act(recordSong, { songId: song.id, producerId: prod }); if (r.ok && written.length === 1) onDone?.(); }}>Record “{song?.title}”</button>
     </div>
   );
 }
@@ -124,6 +129,7 @@ function Record({ onDone }) {
 function Release({ onDone }) {
   const { state, act } = useGame();
   const recorded = state.songs.filter((s) => s.status === 'recorded');
+  const singles = state.songs.filter((s) => s.status === 'released' && !state.releases.some((r) => r.type !== 'single' && r.songIds.includes(s.id)));
   const [type, setType] = useState('single');
   const [sel, setSel] = useState(recorded[0] ? [recorded[0].id] : []);
   const [title, setTitle] = useState('');
@@ -144,6 +150,12 @@ function Release({ onDone }) {
     if (type === 'single') setSel([id]);
     else setSel(sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
   };
+  const move = (i, d) => { const n = [...sel]; const j = i + d; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; setSel(n); };
+  const selSongs = sel.map((id) => state.songs.find((s) => s.id === id)).filter(Boolean);
+  const leadCount = selSongs.filter((s) => s.status === 'released').length;
+  const seq = type !== 'single' && selSongs.length > 1 ? sequencingScore(selSongs) : null;
+  const since = state.player.lastReleaseWeek == null ? null : state.week + weeks - state.player.lastReleaseWeek;
+  const fat = releaseFatigue(since);
   const need = type === 'single' ? 'Pick 1 song' : type === 'ep' ? 'Pick 3–6 songs' : 'Pick 7+ songs';
   const ro = ROLLOUTS.find((r) => r.id === rollout);
   const relTitle = title || state.songs.find((s) => s.id === sel[0])?.title || 'Untitled';
@@ -163,15 +175,30 @@ function Release({ onDone }) {
         </div>
       </div>
       <div className="col gap6"><div className="row between"><Mono>Tracklist</Mono><Mono className="sm">{need}</Mono></div>
-        {recorded.map((s) => (
+        {[...recorded, ...(type === 'single' ? [] : singles)].map((s) => (
           <button key={s.id} className={`option press row ${sel.includes(s.id) ? 'on' : ''}`} onClick={() => toggle(s.id)}>
             <Cover cover={s.cover} size={40} />
-            <div className="grow"><b className="ellipsis">{s.title}</b><div className="tiny muted">{genreName(s.genre)} · {fmtLength(s.length)}</div></div>
+            <div className="grow"><b className="ellipsis">{s.title}</b><div className="tiny muted">{s.status === 'released' ? 'Released single · counts as a lead single' : `${genreName(s.genre)} · ${fmtLength(s.length)}`}{s.featName ? ` · feat. ${s.featName}` : ''}{s.diss ? ' · 🔥 diss' : ''}</div></div>
             <span className="num" style={{ color: qColor(s.quality) }}>{s.quality}</span>
             {sel.includes(s.id) && <Icon name="check" color="#FF6B4A" />}
           </button>
         ))}
       </div>
+      {type !== 'single' && selSongs.length > 1 && (
+        <div className="card">
+          <div className="row between"><Mono>Track order</Mono><Mono className="sm">Sequencing {Math.round((seq || 0) * 100)}%</Mono></div>
+          {selSongs.map((s, i) => (
+            <div key={s.id} className="list-item">
+              <span className="num" style={{ width: 22 }}>{i + 1}</span>
+              <div className="grow"><b className="ellipsis small">{s.title}</b><div className="tiny muted">Q{s.quality}{s.status === 'released' ? ' · lead single' : ''}</div></div>
+              <button className="icon-btn" aria-label={`Move ${s.title} up`} disabled={i === 0} onClick={() => move(i, -1)}><Icon name="up" size={18} /></button>
+              <button className="icon-btn" aria-label={`Move ${s.title} down`} disabled={i === selSongs.length - 1} onClick={() => move(i, 1)}><Icon name="down" size={18} /></button>
+            </div>
+          ))}
+          <div className="tiny muted mt8">Open strong, front-load your best tracks, close well. {leadCount ? `${leadCount} lead single${leadCount > 1 ? 's' : ''} will boost release week (+${Math.min(3, leadCount) * 12}%).` : 'Releasing 1–3 singles first boosts the project’s release week.'}</div>
+        </div>
+      )}
+      {fat < 1 && <div className="card tight small" style={{ borderColor: 'rgba(255,176,32,.4)', color: 'var(--amber)' }}>Release fatigue: only {since} week{since === 1 ? '' : 's'} since your last drop. Discovery and hype gains ×{fat}. Waiting 4+ weeks avoids it.</div>}
       <div className="col gap6"><Mono>Rollout</Mono>
         {ROLLOUTS.map((r) => (
           <button key={r.id} className={`option press ${rollout === r.id ? 'on' : ''}`} onClick={() => setRollout(r.id)}>
@@ -275,6 +302,44 @@ function SongDetail({ s }) {
       {next && <div className="card"><div className="row between small"><span>Next: <b>{next.name}</b></span><span className="muted">{fmtNum(s.lifetimeStreams || 0)} / {fmtNum(next.streams)}</span></div><div className="mt8"><Bar pct={(s.lifetimeStreams || 0) / next.streams} color="#FFB020" /></div></div>}
       {Object.keys(s.peaks || {}).length > 0 && <div className="row wrap gap6">{Object.entries(s.peaks).map(([k, v]) => <span key={k} className="chip sm">Peak #{v} · {CHARTS.find((c) => c.id === k)?.short || CHARTS.find((c) => c.id === k)?.name || k}</span>)}</div>}
       {s.playlistNames?.length > 0 && <div className="tiny muted">On: {s.playlistNames.join(', ')}</div>}
+    </div>
+  );
+}
+
+function Collab({ initialRival }) {
+  const { state, act, openArtist } = useGame();
+  const songs = state.songs.filter((s) => ['written', 'recorded'].includes(s.status) && !s.feat);
+  const [songId, setSongId] = useState(songs[0]?.id);
+  const [q, setQ] = useState('');
+  const [pick, setPick] = useState(initialRival || null);
+  const p = state.player;
+  const list = useMemo(() => {
+    const base = state.rivals.filter((r) => r.name.toLowerCase().includes(q.toLowerCase()));
+    return base.map((r) => ({ r, quote: featureQuote(state, r.id), c: state.contacts?.find((x) => x.rivalId === r.id) }))
+      .sort((a, b) => (a.r.id === pick ? -1 : b.r.id === pick ? 1 : 0) || (b.quote.odds - a.quote.odds) || (b.r.genres.includes(p.genre) - a.r.genres.includes(p.genre)))
+      .slice(0, 30);
+  }, [state, q, pick, p.genre]);
+  if (!songs.length) return <div className="card mt16"><Empty icon="users">Write or record a song first, then bring in a feature.</Empty></div>;
+  return (
+    <div className="col gap16 mt16">
+      <div className="card tight small muted">A feature costs a fee and 10 energy. Their audience boosts the song’s discovery, and you’re both credited on the charts. Bigger stars cost more and say no more often; a good relationship lowers both.</div>
+      <label className="col gap6"><Mono>Song</Mono>
+        <select value={songId} onChange={(e) => setSongId(e.target.value)}>{songs.map((s) => <option key={s.id} value={s.id}>{s.title} · {s.status} · Q{s.quality}</option>)}</select>
+      </label>
+      <div className="phone-search"><Icon name="search" size={18} color="#bbb" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search artists" aria-label="Search artists" /></div>
+      <div className="col">
+        {list.map(({ r, quote, c }) => (
+          <div key={r.id} className={`option row ${pick === r.id ? 'on' : ''}`} style={{ alignItems: 'center' }}>
+            <ArtistAvatar rival={r} size={46} onClick={() => openArtist(r.id)} />
+            <button className="grow" style={{ textAlign: 'left', minWidth: 0 }} onClick={() => setPick(r.id)}>
+              <b className="ellipsis" style={{ display: 'block' }}>{r.name}</b>
+              <div className="tiny muted">{genreName(r.genre)} · {tierLabel(r.tier)} · {fmtNum(r.monthlyListeners)} listeners{c ? ` · rel ${c.rel}` : ''}{c?.beef ? ' · beef' : ''}</div>
+              <div className="tiny" style={{ color: quote.odds >= 0.5 ? 'var(--green)' : quote.odds >= 0.2 ? 'var(--amber)' : 'var(--red)' }}>{fmtMoney(quote.fee)} · {Math.round(quote.odds * 100)}% odds</div>
+            </button>
+            <button className="btn sm accent" style={{ '--accent': '#FF6B4A' }} disabled={!songId || p.cash < quote.fee || p.energy < 10 || c?.beef} onClick={() => act(requestFeature, { rivalId: r.id, songId })}>Ask</button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

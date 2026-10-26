@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  advanceWeek, saveGame, loadGame, listSaves, lastSlot, rest, unreadCount, formatWeekDate, fmtMoney,
+  advanceWeek, saveGame, loadGame, listSaves, lastSlot, rest, unreadCount, formatWeekDate, fmtMoney, unreadNotifs, eraOf,
 } from './engine/index.js';
 import { GameCtx, Icon, AREA, facePhoto, CountUp, DEFAULT_FACE } from './ui/kit.jsx';
 import Onboarding, { GENRE_COLORWAYS } from './screens/Onboarding.jsx';
@@ -11,6 +11,8 @@ import Charts from './screens/Charts.jsx';
 import World from './screens/World.jsx';
 import Profile from './screens/Profile.jsx';
 import Reveal from './screens/Reveal.jsx';
+import ArtistSheet from './ui/ArtistSheet.jsx';
+import { AwardShow, CrisisSheet, WrappedCard, NotificationsPanel } from './screens/Overlays.jsx';
 
 const TABS = [
   { id: 'home', label: 'Home', icon: 'home' },
@@ -88,6 +90,8 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
   const [toast, setToast] = useState(null);
   const [reveal, setReveal] = useState(false);
   const [profile, setProfile] = useState(false);
+  const [artist, setArtist] = useState(null);
+  const [overlay, setOverlay] = useState(null); // 'awards' | 'crisis' | 'notifs' | { wrapped: year }
   const scrollRef = useRef(null);
   const timer = useRef(null);
 
@@ -119,33 +123,40 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
     if (!to) return;
     if (to.action === 'rest') { act(rest); return; }
     if (to.action === 'next') { nextWeek(); return; }
-    setNav((n) => ({ tab: to.tab || n.tab, section: to.section, app: to.app, n: n.n + 1 }));
+    if (to.awards) { setOverlay('awards'); return; }
+    if (to.crisis) { setOverlay('crisis'); return; }
+    if (to.wrapped) { setOverlay({ wrapped: to.wrapped }); return; }
+    if (to.artist) { setArtist(to.artist); return; }
+    setNav((n) => ({ tab: to.tab || n.tab, section: to.section, app: to.app, contact: to.contact, rival: to.rival, n: n.n + 1 }));
     scrollRef.current?.scrollTo({ top: 0 });
   }, [act, nextWeek]);
 
-  const ctx = useMemo(() => ({ state, act, go, nav, nextWeek, toast: showToast, slot, onSwitch, onNew, onTitle, openProfile: () => setProfile(true), setState }), [state, act, go, nav, nextWeek, showToast, slot, onSwitch, onNew, onTitle, setState]);
+  const ctx = useMemo(() => ({ state, act, go, nav, nextWeek, toast: showToast, slot, onSwitch, onNew, onTitle, openProfile: () => setProfile(true), setState, openArtist: setArtist, openOverlay: setOverlay }), [state, act, go, nav, nextWeek, showToast, slot, onSwitch, onNew, onTitle, setState]);
   const p = state.player;
   const unread = unreadCount(state);
-  const accent = AREA[nav.tab];
+  const notifs = unreadNotifs(state);
+  const era = eraOf(state);
+  const accent = nav.tab === 'home' && era ? era.color : AREA[nav.tab];
 
   return (
     <GameCtx.Provider value={ctx}>
-      <div className="app" style={{ '--accent': accent }}>
+      <div className="app" style={{ '--accent': accent, '--era': era?.color || '#C6FF3D' }}>
         <header className="topbar">
           <button onClick={() => setProfile(true)} aria-label="Profile"><img className="avatar" src={facePhoto(p)} alt="" /></button>
           <div className="wk">
             <b>WEEK {state.week}</b>
             <span>{formatWeekDate(state.week, { month: 'short', day: 'numeric' })}</span>
           </div>
-          <span className="stat-chip" title="Energy"><Icon name="bolt" size={14} color="#C6FF3D" fill="#C6FF3D" stroke={0} />{p.energy}</span>
+          <button className="stat-chip bell" title="Notifications" aria-label={`Notifications${notifs ? `, ${notifs} unread` : ''}`} onClick={() => setOverlay('notifs')}><Icon name="bell" size={15} />{notifs > 0 && <i className="badge">{notifs > 9 ? '9+' : notifs}</i>}</button>
+          <span className="stat-chip" title={`Energy (cap ${p.maxEnergy}${p.burnout ? `, burnout ${p.burnout}` : ''})`}><Icon name="bolt" size={14} color={p.burnout >= 40 ? '#FFB020' : '#C6FF3D'} fill={p.burnout >= 40 ? '#FFB020' : '#C6FF3D'} stroke={0} />{p.energy}</span>
           <span className="stat-chip" title="Cash" style={{ color: p.cash < 0 ? 'var(--red)' : 'var(--green)' }}><CountUp value={p.cash} format={(v) => fmtMoney(v)} /></span>
-          <button className="next-btn" onClick={nextWeek}>Next Week <Icon name="chev" size={16} stroke={2.6} /></button>
+          <button className="next-btn" onClick={nextWeek} aria-label="Next Week">Next<span className="nw"> Week</span> <Icon name="chev" size={16} stroke={2.6} /></button>
         </header>
 
         <main className="scroll" ref={scrollRef}>
           {nav.tab === 'home' && <Home key={`h${nav.n}`} />}
-          {nav.tab === 'studio' && <Studio key={`s${nav.n}`} initial={nav.section} />}
-          {nav.tab === 'phone' && <Phone key={`p${nav.n}`} initialApp={nav.app} />}
+          {nav.tab === 'studio' && <Studio key={`s${nav.n}`} initial={nav.section} rival={nav.rival} />}
+          {nav.tab === 'phone' && <Phone key={`p${nav.n}`} initialApp={nav.app} contact={nav.contact} />}
           {nav.tab === 'charts' && <Charts key={`c${nav.n}`} />}
           {nav.tab === 'world' && <World key={`w${nav.n}`} initial={nav.section} />}
         </main>
@@ -163,6 +174,11 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
         {toast && <div key={toast.k} className={`toast ${toast.ok ? 'ok' : 'err'}`}><Icon name={toast.ok ? 'check' : 'close'} size={18} color={toast.ok ? '#C6FF3D' : '#FF4D5E'} />{toast.msg}</div>}
         {profile && <Profile onClose={() => setProfile(false)} />}
         {reveal && state.lastReport && <Reveal report={state.lastReport} onClose={() => setReveal(false)} />}
+        {artist && <ArtistSheet rivalId={artist} onClose={() => setArtist(null)} />}
+        {overlay === 'notifs' && <NotificationsPanel onClose={() => setOverlay(null)} />}
+        {overlay === 'awards' && state.awardEvent && <AwardShow onClose={() => setOverlay(null)} />}
+        {overlay === 'crisis' && state.crisis && <CrisisSheet onClose={() => setOverlay(null)} />}
+        {overlay?.wrapped && <WrappedCard wrapped={state.wrapped.find((w) => w.year === overlay.wrapped)} onClose={() => setOverlay(null)} />}
       </div>
     </GameCtx.Provider>
   );

@@ -12,9 +12,9 @@ import Charts from '../screens/Charts.jsx';
 import World from '../screens/World.jsx';
 import Profile from '../screens/Profile.jsx';
 import Reveal from '../screens/Reveal.jsx';
-import Onboarding from '../screens/Onboarding.jsx';
+import Onboarding, { coverCompleteness, stepValid, DebutCover, STRAPLINES } from '../screens/Onboarding.jsx';
 import { APPS } from '../phone/apps.jsx';
-import App from '../App.jsx';
+import App, { Title } from '../App.jsx';
 import { saveGame } from '../engine/index.js';
 
 function midCareer() {
@@ -58,8 +58,51 @@ describe.each(Object.keys(states))('renders (%s save)', (k) => {
   });
 });
 
-it('onboarding renders', () => {
-  expect(renderToString(<Onboarding onDone={() => {}} onCancel={() => {}} />)).toContain('stepping up to the mic');
+describe('Cover Story onboarding', () => {
+  const prompts = ['What do we print on the cover?', 'who were you before the spotlight?', 'datelined?', 'your sound?', 'Pick your origin story.', 'Cover shoot.'];
+  it('renders each editor prompt with the live cover and no step wizard chrome', () => {
+    prompts.forEach((p, i) => {
+      const html = renderToString(<Onboarding onDone={() => {}} onCancel={() => {}} initialStep={i} />);
+      expect(html).toContain(p.replace("'", '&#x27;'));
+      expect(html).toContain('TREBLR');
+      expect(html).toContain('DEBUT ISSUE');
+      expect(html).toContain('cover complete');
+      expect(html).not.toMatch(/STEP \d/i);
+    });
+    expect(renderToString(<Onboarding onDone={() => {}} onCancel={() => {}} initialStep={5} />)).toContain('Send to print');
+  });
+  it('live cover reflects every choice', () => {
+    const f = { firstName: 'Ji-woo', lastName: 'Park', stageName: 'NOVA', city: 'sel', age: 23, genre: 'kpop', subgenres: ['Ballad'], path: 'bedroom', photo: null };
+    const html = renderToString(<DebutCover f={f} />);
+    expect(html).toContain('NOVA');
+    expect(html).toContain('born Ji-woo Park, 23');
+    expect(html).toContain('Dateline: Seoul');
+    expect(html).toContain('K-Pop · Ballad');
+    expect(html).toContain(STRAPLINES.bedroom);
+    expect(renderToString(<DebutCover f={f} printing />)).toContain('ON SALE');
+  });
+  it('completeness and validation', () => {
+    const blank = { firstName: '', lastName: '', stageName: '', city: '', age: 21, genre: '', subgenres: [], path: '', photo: null };
+    expect(coverCompleteness(blank)).toBe(0);
+    expect(coverCompleteness({ ...blank, stageName: 'X', firstName: 'A', city: 'lon', genre: 'pop', path: 'viral' }, true)).toBe(100);
+    expect(stepValid('stage', blank)).toBe(false);
+    expect(stepValid('stage', { ...blank, stageName: 'X' })).toBe(true);
+    expect(stepValid('shoot', blank)).toBe(true);
+  });
+});
+
+it('title screen shows save slots as magazine covers', () => {
+  const m = new Map();
+  globalThis.localStorage = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
+  let html = renderToString(<Title onNew={() => {}} onLoad={() => {}} />);
+  expect(html.match(/New career/g).length).toBe(3);
+  saveGame(states.mid, 1);
+  html = renderToString(<Title onNew={() => {}} onLoad={() => {}} />);
+  expect(html).toContain('Mira');
+  expect(html).toContain(`ISSUE ${states.mid.week}`);
+  expect(html).toContain('Continue');
+  expect(html.match(/New career/g).length).toBe(2);
+  delete globalThis.localStorage;
 });
 
 it('mid-career save shows player on charts and in news', () => {
@@ -71,7 +114,7 @@ it('mid-career save shows player on charts and in news', () => {
 it('full app shell renders title screen and a loaded game', () => {
   const m = new Map();
   globalThis.localStorage = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
-  expect(renderToString(<App />)).toContain('TREBLR');
+  expect(renderToString(<App />)).toContain('New career');
   saveGame(states.mid, 2);
   const html = renderToString(<App />);
   expect(html).toContain('Next Week');

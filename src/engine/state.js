@@ -185,7 +185,7 @@ export function deleteSave(slot, storage = globalThis.localStorage) {
 export function listSaves(storage = globalThis.localStorage) {
   return [1, 2, 3].map((slot) => {
     const s = loadGame(slot, storage);
-    return s ? { slot, stageName: s.player.stageName, week: s.week, fans: s.player.fans, savedAt: s.savedAt } : { slot, empty: true };
+    return s ? { slot, stageName: s.player.stageName, week: s.week, fans: s.player.fans, savedAt: s.savedAt, photo: s.player.photo || null, genre: s.player.genre, city: s.player.city } : { slot, empty: true };
   });
 }
 

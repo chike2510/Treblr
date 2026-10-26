@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   advanceWeek, saveGame, loadGame, listSaves, lastSlot, rest, unreadCount, formatWeekDate, fmtMoney,
 } from './engine/index.js';
-import { GameCtx, Icon, AREA, facePhoto, CountUp } from './ui/kit.jsx';
-import Onboarding from './screens/Onboarding.jsx';
+import { GameCtx, Icon, AREA, facePhoto, CountUp, DEFAULT_FACE } from './ui/kit.jsx';
+import Onboarding, { GENRE_COLORWAYS } from './screens/Onboarding.jsx';
 import Home from './screens/Home.jsx';
 import Studio from './screens/Studio.jsx';
 import Phone from './screens/Phone.jsx';
@@ -49,30 +49,36 @@ export default function App() {
   return <Game state={state} setState={setState} slot={slot} onSwitch={(s) => { if (!loadGame(s)) startNew(s); else loadSlot(s); }} onNew={startNew} onTitle={() => setMode('title')} />;
 }
 
-function Title({ onNew, onLoad }) {
+export function Title({ onNew, onLoad }) {
   const saves = listSaves();
-  const any = saves.some((s) => !s.empty);
-  const firstEmpty = saves.find((s) => s.empty)?.slot || 1;
   return (
-    <div className="title-screen">
-      <div className="mono" style={{ color: 'var(--lime)' }}>The world is listening</div>
-      <h1 style={{ fontSize: 64, lineHeight: 0.9, letterSpacing: '-0.05em', marginTop: 8 }}>TREBLR</h1>
-      <p className="muted" style={{ marginTop: 10, maxWidth: 320 }}>Write songs, chase charts in twelve countries, tour the world and build a legacy — one week at a time.</p>
-      <button className="btn primary block mt16" onClick={() => onNew(firstEmpty)}>Start a new career</button>
-      {any && (
-        <div className="col mt16 gap6">
-          <div className="mono">Continue</div>
-          {saves.filter((s) => !s.empty).map((s) => (
-            <button key={s.slot} className="card tight press row" style={{ textAlign: 'left' }} onClick={() => onLoad(s.slot)}>
-              <div className="grow">
-                <div className="head">{s.stageName}</div>
-                <div className="muted tiny">Slot {s.slot} · Week {s.week}</div>
-              </div>
-              <Icon name="chev" />
+    <div className="ts">
+      <div className="ts-glow" aria-hidden="true" />
+      <div className="ts-brand">
+        <h1 className="ts-word" aria-label="Treblr">{'TREBLR'.split('').map((c, i) => <span key={i} style={{ animationDelay: `${i * 0.12}s` }}>{c}</span>)}</h1>
+        <div className="ts-eq" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ animationDelay: `${((i * 37) % 11) * -0.11}s`, animationDuration: `${0.9 + ((i * 13) % 7) * 0.12}s` }} />)}</div>
+        <p className="ts-tag">A global music career, one issue a week. Write, release, chart in twelve countries and tour the world.</p>
+      </div>
+      <div className="ts-rack">
+        <div className="ts-rack-head"><span>On the rack</span><span>{`${saves.filter((s) => !s.empty).length}/3 careers`}</span></div>
+        <div className="ts-covers">
+          {saves.map((s) => (s.empty ? (
+            <button key={s.slot} className="ts-cover blank" onClick={() => onNew(s.slot)} aria-label={`Start a new career in slot ${s.slot}`}>
+              <span className="ts-plus"><Icon name="plus" size={26} /></span>
+              <span className="ts-new">New career</span>
             </button>
-          ))}
+          ) : (
+            <button key={s.slot} className="ts-cover" onClick={() => onLoad(s.slot)} aria-label={`Continue ${s.stageName}, issue ${s.week}`} style={{ '--ca': (GENRE_COLORWAYS[s.genre] || [])[0] || '#C6FF3D' }}>
+              <img src={s.photo || DEFAULT_FACE} alt="" />
+              <span className="ts-cover-shade" />
+              <span className="ts-cover-mast">TREBLR</span>
+              <span className="ts-cover-issue">{`ISSUE ${s.week}`}</span>
+              <span className="ts-cover-name">{s.stageName}</span>
+              <span className="ts-continue">Continue <Icon name="chev" size={12} stroke={2.6} /></span>
+            </button>
+          )))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

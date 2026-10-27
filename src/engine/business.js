@@ -401,7 +401,9 @@ export function assetsValue(s) {
   return lifestyleOf(s).owned.reduce((a, o) => a + o.value, 0);
 }
 export function netWorth(s) {
-  return Math.round(s.player.cash + assetsValue(s) - totalDebt(s));
+  const inv = s.investments;
+  const iv = inv ? Object.entries(inv.stocks || {}).reduce((a, [t, n]) => a + n * (inv.prices?.[t] || 0), 0) + (inv.properties || []).reduce((a, o) => a + o.value, 0) + (inv.businesses || []).reduce((a, o) => a + o.value, 0) : 0;
+  return Math.round(s.player.cash + assetsValue(s) + iv - totalDebt(s));
 }
 
 // =====================================================================================

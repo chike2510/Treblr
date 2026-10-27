@@ -10,6 +10,7 @@ import { stat } from './weekly.js';
 import { fanComments } from './comments.js';
 import { pushNotif, logTimeline, eraOf } from './journal.js';
 import { VIDEO_DIRECTORS, VIDEO_CONCEPTS } from './data.js';
+import { createFeatureCredit } from './v5.js';
 import { pitchBonus, signContract, labelTerms, buyoutCost, payolaPackage, labelReach } from './business.js';
 
 export const ENERGY = { write: 30, record: 20, release: 10, video: 25, press: 15, radio: 20, interview: 10, tour: 40, train: 20 };
@@ -370,7 +371,7 @@ export function markRead(state, { id }) {
 }
 
 export function respondOffer(state, { id, accept }) {
-  return run(state, (s) => {
+  return run(state, (s, rng) => {
     const m = s.inbox.find((x) => x.id === id);
     if (!m || m.type !== 'offer' || m.status) return fail('This offer is no longer available.');
     m.read = true;
@@ -396,6 +397,8 @@ export function respondOffer(state, { id, accept }) {
       earn(s, 'features', o.cash, `Feature for ${o.artist}`);
       if (o.rivalId) { const c = (s.contacts || []).find((x) => x.rivalId === o.rivalId); if (c) c.rel = clamp(c.rel + 10, -100, 100); }
       logTimeline(s, 'collab', `Featured on a ${o.artist} single`, fmtMoney(o.cash));
+      const credit = o.rivalId ? createFeatureCredit(s, rng, o.rivalId, s.week) : null;
+      if (credit) { pushNews(s, `${o.artist} drops “${credit.title}” featuring ${p.stageName}`, true, 'Collab'); }
       p.fans += o.fans;
       gainHype(p, 8);
       pushNews(s, `${o.artist} taps ${p.stageName} for a new collab`, true, 'Collab');

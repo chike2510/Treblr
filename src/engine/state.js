@@ -8,8 +8,9 @@ import { rivalSongPotential } from './model.js';
 import { popularityFromListeners, scheduleRival, npcCover, uniqueRivalTitle } from './career.js';
 import { applyRosterPack } from './business.js';
 import { SONG_CERTS, certFor } from './data2.js';
+import { addV5Fields, rebuildFeatureCredits } from './v5.js';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export function randomTitle(rng) {
   const r = rng || { pick: (a) => a[Math.floor(Math.random() * a.length)], chance: (p) => Math.random() < p };
@@ -103,6 +104,7 @@ export function createNewGame(setup, seed) {
   };
   addV3Fields(state);
   addV4Fields(state);
+  addV5Fields(state);
   state.player.popularity = popularityFromListeners(state.player.monthlyListeners);
   state.player.mlHistory = [state.player.monthlyListeners];
 
@@ -256,6 +258,16 @@ const MIGRATIONS = {
     for (const r of s.rivals) { r.eraSingles = s.rivalSongs.filter((x) => x.rivalId === r.id && s.week - x.releasedWeek < 14).map((x) => x.id); scheduleRival(r, rng, s.week, true); }
     for (const n of s.notifications || []) n.read = n.read || s.week - n.week > 2;
     s.version = 4;
+    return s;
+  },
+  // v4 -> v5: featured credits become real songs (rebuilt from the timeline), investments, your own
+  // label, award history, acting auditions and festival prep. Nothing the player made is lost.
+  4: (s) => {
+    const rng = _rng((s.seed ^ 0x5f5f) >>> 0);
+    addV5Fields(s);
+    rebuildFeatureCredits(s, rng);
+    s.charts = computeCharts(s, s.charts || {});
+    s.version = 5;
     return s;
   },
 };

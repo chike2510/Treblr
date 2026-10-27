@@ -353,13 +353,13 @@ describe('v3 systems', () => {
     const r0 = recorded(s, 90); s = ok(E.releaseMusic(r0.s, { type: 'single', songIds: [r0.id], rollout: 'drop' }));
     s = E.advanceWeek(s);
     s.songs[0].peaks = { hot100: 1 }; s.songs[0].lifetimeStreams = 9e8;
-    s.week = 6;
-    s = E.advanceWeek(s); // submissions open for the week-8 show
+    s.week = 2;
+    s = E.advanceWeek(s); // submissions open six weeks before the week-8 show
     expect(s.awardSubmission?.status).toBe('open');
     expect(s.awardSubmission.suggested.length).toBeGreaterThan(0);
     s = ok(E.confirmAwardEntries(s, { picks: s.awardSubmission.suggested }));
     s.player.fame = { tier: 'superstar', points: 900 };
-    s = E.advanceWeek(s); s = E.advanceWeek(s);
+    while (s.week <= 8) s = E.advanceWeek(s);
     expect(s.awardEvent?.status).toBe('pending');
     const r = E.attendAwardShow(s, { outfit: 'bold', perform: true });
     expect(r.ok).toBe(true);
@@ -448,7 +448,7 @@ describe('saves & stability', () => {
     v2.songs = [{ id: 's1', title: 'Mine', genre: 'pop', status: 'released', releasedWeek: 1, quality: 60, weeklyStreams: 10, lifetimeStreams: 10, history: [], cover: { gradient: 1 }, peaks: { hot100: 50 } }];
     const m = E.migrate(v2);
     expect(m.version).toBe(E.SAVE_VERSION);
-    expect(E.SAVE_VERSION).toBe(4);
+    expect(E.SAVE_VERSION).toBe(5);
     expect(m.rivals.length).toBe(E.ARTIST_ROSTER.length);
     expect(m.rivalSongs.every((x) => m.rivals.some((r) => r.id === x.rivalId))).toBe(true);
     expect(m.songs[0].peaks.hot100).toBe(50);

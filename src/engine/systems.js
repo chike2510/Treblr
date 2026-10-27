@@ -1,5 +1,6 @@
 // Weekly-tick subsystems for v3: burnout, tours, messages, spotlight, drama, crises, dating, awards, Wrapped.
 import { clamp, uid, fmtMoney, fmtNum } from './util.js';
+import { recordAwardResult } from './v5.js';
 import { gainHype, marketShares } from './model.js';
 import { VENUES, cityById, MARKETS, genreName } from './data.js';
 import { earn, spend, pushNews } from './actions.js';
@@ -251,7 +252,9 @@ export function awardNomination(s, rng, show, rivalById) {
   let picks = sub?.picks || (sub?.signed ? sub.suggested : null);
   if (sub && !sub.picks && sub.signed) pushNotif(s, 'award', `${sub.by} submitted your entries for the ${show.name}.`, { tab: 'home' });
   s.awardSubmission = null;
+  const year = 2027 + Math.floor((s.week - 1) / 52);
   if (!picks?.length) {
+    recordAwardResult(s, { id: `aw-${show.name}-${year}`, show: show.name, year, result: 'no entry', entries: [] });
     pushNews(s, `${rng.pick(top.slice(0, 6)).name} sweeps the ${show.name}`, false, 'Awards');
     return null;
   }
@@ -259,6 +262,7 @@ export function awardNomination(s, rng, show, rivalById) {
   const fameBonus = { star: 0.08, superstar: 0.15, icon: 0.2 }[p.fame?.tier] || 0;
   const noms = picks.map((id) => opts[id]).filter(Boolean).filter((o) => rng.chance(clamp(o.strength * 0.95 - 0.12 + fameBonus, 0, 0.9)));
   if (!noms.length) {
+    recordAwardResult(s, { id: `aw-${show.name}-${year}`, show: show.name, year, result: 'snubbed', entries: picks.map((id) => opts[id]?.category).filter(Boolean) });
     pushNews(s, `${p.stageName} is snubbed at the ${show.name}`, true, 'Awards');
     pushNews(s, `${rng.pick(top.slice(0, 6)).name} sweeps the ${show.name}`, false, 'Awards');
     return null;
@@ -269,6 +273,7 @@ export function awardNomination(s, rng, show, rivalById) {
   const nominees = s.rivals.filter((r) => r.genres.includes(p.genre) || r.tier === 'superstar').sort(() => rng.next() - 0.5).slice(0, 4);
   s.awardEvent = { id: uid(s, 'aw'), show: show.name, week: s.week, category: best.category, entry: best.title, otherNoms: noms.slice(1).map((o) => o.category), winChance, nominees: nominees.map((r) => r.id), winnerName: nominees[0]?.name || 'A rival', status: 'pending' };
   addStarPoints(s, 6 * noms.length);
+  recordAwardResult(s, { id: s.awardEvent.id, show: show.name, year, result: 'nominated', category: best.category, entry: best.title, entries: noms.map((o) => o.category) });
   pushNews(s, `${p.stageName} nominated for ${best.category}${noms.length > 1 ? ` and ${noms.length - 1} more` : ''} at the ${show.name}`, true, 'Awards');
   pushNotif(s, 'award', `You\u2019re nominated for ${best.category} at the ${show.name}!`, { tab: 'home', awards: true });
   statPost(s, `${p.stageName} picks up ${noms.length} nomination${noms.length > 1 ? 's' : ''} at the ${show.name}.`, true);

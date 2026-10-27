@@ -70,8 +70,8 @@ function Negotiate({ m }) {
       <div className="small mt8">Recoupment: the label keeps your share of royalties until the advance is earned back. {t.strict >= 0.5 ? 'This is a strict contract: miss the album schedule and they cut marketing and fine you.' : 'Schedule is flexible.'}</div>
       <label className="col gap6 mt12"><span className="row between tiny"><span>Advance</span><b>{fmtMoney(adv)}</b></span><input type="range" className="slider" min={Math.round(t.advance * 0.6)} max={Math.round(t.advance * 2)} step={500} value={adv} onChange={(e) => setAdv(+e.target.value)} /></label>
       <label className="col gap6 mt8"><span className="row between tiny"><span>Your royalty</span><b>{roy}%</b></span><input type="range" className="slider" min={10} max={85} value={roy} onChange={(e) => setRoy(+e.target.value)} /></label>
-      <div className="row between mt8 tiny"><span>Albums</span><div className="seg" style={{ width: 150 }}>{[1, 2, 3].map((n) => <button key={n} className={albums === n ? 'on' : ''} onClick={() => setAlbums(n)}>{n}</button>)}</div></div>
-      <div className="row between mt8 tiny"><span>Years per album</span><div className="seg" style={{ width: 110 }}>{[2, 3].map((n) => <button key={n} className={years === n ? 'on' : ''} onClick={() => setYears(n)}>{n}</button>)}</div></div>
+      <div className="row between mt8 tiny"><span>Albums</span><div className="seg fit">{[1, 2, 3].map((n) => <button key={n} className={albums === n ? 'on' : ''} onClick={() => setAlbums(n)}>{n}</button>)}</div></div>
+      <div className="row between mt8 tiny"><span>Years per album</span><div className="seg fit">{[2, 3].map((n) => <button key={n} className={years === n ? 'on' : ''} onClick={() => setYears(n)}>{n}</button>)}</div></div>
       <div className="col gap6 mt8">{CREATIVE_CONTROL.map((c) => <button key={c.id} className={`option press ${control === c.id ? 'on' : ''}`} onClick={() => setControl(c.id)}><div className="row between gap6"><b className="small">{c.name}</b><span className="tiny muted" style={{ flexShrink: 0 }}>reach ×{c.reach}</span></div></button>)}</div>
       <button className="btn block mt12" disabled={t.patience <= 0} onClick={() => act(negotiateDeal, { id: m.id, ask: { advance: adv, royalty: roy / 100, albums, yearsPerAlbum: years, control } })}>Send counter-offer</button>
       <div className="tiny muted mt8">Current terms: {dealText(t)}</div>
@@ -147,7 +147,7 @@ function Credit() {
         <div className="mt12">
           <div className="row between tiny"><span>Borrow</span><b>{fmtMoney(amt)} · {offer.apr}% APR</b></div>
           <input type="range" className="slider mt8" style={{ width: '100%' }} min={500} max={Math.max(500, offer.max)} step={500} value={amt} onChange={(e) => setAmount(+e.target.value)} />
-          <div className="row between mt8 tiny"><span>Term</span><div className="seg" style={{ width: 190 }}>{[26, 52, 104].map((n) => <button key={n} className={weeks === n ? 'on' : ''} onClick={() => setWeeks(n)}>{n}w</button>)}</div></div>
+          <div className="row between mt8 tiny"><span>Term</span><div className="seg fit">{[26, 52, 104].map((n) => <button key={n} className={weeks === n ? 'on' : ''} onClick={() => setWeeks(n)}>{n}w</button>)}</div></div>
           <div className="tiny muted mt8">Weekly repayment {fmtMoney(Math.round(weeklyPayment(amt, offer.apr, weeks)))} · taken automatically each week.</div>
           <button className="btn block mt12" disabled={amt < 500} onClick={() => act(takeLoan, { amount: amt, weeks })}>Take loan</button>
         </div>

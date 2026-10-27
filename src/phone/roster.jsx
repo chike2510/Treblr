@@ -76,8 +76,8 @@ export function RosterEditor() {
           } catch { toast('That file isn’t valid JSON.', false); }
         }} />
       </div>
-      <div className="row between tiny"><span>When importing</span><div className="seg" style={{ width: 200 }}>{['merge', 'replace'].map((m) => <button key={m} className={importMode === m ? 'on' : ''} onClick={() => setImportMode(m)}>{m === 'merge' ? 'Merge' : 'Replace'}</button>)}</div></div>
-      <div className="row between tiny"><span>Pack mode for new games</span><div className="seg" style={{ width: 230 }}>{[['merge', 'Add to roster'], ['replace', 'Only my pack']].map(([m, l]) => <button key={m} className={pack.mode === m ? 'on' : ''} onClick={() => save({ ...pack, mode: m })}>{l}</button>)}</div></div>
+      <div className="row between tiny"><span>When importing</span><div className="seg fit">{['merge', 'replace'].map((m) => <button key={m} className={importMode === m ? 'on' : ''} onClick={() => setImportMode(m)}>{m === 'merge' ? 'Merge' : 'Replace'}</button>)}</div></div>
+      <div className="row between tiny"><span>Pack mode for new games</span><div className="seg fit">{[['merge', 'Add to roster'], ['replace', 'Only my pack']].map(([m, l]) => <button key={m} className={pack.mode === m ? 'on' : ''} onClick={() => save({ ...pack, mode: m })}>{l}</button>)}</div></div>
       {pack.mode === 'replace' && (pack.artists?.length || 0) < 10 && <div className="tiny" style={{ color: 'var(--amber)' }}>Replace mode needs at least 10 custom artists; until then the default roster is used.</div>}
       <Mono>Custom artists</Mono>
       {(pack.artists || []).map((a) => (

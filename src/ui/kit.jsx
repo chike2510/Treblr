@@ -198,7 +198,7 @@ export function Bar({ pct, color }) {
 
 export function Seg({ options, value, onChange }) {
   return (
-    <div className="seg">
+    <div className={`seg ${options.length > 4 ? 'many' : ''}`} role="tablist">
       {options.map((o) => (
         <button key={o.value} className={o.value === value ? 'on' : ''} onClick={() => onChange(o.value)}>{o.label}</button>
       ))}

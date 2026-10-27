@@ -86,6 +86,7 @@ input, textarea, select { font-size: 16px; } /* iOS zooms into inputs under 16px
 .fest-inner { position: relative; width: 100%; max-width: 400px; max-height: 100%; overflow-y: auto; border-radius: 20px; padding: 28px 18px 22px; text-align: center;
   background: radial-gradient(circle at 20% 10%, hsl(var(--fh) 90% 60% / .55), transparent 55%), radial-gradient(circle at 90% 80%, hsl(calc(var(--fh) + 140) 90% 55% / .5), transparent 55%), #10101a; border: 1px solid rgba(255,255,255,.15); }
 .fest-x { position: absolute; top: 10px; right: 10px; }
+.fest-inner { padding-top: 56px; }
 .fest-name { font-family: var(--font-head); font-weight: 700; font-size: clamp(26px, 9vw, 38px); letter-spacing: -.02em; line-height: 1; text-transform: uppercase; overflow-wrap: anywhere; }
 .fest-when { font-family: var(--font-mono); font-size: 12px; margin: 8px 0 18px; opacity: .8; }
 .fest-head, .fest-sub, .fest-under { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; margin-bottom: 14px; }
@@ -215,3 +216,24 @@ input, textarea, select { font-size: 16px; } /* iOS zooms into inputs under 16px
 @media (min-resolution: 1dppx) and (max-width: 440px) {
   .stat .v { font-size: clamp(16px, 5vw, 22px); }
 }
+
+/* Top bar: keep "WEEK n" on one line on narrow phones / large text */
+.topbar .wk b { white-space: nowrap; }
+@media (max-width: 380px) { .topbar .wk b { letter-spacing: 0.04em; } .topbar .wk > span { display: none; } }
+.sp-nav { --nav-bg: #000; }
+/* 5+ segment tabs scroll sideways instead of truncating ("Wr… Re…") */
+.seg.many { overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
+.seg.many::-webkit-scrollbar { display: none; }
+.seg.many button { flex: 1 0 auto; padding: 0 14px; overflow: visible; text-overflow: clip; }
+/* Magazine cover: cover lines + story stack from the bottom so big text never collides */
+.magazine .mag-bottom { position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
+.magazine .mag-bottom .side, .magazine .mag-bottom .story { position: static; max-width: 60%; }
+.magazine .mag-bottom .story { max-width: none; }
+.magazine .story h2 { overflow-wrap: anywhere; margin-top: 4px; }
+.topbar .wk-s { display: none; }
+@media (max-width: 380px) { .topbar .wk-l { display: none; } .topbar .wk-s { display: inline; } .topbar { gap: 5px; } .topbar .wk { flex-shrink: 0; } }
+.seg.fit { width: auto; flex-shrink: 0; }
+.seg.fit button { flex: 0 0 auto; padding: 0 12px; overflow: visible; }
+.row.between:has(> .seg.fit) { flex-wrap: wrap; gap: 6px; }
+.stat-chip.bell { margin-left: 8px; }
+.stat-chip.bell .badge { top: -6px; right: -8px; }

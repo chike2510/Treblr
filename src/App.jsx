@@ -151,7 +151,7 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
         <header className="topbar">
           <button onClick={() => setProfile(true)} aria-label="Profile"><img className="avatar" src={facePhoto(p)} alt="" /></button>
           <div className="wk">
-            <b>WEEK {state.week}</b>
+            <b><span className="wk-l">WEEK </span><span className="wk-s">WK </span>{state.week}</b>
             <span>{formatWeekDate(state.week, { month: 'short', day: 'numeric' })}</span>
           </div>
           <button className="stat-chip bell" title="Notifications" aria-label={`Notifications${notifs ? `, ${notifs} unread` : ''}`} onClick={() => setOverlay('notifs')}><Icon name="bell" size={15} />{notifs > 0 && <i className="badge">{notifs > 9 ? '9+' : notifs}</i>}</button>

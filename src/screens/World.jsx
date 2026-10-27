@@ -209,7 +209,7 @@ function Tours() {
     <div className="col">
       <div className="small muted">Plan a route. Stops resolve week by week ({perWeek} per week) with nightly results in your weekly report. Energy is reserved while you tour.</div>
       <div className="pills">{venues.map((x) => <button key={x.id} className={`pill ${venue === x.id ? 'on' : ''}`} onClick={() => setVenue(x.id)}>{x.name}s</button>)}</div>
-      <div className="row between"><Mono>Shows per week</Mono><div className="seg" style={{ width: 160 }}>{[1, 2, 3].map((n) => <button key={n} className={perWeek === n ? 'on' : ''} onClick={() => setPerWeek(n)}>{n}</button>)}</div></div>
+      <div className="row between"><Mono>Shows per week</Mono><div className="seg fit">{[1, 2, 3].map((n) => <button key={n} className={perWeek === n ? 'on' : ''} onClick={() => setPerWeek(n)}>{n}</button>)}</div></div>
       <div className="row wrap gap6">
         {cities.map((c) => {
           const on = sel.includes(c.id);

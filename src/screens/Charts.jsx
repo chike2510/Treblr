@@ -16,17 +16,19 @@ export default function Charts() {
         <Icon name="chart" size={30} color="#FFB020" />
       </div>
 
-      <div className="mt12">
-        {mine.length ? (
+      <div className="mt16">
+        {mine.length ? (<>
+          <Mono className="sm" style={{ display: 'block', marginBottom: 8 }}>Your songs on the charts</Mono>
           <div className="pills">
             {mine.map((m) => (
               <button key={m.chartId + m.id} className="chip" style={{ color: '#0B0B0F', background: '#C6FF3D', borderColor: 'transparent' }} onClick={() => setId(m.chartId)}>#{m.r} {m.chartName} · {m.title}</button>
             ))}
           </div>
-        ) : <div className="card tight small muted">You're not on any chart yet. Country charts are the easiest way in — your home market gives you a 3× boost.</div>}
+        </>) : <div className="card tight small muted">You're not on any chart yet. Country charts are the easiest way in — your home market gives you a 3× boost.</div>}
       </div>
 
-      <div className="pills mt16">
+      <Mono className="sm" style={{ display: 'block', margin: '20px 0 8px' }}>Browse charts</Mono>
+      <div className="pills">
         {CHARTS.map((c) => <button key={c.id} className={`pill ${id === c.id ? 'on' : ''}`} onClick={() => { setId(c.id); setLimit(30); }}>{c.short ? c.name : c.name}</button>)}
       </div>
 

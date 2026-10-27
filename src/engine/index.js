@@ -13,7 +13,7 @@ export * from './weekly.js';
 export * from './journal.js';
 export * from './comments.js';
 export * from './headlines.js';
-export { MESSAGE_TEMPLATES, artistType } from './systems.js';
+export { MESSAGE_TEMPLATES, artistType, awardOptions } from './systems.js';
 export { REAL_ARTISTS_SOURCE, ARTIST_ROSTER } from './realArtists.js';
 import { AWARD_SHOWS } from './data.js';
 

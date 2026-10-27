@@ -624,7 +624,7 @@ export function payolaPackage(state, { pkg, songId }) {
 // Weekly exposure check. Returns true if the player got caught.
 export function payolaExposure(s, rng, events) {
   const p = s.player;
-  if (p.suspicion <= 30 || !rng.chance((p.suspicion - 28) / 110)) return false;
+  if (p.suspicion <= 30 || !rng.chance((p.suspicion - 28) / 90)) return false;
   const loss = Math.round(p.fans * 0.1);
   p.fans -= loss;
   gainHype(p, -30);

@@ -69,7 +69,7 @@ function songMult(song) {
 // Weekly streams for every released player song. Two sources:
 //  - discovery: algorithmic/new listeners, driven by quality, popularity and boosts (independent per song)
 //  - audience: the existing fanbase + listeners, SHARED across the catalogue (so a big catalogue
-//    doesn't multiply your audience — this keeps the fan/stream feedback loop stable).
+//    doesn't multiply your audience, this keeps the fan/stream feedback loop stable).
 export function playerStreams(player, songs, week) {
   const released = songs.filter((s) => s.status === 'released');
   const hype = 1 + player.hype / 100;
@@ -125,7 +125,7 @@ export function radioSpins(popularity, quality, age, { label = false, payola = 0
 
 export function lengthFit(seconds) {
   if (seconds >= 150 && seconds <= 210) return { bonus: 5, hint: 'Sweet spot for streaming and radio.' };
-  if (seconds < 120) return { bonus: -6, hint: 'Very short — replayable, but feels unfinished.' };
+  if (seconds < 120) return { bonus: -6, hint: 'Very short, replayable, but feels unfinished.' };
   if (seconds < 150) return { bonus: 2, hint: 'Short and snappy. TikTok-friendly.' };
   if (seconds <= 270) return { bonus: 0, hint: 'A little long for playlists.' };
   return { bonus: -8, hint: 'Epic length. Radio will skip it.' };

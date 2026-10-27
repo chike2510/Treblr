@@ -200,7 +200,7 @@ export function requestLabelMeeting(state, { labelId }) {
     }
     s.inbox.unshift({ id: uid(s, 'm'), type: 'offer', subtype: 'label', from: l.name, subject: `${l.name} (${l.tier}) wants to sign you`, body: dealText(t), payload: t, week: s.week, expires: s.week + 3, read: false });
     pushNotif(s, 'offer', `${l.name} sent a record deal`, { tab: 'phone', app: 'inbox' }, 'offer');
-    return { msg: `${l.name} liked the meeting — an offer is in your Inbox.`, data: { offered: true } };
+    return { msg: `${l.name} liked the meeting, an offer is in your Inbox.`, data: { offered: true } };
   });
 }
 export function dealText(t) {
@@ -264,7 +264,7 @@ export function labelRoyalty(s, gross) {
   if (c.advance && c.recouped < c.advance) {
     const toRecoup = Math.min(share, c.advance - c.recouped);
     c.recouped += toRecoup;
-    if (c.recouped >= c.advance) pushNotif(s, 'label', `Your ${c.name} advance is recouped — royalties now pay out`, { tab: 'world', section: 'labels' });
+    if (c.recouped >= c.advance) pushNotif(s, 'label', `Your ${c.name} advance is recouped, royalties now pay out`, { tab: 'world', section: 'labels' });
     return share - toRecoup;
   }
   return share;
@@ -466,7 +466,7 @@ export function actingTick(s, rng, ev) {
     a.current = null;
     pushNews(s, `“${c.title}” starring ${p.stageName} is ${verdict} (${score}/100)`, true, 'Film');
     logTimeline(s, 'acting', `“${c.title}” released`, `${role.name} · ${verdict}`);
-    ev?.(40, 'event', { text: `“${c.title}” premieres — critics call it ${verdict}` });
+    ev?.(40, 'event', { text: `“${c.title}” premieres, critics call it ${verdict}` });
     return { title: c.title, score, fans, verdict };
   }
   return null;
@@ -590,12 +590,12 @@ export function setlistScore(s, songIds, venueId, staff = []) {
   score += pop(songs[songs.length - 1]) * 10 + songs[songs.length - 1].quality / 20; // closer
   if (missing) { score -= missing * 4; notes.push(`Fans will miss ${missing === 1 ? 'one of your biggest songs' : `${missing} of your biggest songs`}.`); }
   if (songs.length < ideal[0]) { score -= (ideal[0] - songs.length) * 1.5; notes.push(`Short set for this room (${ideal[0]}–${ideal[1]} songs is ideal).`); }
-  if (songs.length > ideal[1]) { score -= (songs.length - ideal[1]) * 1; notes.push('Long set — energy dips in the middle.'); }
+  if (songs.length > ideal[1]) { score -= (songs.length - ideal[1]) * 1; notes.push('Long set, energy dips in the middle.'); }
   const dance = DANCE_GENRES.includes(p.genre);
   if (staff.includes('sound')) score += 8;
   if (staff.includes('lighting')) score += 5;
   if (staff.includes('dancers')) score += dance ? 10 : 3;
-  if (pop(songs[songs.length - 1]) >= 0.6) notes.push('Big closer — they’ll leave singing.');
+  if (pop(songs[songs.length - 1]) >= 0.6) notes.push('Big closer, they’ll leave singing.');
   return { score: clamp(Math.round(score), 5, 100), notes, songs: songs.length };
 }
 export function tourStaffCost(staff = [], venueId) {
@@ -659,7 +659,7 @@ export function buyAds(state, { songId, tier }) {
     const n = Math.round(t.streams * rng.float(0.8, 1.2) * (0.6 + song.quality / 125));
     song.adStreams = [...(song.adStreams || []), Math.round(n * 0.6), Math.round(n * 0.4)];
     gainHype(s.player, t.cost >= 5000 ? 3 : 1);
-    return { msg: `Ads running for “${song.title}” — about ${fmtNum(n)} extra streams over two weeks${song.status !== 'released' ? ' once it’s out' : ''}.` };
+    return { msg: `Ads running for “${song.title}”, about ${fmtNum(n)} extra streams over two weeks${song.status !== 'released' ? ' once it’s out' : ''}.` };
   });
 }
 export function promoteVideo(state, { videoId, tier }) {
@@ -719,7 +719,7 @@ export function promoIdea(state, { songId, idea }) {
     s.social.clipz.unshift({ id: uid(s, 'cz'), week: s.week, songId, title: song.title, label: it.name, mode: 'promo', views: total, viral, likes: Math.round(total * 0.08), shares: Math.round(total * 0.01), replies: [] });
     s.social.clipz.length = Math.min(s.social.clipz.length, 30);
     if (viral) { s.weekFlags.viral = song.title; logTimeline(s, 'viral', `${it.name} for “${song.title}” went viral`, `${fmtNum(total)} views`); }
-    return { msg: `${it.name}: ${fmtNum(total)} views${viral ? ' — it’s spreading!' : ''}${song.status !== 'released' ? ' · pre-release buzz up' : ''}.`, data: { viral } };
+    return { msg: `${it.name}: ${fmtNum(total)} views${viral ? ', it’s spreading!' : ''}${song.status !== 'released' ? ' · pre-release buzz up' : ''}.`, data: { viral } };
   });
 }
 export function rolloutStep(state, { releaseId, step }) {

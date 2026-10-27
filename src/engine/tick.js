@@ -251,7 +251,7 @@ export function advanceWeek(state) {
   // 6. Expenses.
   const city = cityById(p.city);
   const rent = housingCost(s);
-  if (rent) spend(s, 'rent', rent, `Rent — ${city.name}`);
+  if (rent) spend(s, 'rent', rent, `Rent: ${city.name}`);
   spend(s, 'living', LIVING_COST, 'Living costs');
   const sc = staffCost(s);
   if (sc) spend(s, 'staff', sc, 'Team salaries');
@@ -453,11 +453,11 @@ function randomEvent(s, rng, events) {
   if (!rng.chance(0.3)) return;
   const released = s.songs.filter((x) => x.status === 'released');
   const options = [
-    () => { if (p.cash < 300) return null; spend(s, 'other', 300, 'Laptop repair'); return 'Laptop crashed mid-session — $300 repair'; },
+    () => { if (p.cash < 300) return null; spend(s, 'other', 300, 'Laptop repair'); return 'Laptop crashed mid-session, $300 repair'; },
     () => { const f = Math.round(20 + Math.min(4000, p.fans * 0.02)); p.fans += f; gainHype(p, 4); return `Fan meetup goes viral: +${fmtNum(f)} fans`; },
     () => { if (!released.length) return null; const so = rng.pick(released); so.viral = Math.max(so.viral, 1.8); return `A mega-influencer shares “${so.title}”`; },
-    () => { p.energyPenalty = 25; return 'Food poisoning — you start next week drained'; },
-    () => { gainHype(p, 5); p.skills.charisma = clamp(p.skills.charisma + 0.5, 0, 100); return 'Invited to an industry party — new connections made'; },
+    () => { p.energyPenalty = 25; return 'Food poisoning, you start next week drained'; },
+    () => { gainHype(p, 5); p.skills.charisma = clamp(p.skills.charisma + 0.5, 0, 100); return 'Invited to an industry party, new connections made'; },
     () => { if (p.popularity < 15) return null; gainHype(p, -8); return `Rumour mill: blogs question ${p.stageName}'s authenticity`; },
     () => { const g = Math.round(30 + Math.min(2500, p.fans * 0.008)); p.fans += g; return `An old demo leaks and fans love it: +${fmtNum(g)} fans`; },
     () => { earn(s, 'other', 250, 'Sync licence (indie film)'); return 'An indie film licenses your music for $250'; },

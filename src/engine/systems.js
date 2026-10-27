@@ -81,7 +81,7 @@ export function resolveTourWeek(s, rng, ev) {
 // ---------- messages ----------
 const MSG = {
   manager: [
-    { text: 'Real talk: what\u2019s the release plan?', choices: [{ label: 'Pace it — every 4–5 weeks', fx: { rel: 6, followUp: 'Smart. Let each one breathe.' } }, { label: 'Flood the market', fx: { rel: -4, hype: 2, followUp: 'Your funeral. Fans burn out too.' } }] },
+    { text: 'Real talk: what\u2019s the release plan?', choices: [{ label: 'Pace it, every 4–5 weeks', fx: { rel: 6, followUp: 'Smart. Let each one breathe.' } }, { label: 'Flood the market', fx: { rel: -4, hype: 2, followUp: 'Your funeral. Fans burn out too.' } }] },
     { text: 'A brand rep wants coffee. Free networking, costs you an afternoon.', choices: [{ label: 'I\u2019ll go', fx: { rel: 5, energy: 10, hype: 2 } }, { label: 'Pass, I\u2019m writing', fx: { rel: -1, skill: 'songwriting', amount: 0.5 } }] },
     { text: 'You look exhausted in your stories. Take a breather?', choices: [{ label: 'You\u2019re right', fx: { rel: 4, burnout: -8 } }, { label: 'No days off', fx: { rel: -2, hype: 1 } }] },
   ],
@@ -310,7 +310,7 @@ export function makeWrapped(s, W) {
   const y = s.yearStats;
   const p = s.player;
   const year = Math.round(W / 52);
-  const topSongs = Object.entries(y.songs).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, n]) => ({ id, title: s.songs.find((x) => x.id === id)?.title || '—', streams: Math.round(n) }));
+  const topSongs = Object.entries(y.songs).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, n]) => ({ id, title: s.songs.find((x) => x.id === id)?.title || '-', streams: Math.round(n) }));
   const topCountries = Object.entries(y.countries).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([code, n]) => ({ code, name: MARKETS.find((m) => m.code === code)?.name, flag: MARKETS.find((m) => m.code === code)?.flag, streams: Math.round(n) }));
   const w = { year, week: W, streams: Math.round(y.streams), listeners: p.monthlyListeners, listenersStart: y.startListeners, fans: p.fans, fansStart: y.startFans, bestPeak: y.bestPeak, topSongs, topCountries, type: artistType(s, y), awards: (p.awards || []).filter((a) => a.kind === 'award' && a.week > W - 52).length };
   s.wrapped.push(w);

@@ -102,7 +102,7 @@ export function Title({ onNew, onLoad }) {
           )))}
         </div>
       </div>
-      <Sheet open={store} onClose={() => setStore(false)} title="Store" sub="Placeholder — nothing is for sale yet."><StoreScreen /></Sheet>
+      <Sheet open={store} onClose={() => setStore(false)} title="Store" sub="Placeholder: nothing is for sale yet."><StoreScreen /></Sheet>
     </div>
   );
 }
@@ -115,7 +115,24 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
   const [artist, setArtist] = useState(null);
   const [overlay, setOverlay] = useState(null); // 'awards' | 'crisis' | 'notifs' | { wrapped: year }
   const scrollRef = useRef(null);
+  const appRef = useRef(null);
+  const topRef = useRef(null);
+  const navRef = useRef(null);
   const timer = useRef(null);
+  // Measure the real chrome height (large system text makes it taller) so content never hides behind it.
+  useEffect(() => {
+    const app = appRef.current;
+    if (!app || typeof ResizeObserver === 'undefined') return undefined;
+    const sync = () => {
+      if (topRef.current) app.style.setProperty('--top-h', `${Math.ceil(topRef.current.getBoundingClientRect().height)}px`);
+      if (navRef.current) app.style.setProperty('--nav-h', `${Math.ceil(navRef.current.getBoundingClientRect().height)}px`);
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    if (topRef.current) ro.observe(topRef.current);
+    if (navRef.current) ro.observe(navRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   const showToast = useCallback((msg, ok = true) => {
     if (!msg) return;
@@ -154,6 +171,16 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
     scrollRef.current?.scrollTo({ top: 0 });
   }, [act, nextWeek]);
 
+  // Horizontal rows (tabs, chips) fade at the right edge until scrolled to the end.
+  useEffect(() => {
+    const mark = (el) => el.classList.toggle('at-end', el.scrollLeft + el.clientWidth >= el.scrollWidth - 4);
+    appRef.current?.querySelectorAll('.pills, .seg.many, .chip-scroll, .scroll-fade').forEach(mark);
+  });
+  useEffect(() => {
+    const onScroll = (e) => { const t = e.target; if (t?.classList && (t.classList.contains('pills') || t.classList.contains('many') || t.classList.contains('chip-scroll') || t.classList.contains('scroll-fade'))) t.classList.toggle('at-end', t.scrollLeft + t.clientWidth >= t.scrollWidth - 4); };
+    document.addEventListener('scroll', onScroll, true);
+    return () => document.removeEventListener('scroll', onScroll, true);
+  }, []);
   const ctx = useMemo(() => ({ state, act, go, nav, nextWeek, toast: showToast, slot, onSwitch, onNew, onTitle, openProfile: () => setProfile(true), setState, openArtist: setArtist, openOverlay: setOverlay }), [state, act, go, nav, nextWeek, showToast, slot, onSwitch, onNew, onTitle, setState]);
   const p = state.player;
   const unread = unreadCount(state);
@@ -163,17 +190,17 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
 
   return (
     <GameCtx.Provider value={ctx}>
-      <div className="app" style={{ '--accent': accent, '--era': era?.color || '#C6FF3D' }}>
-        <header className="topbar">
+      <div className="app" ref={appRef} style={{ '--accent': accent, '--era': era?.color || '#C6FF3D' }}>
+        <header className="topbar" ref={topRef}>
           <button onClick={() => setProfile(true)} aria-label="Profile"><img className="avatar" src={facePhoto(p)} alt="" /></button>
           <div className="wk">
             <b><span className="wk-l">WEEK </span><span className="wk-s">WK </span>{state.week}</b>
-            <span>{formatWeekDate(state.week, { month: 'short', day: 'numeric' })}</span>
+            <span>{formatWeekDate(state.week, { month: 'short', day: 'numeric', year: '2-digit' })}</span>
           </div>
           <button className="stat-chip bell" title="Notifications" aria-label={`Notifications${notifs ? `, ${notifs} unread` : ''}`} onClick={() => setOverlay('notifs')}><Icon name="bell" size={15} />{notifs > 0 && <i className="badge">{notifs > 9 ? '9+' : notifs}</i>}</button>
           <span className="stat-chip" title={`Energy (cap ${p.maxEnergy}${p.burnout ? `, burnout ${p.burnout}` : ''})`}><Icon name="bolt" size={14} color={p.burnout >= 40 ? '#FFB020' : '#C6FF3D'} fill={p.burnout >= 40 ? '#FFB020' : '#C6FF3D'} stroke={0} />{p.energy}</span>
           <span className="stat-chip" title="Cash" style={{ color: p.cash < 0 ? 'var(--red)' : 'var(--green)' }}><CountUp value={p.cash} format={(v) => fmtMoney(v)} /></span>
-          <button className="next-btn" onClick={nextWeek} aria-label="Next Week">Next<span className="nw"> Week</span> <Icon name="chev" size={16} stroke={2.6} /></button>
+          <button className="next-btn" onClick={nextWeek} aria-label="Next Week"><span className="nx-l">Next<span className="nw"> Week</span></span> <Icon name="chev" size={16} stroke={2.6} /></button>
         </header>
 
         <main className="scroll" ref={scrollRef}>
@@ -184,7 +211,7 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
           {nav.tab === 'world' && <World key={`w${nav.n}`} initial={nav.section} />}
         </main>
 
-        <nav className="bottomnav">
+        <nav className="bottomnav" ref={navRef}>
           {TABS.map((t) => (
             <button key={t.id} className={`tab ${nav.tab === t.id ? 'on' : ''}`} style={{ '--tc': AREA[t.id] }} onClick={() => go({ tab: t.id })} aria-label={t.label}>
               <Icon name={t.icon} size={22} />

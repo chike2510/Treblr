@@ -280,7 +280,7 @@ export function Treblrchat({ contact: initial }) {
           {updates.map((r) => <button key={r.id} className="wa-row press" onClick={() => openArtist(r.id)}><span className="wa-ring"><ArtistAvatar rival={r} size={44} /></span><div className="grow" style={{ minWidth: 0 }}><b className="ellipsis" style={{ display: 'block' }}>{r.name}</b><span className="small muted ellipsis" style={{ display: 'block' }}>{r.lastMove}</span></div></button>)}
         </div>
       )}
-      {tab === 'chats' && <div className="tiny faint" style={{ padding: 12 }}>Contacts: manager, producer, friends, artists you’ve met, and people from events. Type anything — they reply. Only fictional people can be dated.{state.player.relationship?.status === 'dating' ? ` You’re dating ${state.contacts.find((x) => x.id === state.player.relationship.partnerId)?.name}.` : ''}</div>}
+      {tab === 'chats' && <div className="tiny faint" style={{ padding: 12 }}>Contacts: manager, producer, friends, artists you’ve met, and people from events. Type anything, they reply. Only fictional people can be dated.{state.player.relationship?.status === 'dating' ? ` You’re dating ${state.contacts.find((x) => x.id === state.player.relationship.partnerId)?.name}.` : ''}</div>}
       <AppNav className="wa-nav" value={tab === 'new' ? 'new' : tab} onChange={setTab} items={[
         { id: 'chats', label: 'Chats', icon: 'chat', badge: contacts.reduce((a, x) => a + (x.unread || 0), 0) },
         { id: 'updates', label: 'Updates', icon: 'sparkle' },

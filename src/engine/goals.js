@@ -71,7 +71,7 @@ export function upNext(s) {
   if (recorded.length) out.push({ id: 'release', title: `${recorded.length} song${recorded.length > 1 ? 's' : ''} ready to release`, body: `“${recorded[0].title}” is mixed and mastered.`, cta: 'Release', to: { tab: 'studio', section: 'release' }, tone: 'studio' });
   if (written.length) out.push({ id: 'record', title: 'Demo waiting for a studio', body: `“${written[0].title}” needs recording.`, cta: 'Record', to: { tab: 'studio', section: 'record' }, tone: 'studio' });
   if (!s.songs.length) out.push({ id: 'write', title: 'Write your first song', body: 'Every career starts with one.', cta: 'Write', to: { tab: 'studio', section: 'write' }, tone: 'studio' });
-  if (unread) out.push({ id: 'inbox', title: `${unread} unread in your inbox`, body: 'Offers expire — don\u2019t sleep on them.', cta: 'Open', to: { tab: 'phone', app: 'inbox' }, tone: 'phone' });
+  if (unread) out.push({ id: 'inbox', title: `${unread} unread in your inbox`, body: 'Offers expire, don\u2019t sleep on them.', cta: 'Open', to: { tab: 'phone', app: 'inbox' }, tone: 'phone' });
   const released = s.songs.find((x) => x.status === 'released' && x.pitchedWeek !== s.week && s.week - x.releasedWeek < 8);
   if (released && p.socialEnergy >= 5) out.push({ id: 'pitch', title: 'Pitch to playlists', body: `“${released.title}” could land on a playlist.`, cta: 'Pitch', to: { tab: 'phone', app: 'treblify' }, tone: 'phone' });
   if (p.socialEnergy >= 15 && s.songs.some((x) => x.status === 'released')) out.push({ id: 'clip', title: 'Try for a viral moment', body: 'Promote a snippet on TreblrTok.', cta: 'TreblrTok', to: { tab: 'phone', app: 'treblrtok' }, tone: 'phone' });

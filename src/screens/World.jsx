@@ -144,7 +144,7 @@ function Gigs() {
   return (
     <div className="col">
       <label className="col gap6"><Mono>City</Mono>
-        <select value={city} onChange={(e) => setCity(e.target.value)}>{cities.map((c) => <option key={c.id} value={c.id}>{c.flag} {c.name} — {fmtNum(p.fanHeat[c.id] || 0)} fans{c.id === p.city ? ' (home)' : ''}</option>)}</select>
+        <select value={city} onChange={(e) => setCity(e.target.value)}>{cities.map((c) => <option key={c.id} value={c.id}>{c.flag} {c.name}, {fmtNum(p.fanHeat[c.id] || 0)} fans{c.id === p.city ? ' (home)' : ''}</option>)}</select>
       </label>
       <div className="small muted">Estimated demand: <b style={{ color: '#2DD4BF' }}>~{fmtNum(demand)} tickets</b>{city !== p.city && ' · travel costs apply'}</div>
       {VENUES.map((v) => {
@@ -181,7 +181,7 @@ function Tours() {
     const v = VENUES.find((x) => x.id === t.venueId);
     return (
       <div className="col">
-        <div className="card tight"><Mono>{t.name || 'On tour'} · {v.name}s</Mono><div className="small muted mt8">{t.reserve} energy reserved each week · {fmtMoney(t.gross)} your cut so far · {t.sellouts} sell-outs · show {t.showQuality ?? '—'}/100</div>{t.staff?.length ? <div className="tiny muted mt8">Crew: {t.staff.map((id) => TOUR_STAFF.find((x) => x.id === id)?.name).join(', ')} · {fmtMoney(tourStaffCost(t.staff, t.venueId))}/week</div> : null}</div>
+        <div className="card tight"><Mono>{t.name || 'On tour'} · {v.name}s</Mono><div className="small muted mt8">{t.reserve} energy reserved each week · {fmtMoney(t.gross)} your cut so far · {t.sellouts} sell-outs · show {t.showQuality ?? '-'}/100</div>{t.staff?.length ? <div className="tiny muted mt8">Crew: {t.staff.map((id) => TOUR_STAFF.find((x) => x.id === id)?.name).join(', ')} · {fmtMoney(tourStaffCost(t.staff, t.venueId))}/week</div> : null}</div>
         {t.stops.map((x, i) => {
           const c = cityById(x.cityId);
           return (
@@ -375,7 +375,7 @@ function Festivals() {
   const f = poster && list.find((x) => x.key === poster);
   return (
     <div className="col">
-      <div className="small muted">Pitch yourself 7–16 weeks before a festival. Lineups drop 6 weeks out — that’s when you find out. Your likely slot today: <b>{festSlotFor(state) || 'not yet (popularity 28+)'}</b>.</div>
+      <div className="small muted">Pitch yourself 7–16 weeks before a festival. Lineups drop 6 weeks out, that’s when you find out. Your likely slot today: <b>{festSlotFor(state) || 'not yet (popularity 28+)'}</b>.</div>
       {list.map((x) => {
         const st = x.state || {};
         const announced = state.week >= x.lineupWeek;
@@ -485,7 +485,7 @@ function Payola() {
   const banned = p.chartBanUntil && state.week <= p.chartBanUntil;
   return (
     <div className="col">
-      <p className="muted" style={{ margin: 0 }}>Pay “consultants” for spins and streams. It works — millions of streams — but every deal raises suspicion. Above 30, any week can bring an exposé: an 8-week chart ban, 10% of your fans gone, hype wiped, and labels may drop you.</p>
+      <p className="muted" style={{ margin: 0 }}>Pay “consultants” for spins and streams. It works, millions of streams, but every deal raises suspicion. Above 30, any week can bring an exposé: an 8-week chart ban, 10% of your fans gone, hype wiped, and labels may drop you.</p>
       <div className="card tight">
         <div className="row between"><Mono>Suspicion</Mono><b style={{ color: p.suspicion > 30 ? '#FF4D5E' : '#FFB020' }}>{Math.round(p.suspicion)}/100</b></div>
         <div className="mt8"><Bar pct={p.suspicion / 100} color={p.suspicion > 30 ? '#FF4D5E' : '#FFB020'} /></div>

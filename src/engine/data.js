@@ -114,9 +114,9 @@ export const COVER_GRADIENTS = [
 ];
 
 export const STAFF = [
-  { id: 'manager', name: 'Manager', salary: 1500, commission: 0.1, buff: 'Takes 10% of income on top of salary. +10% on streams, bigger and better offers', tips: ['Release singles 3–6 weeks apart to keep streams stacked.', 'Never let cash dip below two weeks of expenses.', 'A label deal is a loan — read the royalty, not the advance.'] },
-  { id: 'publicist', name: 'Publicist', salary: 1000, buff: 'Hype decays slower, press bookings cost less energy', tips: ['Post the week of a release — that is when hype converts.', 'Bad press fades faster when you stay visible.'] },
-  { id: 'booking', name: 'Booking agent', salary: 700, commission: 0.1, buff: 'Takes 10% of gig income. +20% gig pay, more and better gig offers', tips: ['Play where your fan heat is highest — the map shows it.', 'Selling out a small room beats half-filling an arena.'] },
+  { id: 'manager', name: 'Manager', salary: 1500, commission: 0.1, buff: 'Takes 10% of income on top of salary. +10% on streams, bigger and better offers', tips: ['Release singles 3–6 weeks apart to keep streams stacked.', 'Never let cash dip below two weeks of expenses.', 'A label deal is a loan, read the royalty, not the advance.'] },
+  { id: 'publicist', name: 'Publicist', salary: 1000, buff: 'Hype decays slower, press bookings cost less energy', tips: ['Post the week of a release, that is when hype converts.', 'Bad press fades faster when you stay visible.'] },
+  { id: 'booking', name: 'Booking agent', salary: 700, commission: 0.1, buff: 'Takes 10% of gig income. +20% gig pay, more and better gig offers', tips: ['Play where your fan heat is highest, the map shows it.', 'Selling out a small room beats half-filling an arena.'] },
 ];
 
 export const JOBS = [

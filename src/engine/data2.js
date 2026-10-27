@@ -208,13 +208,13 @@ export const AD_TIERS = [
 // ---------- Store (placeholder only: NO payments are processed) ----------
 export const STORE_ITEMS = {
   cash: [
-    { id: 'cash1', name: 'Pocket money', amount: '$50,000 in-game cash', price: '—' },
-    { id: 'cash2', name: 'Advance', amount: '$250,000 in-game cash', price: '—' },
-    { id: 'cash3', name: 'Label money', amount: '$1,000,000 in-game cash', price: '—' },
+    { id: 'cash1', name: 'Pocket money', amount: '$50,000 in-game cash', price: '-' },
+    { id: 'cash2', name: 'Advance', amount: '$250,000 in-game cash', price: '-' },
+    { id: 'cash3', name: 'Label money', amount: '$1,000,000 in-game cash', price: '-' },
   ],
   promo: [
-    { id: 'promo1', name: 'Promo boost', amount: '+250K promo streams on one song', price: '—' },
-    { id: 'promo2', name: 'Release push', amount: '+1M promo streams over 2 weeks', price: '—' },
+    { id: 'promo1', name: 'Promo boost', amount: '+250K promo streams on one song', price: '-' },
+    { id: 'promo2', name: 'Release push', amount: '+1M promo streams over 2 weeks', price: '-' },
   ],
   sub: { name: 'Treblr+', perks: ['Extra save slots', 'Exclusive cover-art styles', 'Weekly bonus energy (+10)', 'Early access to new apps', 'Support Treblr development'] },
 };

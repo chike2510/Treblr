@@ -22,7 +22,7 @@ export function fmtMoney(n) {
   return s + Math.round(a).toLocaleString('en-US');
 }
 export function fmtDelta(n, money = false) {
-  if (!n) return '—';
+  if (!n) return '-';
   const v = money ? fmtMoney(Math.abs(n)) : fmtNum(Math.abs(n));
   return `${n > 0 ? '▲' : '▼'} ${v}`;
 }

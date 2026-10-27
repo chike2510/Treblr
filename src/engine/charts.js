@@ -79,7 +79,7 @@ export function movement(entry) {
   if (entry.p == null) return { kind: 'new', label: 'NEW' };
   if (entry.p > entry.r) return { kind: 'up', label: `▲${entry.p - entry.r}` };
   if (entry.p < entry.r) return { kind: 'down', label: `▼${entry.r - entry.p}` };
-  return { kind: 'same', label: '—' };
+  return { kind: 'same', label: '-' };
 }
 
 export function chartItem(state, chartId, entry) {
@@ -87,19 +87,19 @@ export function chartItem(state, chartId, entry) {
   if (ch?.kind === 'albums') {
     if (entry.pl) {
       const rel = state.releases.find((r) => r.id === entry.id);
-      return { title: rel?.title || '—', artist: state.player.stageName, cover: rel?.cover, pl: true };
+      return { title: rel?.title || '-', artist: state.player.stageName, cover: rel?.cover, pl: true };
     }
     const a = state.rivalAlbums.find((x) => x.id === entry.id);
     const r = state.rivals.find((x) => x.id === a?.rivalId);
-    return { title: a?.title || '—', artist: r?.name || '—', cover: a?.cover, pl: false };
+    return { title: a?.title || '-', artist: r?.name || '-', cover: a?.cover, pl: false };
   }
   if (entry.pl) {
     const s = state.songs.find((x) => x.id === entry.id);
-    return { title: s?.title || '—', artist: s?.featName ? `${state.player.stageName} feat. ${s.featName}` : state.player.stageName, cover: s?.cover, pl: true, songId: s?.id, featId: s?.feat || null };
+    return { title: s?.title || '-', artist: s?.featName ? `${state.player.stageName} feat. ${s.featName}` : state.player.stageName, cover: s?.cover, pl: true, songId: s?.id, featId: s?.feat || null };
   }
   const s = state.rivalSongs.find((x) => x.id === entry.id);
   const r = state.rivals.find((x) => x.id === s?.rivalId);
-  return { title: s?.title || '—', artist: s?.featPlayer ? `${r?.name || '—'} feat. ${state.player.stageName}` : r?.name || '—', cover: s?.cover, pl: false, fp: !!s?.featPlayer, songId: s?.id, country: r?.country, rivalId: r?.id || null };
+  return { title: s?.title || '-', artist: s?.featPlayer ? `${r?.name || '-'} feat. ${state.player.stageName}` : r?.name || '-', cover: s?.cover, pl: false, fp: !!s?.featPlayer, songId: s?.id, country: r?.country, rivalId: r?.id || null };
 }
 
 // All chart positions currently held by the player.

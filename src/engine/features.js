@@ -178,7 +178,7 @@ export function spotlightReact(state, { choice }) {
       openCrisis(s, 'beef', `${r.name}\u2019s fans swarm your mentions`, `Your diss aimed at ${r.name} backfired. Their fanbase is flooding your comments.`);
       return { msg: `Shots fired at ${r.name}… and their fans fired back.` };
     }
-    return { msg: `Shots fired at ${r.name}. Hype up — watch your back.` };
+    return { msg: `Shots fired at ${r.name}. Hype up, watch your back.` };
   });
 }
 
@@ -196,7 +196,7 @@ export function respondDrama(state, { choice, title }) {
       relBump(c, -20); c.beef = true;
       gainHype(s.player, 4);
       logTimeline(s, 'beef', `Wrote a diss track aimed at ${r.name}`, `“${w.data.title}”`);
-      return { msg: `Diss track “${w.data.title}” written (Q${w.data.quality}). Record and release it for maximum heat — it\u2019s risky.` };
+      return { msg: `Diss track “${w.data.title}” written (Q${w.data.quality}). Record and release it for maximum heat, it\u2019s risky.` };
     });
   }
   return run(state, (s, rng) => {
@@ -258,7 +258,7 @@ export function askOut(state, { contactId }) {
   return run(state, (s, rng) => {
     const c = s.contacts.find((x) => x.id === contactId);
     if (!c) return fail('Contact not found.');
-    if (c.rivalId || c.real || c.role === 'artist') return fail('Keep it professional — artists are collaborators, not dates.');
+    if (c.rivalId || c.real || c.role === 'artist') return fail('Keep it professional, artists are collaborators, not dates.');
     if (c.role !== 'person') return fail('You can only ask out someone you\u2019ve met.');
     const p = s.player;
     if (p.relationship.status === 'dating') return fail('You\u2019re already seeing someone.');
@@ -427,7 +427,7 @@ export function giveSpeech(state, { style }) {
     a.status = 'done'; a.speech = sp.id;
     if (sp.risk && rng.chance(sp.risk)) {
       gainHype(p, 4);
-      openCrisis(s, 'rant', 'Your acceptance speech went viral — for the wrong reasons', 'Half the internet loved your statement. The other half wants an apology.');
+      openCrisis(s, 'rant', 'Your acceptance speech went viral, for the wrong reasons', 'Half the internet loved your statement. The other half wants an apology.');
       return { msg: 'Bold speech. The internet is split.' };
     }
     gainHype(p, sp.hype);
@@ -617,6 +617,6 @@ export function tokCreate(state, { songId, mode = 'snippet', rivalId = null, sou
     stat(s, 'post');
     s.social.clipz.unshift({ id: uid(s, 'cz'), week: s.week, songId, title: song.title, label, mode, views: Math.round(v), viral, likes: Math.round(v * 0.09), shares: Math.round(v * 0.01), replies: [] });
     s.social.clipz.length = Math.min(s.social.clipz.length, 30);
-    return { msg: `${label}: ${fmtNum(Math.round(v))} views${viral ? ' — viral!' : ''}`, data: { viral } };
+    return { msg: `${label}: ${fmtNum(Math.round(v))} views${viral ? ', viral!' : ''}`, data: { viral } };
   });
 }

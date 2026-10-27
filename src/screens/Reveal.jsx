@@ -26,7 +26,7 @@ export default function Reveal({ report, onClose }) {
             <div key={i} className="card tight row" style={{ animationDelay: `${0.6 + i * 0.12}s`, borderColor: 'rgba(255,176,32,.35)' }}>
               <div className="num" style={{ fontSize: 28, color: '#FFB020', width: 56 }}>#{m.r}</div>
               <div className="grow"><b className="ellipsis">{m.title}</b><div className="tiny muted">{m.chart}</div></div>
-              <b style={{ color: m.p == null ? '#FFB020' : m.p > m.r ? '#3DDC84' : m.p < m.r ? '#FF4D5E' : '#9A9AA5' }}>{m.p == null ? 'NEW' : m.p > m.r ? `▲${m.p - m.r}` : m.p < m.r ? `▼${m.r - m.p}` : '—'}</b>
+              <b style={{ color: m.p == null ? '#FFB020' : m.p > m.r ? '#3DDC84' : m.p < m.r ? '#FF4D5E' : '#9A9AA5' }}>{m.p == null ? 'NEW' : m.p > m.r ? `▲${m.p - m.r}` : m.p < m.r ? `▼${m.r - m.p}` : '-'}</b>
             </div>
           ))}
         </div>

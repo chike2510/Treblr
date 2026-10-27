@@ -77,7 +77,7 @@ export function writeSong(state, { title, genre, theme, length = 180, cowriter =
     };
     if (diss) { song.diss = diss; song.theme = 'Diss'; }
     s.songs.unshift(song);
-    return { msg: `“${song.title}” written — quality ${q}.`, data: song };
+    return { msg: `“${song.title}” written, quality ${q}.`, data: song };
   });
 }
 
@@ -100,7 +100,7 @@ export function recordSong(state, { songId, producerId }) {
     song.status = 'recorded';
     bump(s.player, 'vocals', 0.5);
     if (prod.id === 'self') bump(s.player, 'production', 0.8);
-    return { msg: `“${song.title}” recorded — final quality ${song.quality}.` };
+    return { msg: `“${song.title}” recorded, final quality ${song.quality}.` };
   });
 }
 
@@ -279,7 +279,7 @@ export function makeVideo(state, { songId, tier, director, concept = 'performanc
     s.player.fans += Math.round(weekly * 0.002 * c.fans);
     if (c.id === 'dance') song.viral = Math.max(song.viral || 1, 1 + 0.2 * c.viral * fit);
     if (t.mult >= 3.5) logTimeline(s, 'video', `Music video: “${song.title}”`, `${t.name} · ${c.name}`);
-    return { msg: `“${song.title}” video is live on TreblrTube — video score ${vq}.`, data: { quality: vq } };
+    return { msg: `“${song.title}” video is live on TreblrTube, video score ${vq}.`, data: { quality: vq } };
   });
 }
 
@@ -317,7 +317,7 @@ export function playGig(state, { venueId, cityId }) {
     const v = VENUES.find((x) => x.id === venueId);
     const city = cityById(cityId);
     if (!v) return fail('Pick a venue.');
-    if (s.tour) return fail('You\u2019re on tour — finish or cancel it first.');
+    if (s.tour) return fail('You\u2019re on tour, finish or cancel it first.');
     if (!venueUnlocked(s.player, v)) return fail(`Promoters won’t book you in a ${v.name.toLowerCase()} yet (${venueLockReason(s.player, v).toLowerCase()}).`);
     if (!needEnergy(s, v.energy)) return fail('Not enough energy for this show.');
     const travel = cityId === s.player.city ? 0 : Math.round(150 + v.capacity * 0.6);
@@ -333,7 +333,7 @@ export function playGig(state, { venueId, cityId }) {
     stat(s, 'gig');
     const soldOut = sold >= v.capacity;
     const pay = sold * v.ticket * ARTIST_CUT * (s.player.staff.booking ? 1.2 : 1);
-    earn(s, 'gigs', pay, `${v.name} — ${city.name}`);
+    earn(s, 'gigs', pay, `${v.name}, ${city.name}`);
     const roomFit = clamp(v.capacity / Math.max(80, s.player.fans * 0.05), 0.15, 1);
     const newFans = Math.round(sold * rng.float(0.06, 0.16) * (1 + s.player.skills.performance / 100) * fat * roomFit);
     s.player.fans += newFans;
@@ -345,7 +345,7 @@ export function playGig(state, { venueId, cityId }) {
       if (v.capacity >= 2000) pushNews(s, `${s.player.stageName} sells out ${city.name}'s ${v.name.toLowerCase()}`, true, 'Live');
       if (fat > 0.7 && roomFit > 0.5) s.weekFlags.sellout = { venue: v.name, city: city.name };
     }
-    const note = fat < 0.7 ? ' · The regulars have seen you — try a bigger room or a new city.' : roomFit < 0.4 ? ' · You\u2019ve outgrown this room.' : '';
+    const note = fat < 0.7 ? ' · The regulars have seen you, try a bigger room or a new city.' : roomFit < 0.4 ? ' · You\u2019ve outgrown this room.' : '';
     return { msg: `${soldOut ? 'SOLD OUT! ' : ''}${fmtNum(sold)}/${fmtNum(v.capacity)} tickets · ${fmtMoney(pay)} · +${fmtNum(newFans)} fans${note}`, data: { sold, soldOut, pay, fatigue: fat } };
   });
 }
@@ -427,7 +427,7 @@ export function setStaff(state, { role, hire }) {
     if (!st) return fail('Unknown role.');
     if (hire && s.player.cash < st.salary * 2) return fail(`Keep at least ${fmtMoney(st.salary * 2)} to cover their first weeks.`);
     s.player.staff[role] = !!hire;
-    return { msg: hire ? `${st.name} hired — ${fmtMoney(st.salary)}/week.` : `${st.name} let go.` };
+    return { msg: hire ? `${st.name} hired, ${fmtMoney(st.salary)}/week.` : `${st.name} let go.` };
   });
 }
 
@@ -493,7 +493,7 @@ export function doMedia(state, { kind }) {
       if (!song) return fail('Release a song before a radio tour.');
       song.radioBoost = (song.radioBoost || 0) + 0.6 * labelReach(s);
       gainHype(p, 4);
-      return { msg: `Radio tour done — “${song.title}” gets more spins.` };
+      return { msg: `Radio tour done, “${song.title}” gets more spins.` };
     }
     const fans = Math.round((Math.min(20000, p.fans * 0.02) + 50) * (1 + p.skills.charisma / 100));
     p.fans += fans;

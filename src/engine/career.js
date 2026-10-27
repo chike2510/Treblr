@@ -162,7 +162,7 @@ export function albumWeek(s, rng, news) {
       rel.totalUnits = (rel.preUnits || 0) + u.units;
       const best = s.firstWeeks.filter((x) => x.year === year).reduce((m, x) => Math.max(m, x.units), 0);
       s.firstWeeks.push({ year, week: s.week, units: u.units, title: rel.title, pl: true });
-      statPost(s, `“${rel.title}” by ${p.stageName} opens with ${fmtNum(u.units)} units in its first week${u.units > best && best > 0 ? ' — the biggest debut of the year so far' : ''}. 📊`, true);
+      statPost(s, `“${rel.title}” by ${p.stageName} opens with ${fmtNum(u.units)} units in its first week${u.units > best && best > 0 ? ', the biggest debut of the year so far' : ''}. 📊`, true);
       if (u.units > best && best > 0) addStarPoints(s, 10);
     } else {
       rel.totalUnits = (rel.totalUnits || rel.preUnits || 0) + u.units;
@@ -180,7 +180,7 @@ export function albumWeek(s, rng, news) {
       a.totalUnits = (a.preUnits || 0) + units;
       const best = s.firstWeeks.filter((x) => x.year === year).reduce((m, x) => Math.max(m, x.units), 0);
       s.firstWeeks.push({ year, week: s.week, units, title: a.title, rivalId: r.id });
-      if (r.tier === 'superstar' || r.tier === 'star' || units > best) statPost(s, `${r.name}’s “${a.title}” debuts with ${fmtNum(units)} first-week units${units > best && best > 0 ? ' — biggest week of the year' : ''}.`, false, r.id);
+      if (r.tier === 'superstar' || r.tier === 'star' || units > best) statPost(s, `${r.name}’s “${a.title}” debuts with ${fmtNum(units)} first-week units${units > best && best > 0 ? ', biggest week of the year' : ''}.`, false, r.id);
     } else if (a.releasedWeek < s.week) {
       a.totalUnits = (a.totalUnits || 0) + units;
     }
@@ -294,7 +294,7 @@ export function trackChartRuns(s) {
         const prev = st[key];
         const fastest = prev == null || weeks < prev;
         if (fastest) st[key] = weeks;
-        statPost(s, `“${song.title}” by ${p.stageName} passes ${mark === 1e8 ? '100M' : '1B'} streams in ${weeks} weeks${fastest && prev != null ? ' — their fastest ever' : ''}.`, true);
+        statPost(s, `“${song.title}” by ${p.stageName} passes ${mark === 1e8 ? '100M' : '1B'} streams in ${weeks} weeks${fastest && prev != null ? ', their fastest ever' : ''}.`, true);
       }
     }
   }

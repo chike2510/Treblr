@@ -33,9 +33,25 @@ export default function App() {
   });
   const [mode, setMode] = useState(() => (state ? 'game' : 'title'));
 
+  // Save off the critical path: the week renders first, the (large) save is written when idle,
+  // and rapid taps coalesce into one write. Flushed on tab hide so nothing is lost.
+  const pendingSave = useRef(null);
+  useEffect(() => { if (pendingSave.current) pendingSave.current(); }, [mode, slot]); // flush before switching
   useEffect(() => {
-    if (state && mode === 'game') saveGame(state, slot);
+    if (!state || mode !== 'game') return undefined;
+    const write = () => { pendingSave.current = null; saveGame(state, slot); };
+    pendingSave.current = write;
+    const ric = window.requestIdleCallback || ((fn) => setTimeout(fn, 120));
+    const cic = window.cancelIdleCallback || clearTimeout;
+    const id = ric(write, { timeout: 1500 });
+    return () => cic(id);
   }, [state, slot, mode]);
+  useEffect(() => {
+    const flush = () => { if (document.visibilityState === 'hidden' && pendingSave.current) pendingSave.current(); };
+    document.addEventListener('visibilitychange', flush);
+    window.addEventListener('pagehide', flush);
+    return () => { document.removeEventListener('visibilitychange', flush); window.removeEventListener('pagehide', flush); };
+  }, []);
 
   const startNew = (s) => { setSlot(s); setMode('onboarding'); };
   const loadSlot = (s) => {

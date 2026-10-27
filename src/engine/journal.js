@@ -11,7 +11,7 @@ const GROUP_LABEL = { offer: 'new offers', message: 'new messages', bank: 'bank 
 export function pushNotif(s, kind, text, to = null, group = null) {
   s.notifications = s.notifications || [];
   if (group) {
-    const g = s.notifications.find((n) => n.group === group && !n.read && s.week - n.week <= 3);
+    const g = s.notifications.find((n) => n.group === group && !n.read && s.week - (n.firstWeek ?? n.week) <= 2);
     if (g) {
       g.count = (g.count || 1) + 1;
       g.latest = text;
@@ -23,7 +23,7 @@ export function pushNotif(s, kind, text, to = null, group = null) {
     }
   }
   s.nextId = (s.nextId || 1) + 1;
-  const n = { id: `n${s.nextId}`, week: s.week, kind, text, to, read: false, ...(group ? { group, count: 1, latest: text } : {}) };
+  const n = { id: `n${s.nextId}`, week: s.week, kind, text, to, read: false, ...(group ? { group, count: 1, latest: text, firstWeek: s.week } : {}) };
   s.notifications.unshift(n);
   if (s.notifications.length > 120) s.notifications.length = 120;
   return n;

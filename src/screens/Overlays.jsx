@@ -141,7 +141,7 @@ export function NotificationsPanel({ onClose }) {
           {list.slice(0, 40).map((n) => (
             <button key={n.id} className={`notif ${n.read ? '' : 'unread'}`} onClick={() => { act(markNotif, { id: n.id }, { silent: true }); onClose(); go(n.to); }}>
               <span className="notif-ic"><Icon name={KIND_ICON[n.kind] || 'bell'} size={16} /></span>
-              <span className="grow" style={{ minWidth: 0 }}><span className="small notif-text">{n.count > 1 ? n.latest : n.text}</span><span className="tiny muted" style={{ display: 'block' }}>Week {n.week}{n.count > 1 ? ` · ${n.count} similar` : ''}</span></span>
+              <span className="grow" style={{ minWidth: 0 }}><span className="small notif-text">{n.text}</span><span className="tiny muted" style={{ display: 'block' }}>Week {n.week}{n.count > 1 ? ` · ${n.count} similar` : ''}</span></span>
               {n.count > 1 && <span className="notif-count">{n.count}</span>}
               {!n.read && <i className="notif-dot" />}
             </button>

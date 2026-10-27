@@ -353,7 +353,7 @@ describe('save migration v3 -> v4', () => {
     for (const a of v3.rivalAlbums) { a.cover = { gradient: 2 }; delete a.firstWeek; delete a.totalUnits; delete a.type; }
     for (const r of v3.rivals) { delete r.nextSingle; delete r.nextAlbum; delete r.eraSingles; }
     const m = E.migrate(v3);
-    expect(m.version).toBe(4);
+    expect(m.version).toBe(E.SAVE_VERSION);
     expect(m.songs[0].title).toBe('Old Hit');
     expect(m.songs[0].cert).toBeNull(); // 20M streams is below the new 75M Gold line
     expect(m.player.skills.acting).toBe(0);

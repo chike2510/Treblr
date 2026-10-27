@@ -5,6 +5,7 @@ import { clamp, uid, fmtMoney, fmtNum } from './util.js';
 import { gainHype } from './model.js';
 import { TRAINING, ERA_COLORS, ERA_VIBES, OUTFITS, SPEECHES, VENUES, cityById, FICTIONAL_PEOPLE, venueUnlocked, venueLockReason } from './data.js';
 import { collabQuote, tierLabel } from './npc.js';
+import { scaledCollabQuote, genreFit, rivalBusy } from './v5.js';
 import { weeklyProgress, stat } from './weekly.js';
 import { logTimeline, pushNotif } from './journal.js';
 import { sameLabel, setlistScore, tourStaffCost, ownsKind } from './business.js';
@@ -347,9 +348,9 @@ export function markAllNotifs(state) {
 // ---------- collabs ----------
 export function featureQuote(state, rivalId) {
   const r = state.rivals.find((x) => x.id === rivalId);
-  return r ? { ...collabQuote(state.player, r, relOf(state, rivalId), sameLabel(state, r)), tier: tierLabel(r.tier) } : null;
+  return r ? { ...scaledCollabQuote(state.player, r, relOf(state, rivalId), sameLabel(state, r), { fit: genreFit(state.player.genre, r), busy: rivalBusy(state, r) }), tier: tierLabel(r.tier) } : null;
 }
-export function requestFeature(state, { rivalId, songId }) {
+export function requestFeature(state, { rivalId, songId, mode = 'fee' }) {
   return run(state, (s, rng) => {
     const r = s.rivals.find((x) => x.id === rivalId);
     const song = s.songs.find((x) => x.id === songId);
@@ -359,25 +360,28 @@ export function requestFeature(state, { rivalId, songId }) {
     const c = contactForRival(s, rivalId);
     if (c.beef) return fail(`${r.name} isn\u2019t taking your calls right now.`);
     if (c.lastAsk != null && s.week - c.lastAsk < 4) return fail(`${r.name}\u2019s team said ask again in a few weeks.`);
-    const q = collabQuote(s.player, r, c.rel, sameLabel(s, r));
-    if (s.player.cash < q.fee) return fail(`${r.name}\u2019s feature fee is ${fmtMoney(q.fee)}.`);
+    const q0 = scaledCollabQuote(s.player, r, c.rel, sameLabel(s, r), { fit: genreFit(s.player.genre, r), busy: rivalBusy(s, r) });
+    const split = mode === 'split';
+    const q = { ...q0, fee: split ? q0.splitFee : q0.fee, odds: split ? q0.splitOdds : q0.odds };
+    if (s.player.cash < q.fee) return fail(`${r.name}\u2019s ${split ? 'upfront' : 'feature'} fee is ${fmtMoney(q.fee)}.`);
     if (s.player.energy < 10) return fail('Needs 10 energy.');
     s.player.energy -= 10;
     c.lastAsk = s.week;
     if (!rng.chance(q.odds)) {
       relBump(c, -2);
-      c.thread.push({ from: 'them', text: rng.pick(['schedule is crazy rn, maybe next time', 'not the right fit for me, but good luck!', 'my team says we\u2019re booked up 🙏']), week: s.week });
+      c.thread.push({ from: 'them', text: q.busy ? 'locked in on the album right now, hit me after the rollout' : rng.pick(['schedule is crazy rn, maybe next time', 'not the right fit for me, but good luck!', 'my team says we\u2019re booked up 🙏']), week: s.week });
       return { msg: `${r.name} passed (${Math.round(q.odds * 100)}% odds).`, data: { accepted: false } };
     }
     spend(s, 'features', q.fee, `Feature fee: ${r.name}`);
     song.feat = r.id;
     song.featName = r.name;
     song.featBoost = Math.round(r.monthlyListeners * 0.03);
+    if (split) song.featShare = q0.splitShare;
     if (song.status === 'recorded') song.quality = clamp(song.quality + 3, 1, 100);
     relBump(c, 6);
     c.thread.push({ from: 'them', text: rng.pick(['sent my verse over, this one\u2019s special 🔥', 'loved the record, verse is done', 'let\u2019s make some noise 🙌']), week: s.week });
     pushNews(s, `${r.name} hops on ${s.player.stageName}\u2019s “${song.title}”`, true, 'Collab');
-    logTimeline(s, 'collab', `${r.name} featured on “${song.title}”`, fmtMoney(q.fee));
+    logTimeline(s, 'collab', `${r.name} featured on “${song.title}”`, split ? `${fmtMoney(q.fee)} + ${Math.round(q0.splitShare * 100)}% of streaming` : fmtMoney(q.fee));
     return { msg: `${r.name} is on “${song.title}”!`, data: { accepted: true } };
   });
 }

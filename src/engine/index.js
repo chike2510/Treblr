@@ -49,3 +49,4 @@ export function nearbyRivals(s, n = 3) {
 export * from './career.js';
 export * from './business.js';
 export * from './data2.js';
+export * from './v5.js';

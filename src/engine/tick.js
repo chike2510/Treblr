@@ -1,5 +1,6 @@
 // The weekly tick: advances the world one week. Pure: returns a new state with `lastReport`.
 import { createRng } from './rng.js';
+import { trackSongCharts, investTick, ownLabelTick, syncAwardHistory, FEAT_SHARE, SUBMIT_LEAD } from './v5.js';
 import { clone, clamp, uid, fmtMoney, fmtNum } from './util.js';
 import { CHARTS, CITIES, ROLLOUTS, VENUES, LABELS, BRANDS, AWARD_SHOWS, cityById, genreName, venueUnlocked } from './data.js';
 import { playerStreams, rivalSongPotential, radioSpins, marketShares, NPC_STREAM_K, PAY_PER_STREAM, FAN_FROM_DISC, FAN_FROM_AUD, FAN_HALF, gainHype, hypeDecay, releaseFatigue } from './model.js';
@@ -36,6 +37,7 @@ export function advanceWeek(state) {
   if (flags.live) ev(40, 'live', {});
 
   // 0. Lingering systems that resolve before the week plays out.
+  syncAwardHistory(s);
   awardTick(s, rng);
   crisisTick(s, rng);
 
@@ -124,15 +126,17 @@ export function advanceWeek(state) {
     songStreams[song.id] = streams;
     song.history = [...(song.history || []), streams].slice(-26);
     totalStreams += streams;
-    streamRevenue += streams * PAY_PER_STREAM * (1 - (song.cowriterShare || 0));
+    streamRevenue += streams * PAY_PER_STREAM * (1 - (song.cowriterShare || 0) - (song.featShare || 0));
     const sales = Math.round(streams / (age <= 1 ? 600 : 1100) * rng.float(0.8, 1.2));
     song.weeklySales = sales;
     song.lifetimeSales = (song.lifetimeSales || 0) + sales;
     salesRevenue += sales * 0.69 * 0.7;
+    song.revenue = (song.revenue ?? 0) + streams * PAY_PER_STREAM * (1 - (song.cowriterShare || 0) - (song.featShare || 0)) + sales * 0.69 * 0.7;
     if (!topSong || streams > topSong.weeklyStreams) topSong = song;
     song.viral = song.viral > 1.02 ? 1 + (song.viral - 1) * 0.6 : 1;
     if (song.playlists && age > 10 && rng.chance(0.2)) song.playlists -= 1;
     song.radio = radioSpins(p.popularity, song.quality, age, { label: !!p.label, payola: (song.payola || 0) + (song.radioBoost || 0) });
+    song.radioTotal = (song.radioTotal || 0) + (song.radio || 0);
     song.payola = (song.payola || 0) * 0.6;
     song.radioBoost = (song.radioBoost || 0) * 0.7;
     const c = certifySong(s, song, name, true, (t) => pushNews(s, t, true, 'Certified'));
@@ -194,6 +198,8 @@ export function advanceWeek(state) {
     if (!r) continue;
     rivalPull[r.id] = (rivalPull[r.id] || 0) + rivalSongPotential(r, song, W - song.releasedWeek) / (r.monthlyListeners * NPC_STREAM_K);
   }
+  let featRevenue = 0;
+  let featStreams = 0;
   for (const song of s.rivalSongs) {
     const r = rivalById[song.rivalId];
     if (!r) continue;
@@ -201,12 +207,24 @@ export function advanceWeek(state) {
     // A catalogue shares its audience: more songs out = less per song (sqrt sharing).
     song.weeklyStreams = Math.round(rivalSongPotential(r, song, age) / Math.sqrt(Math.max(1, rivalPull[r.id])) * rng.float(0.9, 1.1));
     song.lifetimeStreams += song.weeklyStreams;
+    if (song.featPlayer) {
+      song.weeklyStreams = Math.round(song.weeklyStreams * (song.viral > 1 ? song.viral : 1));
+      song.viral = song.viral > 1.02 ? 1 + (song.viral - 1) * 0.6 : 1;
+      song.history = [...(song.history || []), song.weeklyStreams].slice(-26);
+      if (age === 0) song.firstWeekStreams = song.weeklyStreams;
+      const cut = song.weeklyStreams * PAY_PER_STREAM * FEAT_SHARE;
+      song.playerRevenue = (song.playerRevenue || 0) + cut;
+      featRevenue += cut;
+      featStreams += song.weeklyStreams;
+    }
     song.radio = radioSpins(popularityFromListeners(r.monthlyListeners) * 0.85, song.quality, age, { label: true });
+    if (song.featPlayer) song.radioTotal = (song.radioTotal || 0) + song.radio;
     if (song.lifetimeStreams >= 75e6 && (r.tier === 'superstar' || r.tier === 'star')) certifySong(s, song, r.name, false);
   }
   const keepIds = new Set(s.rivalAlbums.filter((x) => W - x.releasedWeek < 60).flatMap((a) => a.songIds || []));
   for (const r of s.rivals) for (const id of r.eraSingles || []) keepIds.add(id);
-  s.rivalSongs = s.rivalSongs.filter((x) => W - x.releasedWeek < 40 || (keepIds.has(x.id) && W - x.releasedWeek < 70));
+  if (featRevenue >= 1) earn(s, 'features', labelRoyalty(s, featRevenue), 'Featured verse royalties');
+  s.rivalSongs = s.rivalSongs.filter((x) => x.featPlayer || W - x.releasedWeek < 40 || (keepIds.has(x.id) && W - x.releasedWeek < 70));
   s.rivalAlbums = s.rivalAlbums.filter((x) => W - x.releasedWeek < 60);
 
   // 5. Fans, listeners, popularity, hype.
@@ -217,7 +235,7 @@ export function advanceWeek(state) {
   const churn = Math.round(p.fans * churnRate);
   p.fans = Math.max(0, p.fans + newFans - churn);
   distributeFans(p, newFans);
-  p.monthlyListeners = Math.round(p.monthlyListeners * ML_KEEP + (totalStreams * 0.7 + p.fans * 0.22) * (1 - ML_KEEP));
+  p.monthlyListeners = Math.round(p.monthlyListeners * ML_KEEP + ((totalStreams + featStreams * 0.15) * 0.7 + p.fans * 0.22) * (1 - ML_KEEP));
   const tierMove = updateFame(s);
   if (tierMove?.up) {
     const t = FAME_TIERS.find((x) => x.id === tierMove.to);
@@ -290,6 +308,7 @@ export function advanceWeek(state) {
       }
     }
   }
+  trackSongCharts(s);
   p.chartStreak = charting ? (p.chartStreak || 0) + 1 : 0;
   p.bestStreak = Math.max(p.bestStreak || 0, p.chartStreak);
   if (chartMoves.some((m) => m.firstTime)) pushNotif(s, 'chart', `New chart entry: ${chartMoves.find((m) => m.firstTime).title} #${chartMoves.find((m) => m.firstTime).r} ${chartMoves.find((m) => m.firstTime).chart}`, { tab: 'charts' }, 'chart');
@@ -308,14 +327,16 @@ export function advanceWeek(state) {
   const festResults = festivalTick(s, rng, ev);
   const film = actingTick(s, rng, ev);
   cloudTick(s);
+  investTick(s, rng);
+  ownLabelTick(s, rng);
   const yw = ((W - 1) % 52) + 1;
   const show = AWARD_SHOWS.find((a) => a.week === yw);
   if (show) {
     const a = awardNomination(s, rng, show, rivalById);
     if (a) events.push({ weight: 50, kind: 'event', vars: { text: `${name} nominated for ${a.category} at the ${a.show}` } });
   }
-  const soon = AWARD_SHOWS.find((a) => a.week === ((W + 1) % 52) + 1);
-  if (soon && !s.awardSubmission) openAwardSubmissions(s, soon, W + 2);
+  const soon = AWARD_SHOWS.find((a) => a.week === ((W + SUBMIT_LEAD - 1) % 52) + 1);
+  if (soon && (!s.awardSubmission || s.awardSubmission.showWeek < W)) openAwardSubmissions(s, soon, W + SUBMIT_LEAD);
 
   // 9. Offers.
   for (const m of s.inbox) if (m.type === 'offer' && !m.status && m.expires <= W) m.status = 'expired';

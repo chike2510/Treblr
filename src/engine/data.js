@@ -163,12 +163,14 @@ export const CHARTS = [
 // Song certification ladder (Gold 75M ... Diamond 3B). Each entry: { id, name, min }.
 export { SONG_CERTS as CERTS } from './data2.js';
 
+// The Golden Treble Awards is the headline show (the industry's biggest night). Submissions open
+// six weeks before each ceremony and close the week before.
 export const AWARD_SHOWS = [
-  { week: 8, name: 'Treblr Music Awards' },
-  { week: 20, name: 'Global Stream Awards' },
-  { week: 32, name: 'Summer Festival Season' },
-  { week: 44, name: 'World Music Honours' },
-  { week: 52, name: 'Year-End Charts' },
+  { week: 8, id: 'golden', name: 'Golden Treble Awards', headline: true, prestige: 3, city: 'la', desc: 'The industry’s biggest night. Voted by the Recording Guild.' },
+  { week: 20, id: 'stream', name: 'Global Stream Awards', prestige: 2, city: 'lon', desc: 'Fan-voted, built on streaming numbers.' },
+  { week: 32, id: 'video', name: 'TreblrTube Video Awards', prestige: 1.5, city: 'nyc', desc: 'Music videos, performances and moments.' },
+  { week: 44, id: 'world', name: 'World Music Honours', prestige: 2, city: 'par', desc: 'Artists breaking across borders.' },
+  { week: 52, id: 'yearend', name: 'Treblr Year-End Honours', prestige: 1, city: 'tyo', desc: 'The year’s chart champions.' },
 ];
 
 export const GOALS = [

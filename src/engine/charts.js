@@ -20,7 +20,7 @@ function songCandidates(state) {
   for (const s of state.rivalSongs) {
     if (!s.weeklyStreams) continue;
     const r = rivalById[s.rivalId];
-    out.push({ id: s.id, pl: false, streams: s.weeklyStreams, radio: s.radio || 0, sh: r?.markets ? artistShares(r) : shares(s.genre, r?.country) });
+    out.push({ id: s.id, pl: false, fp: !!s.featPlayer, streams: s.weeklyStreams, radio: s.radio || 0, sh: r?.markets ? artistShares(r) : shares(s.genre, r?.country) });
   }
   return out;
 }
@@ -57,7 +57,7 @@ function rank(cands, scoreFn, size, prev) {
     .map(({ c, score }, i) => {
       const p = prevMap[c.id];
       const r = i + 1;
-      return { id: c.id, pl: c.pl, r, p: p ? p.r : null, pk: p ? Math.min(p.pk, r) : r, w: p ? p.w + 1 : 1, s: Math.round(score) };
+      return { id: c.id, pl: c.pl, ...(c.fp ? { fp: true } : {}), r, p: p ? p.r : null, pk: p ? Math.min(p.pk, r) : r, w: p ? p.w + 1 : 1, s: Math.round(score) };
     });
 }
 
@@ -95,11 +95,11 @@ export function chartItem(state, chartId, entry) {
   }
   if (entry.pl) {
     const s = state.songs.find((x) => x.id === entry.id);
-    return { title: s?.title || '—', artist: s?.featName ? `${state.player.stageName} feat. ${s.featName}` : state.player.stageName, cover: s?.cover, pl: true, featId: s?.feat || null };
+    return { title: s?.title || '—', artist: s?.featName ? `${state.player.stageName} feat. ${s.featName}` : state.player.stageName, cover: s?.cover, pl: true, songId: s?.id, featId: s?.feat || null };
   }
   const s = state.rivalSongs.find((x) => x.id === entry.id);
   const r = state.rivals.find((x) => x.id === s?.rivalId);
-  return { title: s?.title || '—', artist: r?.name || '—', cover: s?.cover, pl: false, country: r?.country, rivalId: r?.id || null };
+  return { title: s?.title || '—', artist: s?.featPlayer ? `${r?.name || '—'} feat. ${state.player.stageName}` : r?.name || '—', cover: s?.cover, pl: false, fp: !!s?.featPlayer, songId: s?.id, country: r?.country, rivalId: r?.id || null };
 }
 
 // All chart positions currently held by the player.

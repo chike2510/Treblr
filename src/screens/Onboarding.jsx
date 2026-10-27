@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CITIES, GENRES, CAREER_PATHS, createNewGame, cityById, genreName, fmtMoney, fmtNum } from '../engine/index.js';
+import { loadRosterPack } from '../phone/roster.jsx';
 import { Icon, UploadButton, DEFAULT_FACE } from '../ui/kit.jsx';
 
 // "Cover Story" onboarding: the player builds their debut magazine cover live.
@@ -138,7 +139,7 @@ export default function Onboarding({ onDone, onCancel, initialStep = 0 }) {
 
   const sendToPrint = () => {
     setPrinting(true);
-    const game = createNewGame({ ...f, stageName: f.stageName.trim(), firstName: f.firstName.trim(), lastName: f.lastName.trim() });
+    const game = createNewGame({ ...f, roster: loadRosterPack() || undefined, stageName: f.stageName.trim(), firstName: f.firstName.trim(), lastName: f.lastName.trim() });
     setTimeout(() => onDone(game), reducedMotion() ? 250 : 1900);
   };
 

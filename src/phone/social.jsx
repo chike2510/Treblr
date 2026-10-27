@@ -4,7 +4,8 @@ import {
   postChirp, postSnapshot, respondDrama, goLive, tokCreate, makeVideo, VIDEO_DIRECTORS, VIDEO_CONCEPTS, SOCIAL, ENERGY,
   fmtNum, fmtMoney, genreName, cityById, COVER_GRADIENTS, fanComments, createRng, hashString,
 } from '../engine/index.js';
-import { useGame, Icon, Mono, Cover, Sheet, Seg, UploadButton, Empty, facePhoto, ArtistAvatar } from '../ui/kit.jsx';
+import { useGame, Icon, Mono, Cover, Sheet, Seg, UploadButton, Empty, facePhoto, ArtistAvatar, ArtistArt, AppNav } from '../ui/kit.jsx';
+import { STATS_ACCOUNT, promoIdeasFor, promoIdea, promoteVideo, AD_TIERS } from '../engine/index.js';
 import { npcPosts, trendingSounds, hashtags, handleOf, topRivals } from './npcFeed.js';
 
 const grad = (g) => `linear-gradient(135deg, ${COVER_GRADIENTS[g % 8][0]}, ${COVER_GRADIENTS[g % 8][1]})`;
@@ -16,7 +17,7 @@ const myHandle = (p) => handleOf(p.stageName) || 'me';
 
 /* =============================== TreblrX =============================== */
 export function TreblrX() {
-  const { state, act, openArtist } = useGame();
+  const { state, act, openArtist, go } = useGame();
   const p = state.player;
   const [tab, setTab] = useState('foryou');
   const [text, setText] = useState('');
@@ -34,10 +35,48 @@ export function TreblrX() {
   }, [state.week]); // eslint-disable-line react-hooks/exhaustive-deps
   const mine = state.social.chirp.map((c) => ({ ...c, kind: 'me' }));
   const following = new Set((state.contacts || []).filter((c) => c.rivalId && c.rel > 0).map((c) => c.rivalId));
-  const feed = tab === 'following' ? [...mine, ...npc.filter((x) => following.has(x.rival.id)).map((x) => ({ ...x, kind: 'npc' }))] : [...npc.slice(0, 4).map((x) => ({ ...x, kind: 'npc' })), ...mine.slice(0, 3), ...fans.map((x) => ({ ...x, kind: 'fan' })), ...npc.slice(4).map((x) => ({ ...x, kind: 'npc' }))];
+  const statNow = (state.statFeed || []).filter((x) => state.week - x.week <= 2).slice(0, 3).map((x) => ({ ...x, kind: 'stat' }));
+  const feed = tab === 'following' ? [...mine, ...npc.filter((x) => following.has(x.rival.id)).map((x) => ({ ...x, kind: 'npc' }))] : [...npc.slice(0, 3).map((x) => ({ ...x, kind: 'npc' })), ...statNow.slice(0, 1), ...mine.slice(0, 3), ...fans.map((x) => ({ ...x, kind: 'fan' })), ...statNow.slice(1), ...npc.slice(3).map((x) => ({ ...x, kind: 'npc' }))];
   const post = () => { const t = quote ? `${text}` : text; if (act(postChirp, { text: t }).ok) { setText(''); setQuote(null); } };
+  const [nav, setNav] = useState('home');
+  const stats = (state.statFeed || []).slice(0, 30);
+  const statAv = <ArtistArt name="Treblr Data" genres={['electronic', 'kpop']} size={40} />;
+  const statPostEl = (x) => <XPost key={x.id} id={x.id} avatar={statAv} name={STATS_ACCOUNT.name} handle={STATS_ACCOUNT.handle} verified text={x.text} likes={(x.text.length * 137) % 9000 + 400} reposts={(x.text.length * 31) % 1200 + 50} replies={(x.text.length * 7) % 300 + 10} week={x.week} liked={liked[x.id]} onLike={() => toggle(x.id)} onQuote={() => setQuote({ name: STATS_ACCOUNT.name, handle: STATS_ACCOUNT.handle, text: x.text })} />;
+  const mentions = [...(drama && dramaRival ? [{ id: 'dr', rival: dramaRival, text: drama.text, week: drama.week }] : []), ...stats.filter((x) => x.pl).slice(0, 8).map((x) => ({ id: x.id, stat: x }))];
+  if (nav !== 'home') return (
+    <div className="appwrap tx">
+      {nav === 'explore' && (
+        <>
+          <div className="tx-tabs"><button className="on">Trending</button></div>
+          <div className="tx-trends">
+            <Mono className="sm">Trends for you</Mono>
+            {hashtags(state).map((h) => <div key={h.tag} className="tx-trend"><span className="tiny muted">Trending in Music</span><b>{h.tag}</b><span className="tiny muted">{fmtNum(h.posts)} posts</span></div>)}
+          </div>
+          <div className="row gap6 mt8">{statAv}<div className="grow" style={{ minWidth: 0 }}><b>{STATS_ACCOUNT.name}</b> <span className="tx-verified">✓</span><div className="tiny muted">@{STATS_ACCOUNT.handle} · chart stats, first weeks, certifications</div></div></div>
+          {stats.map(statPostEl)}
+          {!stats.length && <Empty icon="chart">Stats posts arrive as the charts move.</Empty>}
+        </>
+      )}
+      {nav === 'notifs' && (
+        <>
+          <div className="tx-tabs"><button className="on">Mentions</button></div>
+          {mentions.map((m) => m.stat ? statPostEl(m.stat) : <XPost key={m.id} avatar={<ArtistAvatar rival={m.rival} size={40} onClick={() => openArtist(m.rival.id)} />} name={m.rival.name} handle={handleOf(m.rival.name)} verified text={m.text} likes={drama?.likes || 0} reposts={Math.round((drama?.likes || 0) / 6)} replies={Math.round((drama?.likes || 0) / 12)} week={m.week} />)}
+          {fans.map((it) => <XPost key={it.id} id={it.id} avatar={<ArtistArt name={it.fan.user} genres={[p.genre]} size={40} />} name="fan account" handle={it.fan.user.slice(1)} text={`${it.fan.text} @${myHandle(p)}`} likes={it.fan.likes} reposts={Math.round(it.fan.likes / 8)} replies={Math.round(it.fan.likes / 20)} week={state.week - 1} />)}
+          {!mentions.length && !fans.length && <Empty icon="bell">No mentions yet.</Empty>}
+        </>
+      )}
+      {nav === 'profile' && (
+        <>
+          <div className="tx-profile"><img className="avatar" src={facePhoto(p)} alt="" style={{ width: 72, height: 72 }} /><div><b style={{ fontSize: 20 }}>{p.stageName}</b>{p.popularity > 40 && <span className="tx-verified">✓</span>}<div className="small muted">@{myHandle(p)}</div><div className="small mt8"><b>{fmtNum(p.followers.chirp)}</b> <span className="muted">Followers</span></div></div></div>
+          {mine.map((it) => <XPost key={it.id} id={it.id} avatar={<img className="avatar" src={facePhoto(p)} alt="" />} name={p.stageName} handle={myHandle(p)} verified={p.popularity > 40} text={it.text} quote={it.quote} likes={it.likes} reposts={it.reposts} replies={it.replies?.length || 0} week={it.week} />)}
+          {!mine.length && <Empty icon="chat">Your posts show up here.</Empty>}
+        </>
+      )}
+      <AppNav className="tx-nav" value={nav} onChange={(v) => (v === 'messages' ? go({ tab: 'phone', app: 'treblrchat' }) : setNav(v))} items={XNAV(mentions.length)} />
+    </div>
+  );
   return (
-    <div className="tx">
+    <div className="appwrap tx">
       <div className="tx-tabs"><button className={tab === 'foryou' ? 'on' : ''} onClick={() => setTab('foryou')}>For you</button><button className={tab === 'following' ? 'on' : ''} onClick={() => setTab('following')}>Following</button></div>
       <div className="tx-compose">
         <img className="avatar" src={facePhoto(p)} alt="" />
@@ -60,7 +99,8 @@ export function TreblrX() {
       </div>
       {feed.map((it) => {
         if (it.kind === 'npc') return <XPost key={it.id} id={it.id} avatar={<ArtistAvatar rival={it.rival} size={40} onClick={() => openArtist(it.rival.id)} />} name={it.rival.name} handle={handleOf(it.rival.name)} verified={it.rival.real || it.rival.monthlyListeners > 1e6} text={it.text} likes={it.likes + (liked[it.id] ? 1 : 0)} reposts={it.reposts + (reposted[it.id] ? 1 : 0)} replies={it.comments} week={it.week} liked={liked[it.id]} reposted={reposted[it.id]} onLike={() => toggle(it.id)} onRepost={() => toggleRp(it.id)} onQuote={() => setQuote({ name: it.rival.name, handle: handleOf(it.rival.name), text: it.text })} onReply={() => setText(`@${handleOf(it.rival.name)} `)} />;
-        if (it.kind === 'fan') return <XPost key={it.id} id={it.id} avatar={<div className="avatar fan-av">{it.fan.user[1].toUpperCase()}</div>} name="fan account" handle={it.fan.user.slice(1)} text={`${it.fan.text} @${myHandle(p)}`} likes={it.fan.likes + (liked[it.id] ? 1 : 0)} reposts={Math.round(it.fan.likes / 8)} replies={Math.round(it.fan.likes / 20)} week={state.week - 1} liked={liked[it.id]} onLike={() => toggle(it.id)} onReply={() => setText(`@${it.fan.user.slice(1)} `)} />;
+        if (it.kind === 'stat') return statPostEl(it);
+        if (it.kind === 'fan') return <XPost key={it.id} id={it.id} avatar={<ArtistArt name={it.fan.user} genres={[p.genre]} size={40} />} name="fan account" handle={it.fan.user.slice(1)} text={`${it.fan.text} @${myHandle(p)}`} likes={it.fan.likes + (liked[it.id] ? 1 : 0)} reposts={Math.round(it.fan.likes / 8)} replies={Math.round(it.fan.likes / 20)} week={state.week - 1} liked={liked[it.id]} onLike={() => toggle(it.id)} onReply={() => setText(`@${it.fan.user.slice(1)} `)} />;
         return (
           <div key={it.id}>
             <XPost id={it.id} avatar={<img className="avatar" src={facePhoto(p)} alt="" />} name={p.stageName} handle={myHandle(p)} verified={p.popularity > 40} text={it.text} quote={it.quote} likes={it.likes + (liked[it.id] ? 1 : 0)} reposts={it.reposts} replies={it.replies?.length || 0} week={it.week} liked={liked[it.id]} onLike={() => toggle(it.id)} />
@@ -68,6 +108,7 @@ export function TreblrX() {
           </div>
         );
       })}
+      <AppNav className="tx-nav" value={nav} onChange={(v) => (v === 'messages' ? go({ tab: 'phone', app: 'treblrchat' }) : setNav(v))} items={XNAV((drama?.status === 'open' ? 1 : 0))} />
       <Sheet open={dissOpen} onClose={() => setDissOpen(false)} title="Write a diss track" sub={`${ENERGY.write} energy · big hype multiplier, real backlash risk`}>
         <input value={dissTitle} onChange={(e) => setDissTitle(e.target.value)} placeholder={dramaRival ? `Dear ${dramaRival.name.split(' ')[0]}` : 'Title'} maxLength={40} />
         <button className="btn danger block mt12" onClick={() => { if (act(respondDrama, { choice: 'diss', title: dissTitle }).ok) setDissOpen(false); }}>Write it</button>
@@ -75,6 +116,13 @@ export function TreblrX() {
     </div>
   );
 }
+const XNAV = (badge) => [
+  { id: 'home', label: 'Home', icon: 'home', fill: true, text: false },
+  { id: 'explore', label: 'Explore', icon: 'search', text: false },
+  { id: 'notifs', label: 'Notifications', icon: 'bell', text: false, badge },
+  { id: 'messages', label: 'Messages', icon: 'mail', text: false },
+  { id: 'profile', label: 'Profile', icon: 'user', text: false },
+];
 function XPost({ avatar, name, handle, verified, text, quote, likes, reposts, replies, week, liked, reposted, onLike, onRepost, onQuote, onReply }) {
   return (
     <div className="tx-post-row">
@@ -110,7 +158,7 @@ export function Treblrgram() {
   const posts = state.social.snapshot;
   const feed = [...posts.slice(0, 2).map((x) => ({ ...x, me: true })), ...npc.map((x) => ({ ...x, npc: true })), ...posts.slice(2).map((x) => ({ ...x, me: true }))];
   return (
-    <div className="tg">
+    <div className="appwrap tg">
       <div className="tg-top">
         <span className="tg-logo">Treblrgram</span>
         <div className="row gap6"><button className="icon-btn ghost" aria-label="New post" onClick={() => setOpen(true)}><Icon name="plus" /></button><button className="icon-btn ghost" aria-label="Messages" onClick={() => go({ tab: 'phone', app: 'treblrchat' })}><Icon name="send" /></button></div>
@@ -138,6 +186,11 @@ export function Treblrgram() {
           })}
         </>
       )}
+      {tab === 'search' && (
+        <div className="tg-explore">
+          {[...npc, ...posts.map((x) => ({ ...x, me: true }))].map((x, i) => <button key={x.id} className="tg-explore-tile" style={{ background: grad(x.gradient || i) }} onClick={() => (x.rival ? openArtist(x.rival.id) : null)}>{x.image ? <img src={x.image} alt="" /> : x.rival ? <ArtistAvatar rival={x.rival} size={64} radius={16} /> : null}</button>)}
+        </div>
+      )}
       {tab === 'reels' && (
         <div className="tg-reels">
           {[...state.social.clipz.slice(0, 6).map((c) => ({ id: c.id, title: c.title, views: c.views, me: true, g: 2 })), ...npc.slice(0, 6).map((n) => ({ id: n.id, title: n.songTitle, views: n.likes * 12, rival: n.rival, g: n.gradient }))].map((r) => (
@@ -161,7 +214,13 @@ export function Treblrgram() {
           {!posts.length && <Empty icon="camera">Share your first photo.</Empty>}
         </div>
       )}
-      <nav className="tg-nav"><button className={tab === 'feed' ? 'on' : ''} onClick={() => setTab('feed')} aria-label="Home"><Icon name="home" /></button><button className={tab === 'reels' ? 'on' : ''} onClick={() => setTab('reels')} aria-label="Reels"><Icon name="reel" /></button><button onClick={() => setOpen(true)} aria-label="Create"><Icon name="plus" /></button><button className={tab === 'profile' ? 'on' : ''} onClick={() => setTab('profile')} aria-label="Profile"><img className="tg-av sm" src={facePhoto(p)} alt="" /></button></nav>
+      <AppNav className="tg-appnav" value={tab} onChange={(v) => (v === 'create' ? setOpen(true) : setTab(v))} items={[
+        { id: 'feed', label: 'Home', icon: 'home', fill: true, text: false },
+        { id: 'search', label: 'Search', icon: 'search', text: false },
+        { id: 'create', label: 'Create', icon: 'plus', text: false },
+        { id: 'reels', label: 'Reels', icon: 'reel', text: false },
+        { id: 'profile', label: 'Profile', text: false, render: () => <img className="appnav-av" src={facePhoto(p)} alt="" /> },
+      ]} />
       <Sheet open={open} onClose={() => setOpen(false)} title="New post" sub={`${SOCIAL.snapshot} social energy`}>
         <div style={{ aspectRatio: '1', borderRadius: 16, overflow: 'hidden', background: '#222' }}><img src={image || facePhoto(p)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
         <div className="row mt12"><UploadButton className="btn grow" onImage={setImage}><Icon name="upload" size={18} />Choose photo</UploadButton>{image && <button className="btn" onClick={() => setImage(null)}>Use portrait</button>}</div>
@@ -248,7 +307,16 @@ export function TreblrTok() {
             <>
               <select className="mt12" value={sel} onChange={(e) => setSel(e.target.value)} aria-label="Song">{eligible.map((s) => <option key={s.id} value={s.id}>{s.title} (Q{s.quality})</option>)}</select>
               <button className="btn block mt12 tt-red" disabled={p.socialEnergy < SOCIAL.clipz} onClick={() => create('snippet')}>Post snippet · {SOCIAL.clipz} social</button>
-              <div className="tiny muted mt8">Or open a trending sound or an artist’s clip to make a trend video, duet or stitch.</div>
+              <Mono className="mt16">Promo ideas that fit {genreName(eligible.find((x) => x.id === sel)?.genre || p.genre)}</Mono>
+              <div className="col mt8">
+                {promoIdeasFor(eligible.find((x) => x.id === sel)?.genre || p.genre).map((it) => (
+                  <button key={it.id} className="option press" style={{ '--accent': '#FE2C55' }} disabled={p.socialEnergy < it.social} onClick={() => act(promoIdea, { songId: sel || eligible[0]?.id, idea: it.id })}>
+                    <div className="row between gap6"><b>{it.name}</b><span className="tiny muted" style={{ flexShrink: 0 }}>{it.social} social</span></div>
+                    <div className="tiny muted mt8">{it.desc}{it.genres ? '' : ' · works for any genre'}</div>
+                  </button>
+                ))}
+              </div>
+              <div className="tiny muted mt8">Or open a trending sound or an artist’s clip to make a trend video, duet or stitch. Posting before release builds buzz for release week.</div>
             </>
           ) : <div className="small mt12">Record a song first.</div>}
         </div>
@@ -321,9 +389,9 @@ export function TreblrTube() {
   const dir = VIDEO_DIRECTORS.find((d) => d.id === director);
   const con = VIDEO_CONCEPTS.find((c) => c.id === concept);
   return (
-    <div className="yt">
+    <div className="appwrap yt">
       <div className="yt-top"><span className="yt-logo"><i><Icon name="play" size={12} fill="#fff" /></i>TreblrTube</span><button className="icon-btn ghost" aria-label="Upload" onClick={() => { setSel(eligible[0]?.id); setUpload(true); }}><Icon name="upload" /></button></div>
-      <div className="yt-chips">{[['all', 'All'], ['mine', 'Your channel'], ['shorts', 'Shorts'], ['live', 'Live']].map(([k, l]) => <button key={k} className={chip === k ? 'on' : ''} onClick={() => setChip(k)}>{l}</button>)}</div>
+      {chip === 'all' && <div className="yt-chips">{['All', 'Music', 'Live', 'New to you', 'Recently uploaded'].map((l, i) => <button key={l} className={i === 0 ? 'on' : ''} onClick={() => (l === 'Live' ? setChip('live') : null)}>{l}</button>)}</div>}
       {(chip === 'all' || chip === 'mine') && (
         <>
           {chip === 'mine' && <div className="row mt12"><img className="avatar" src={facePhoto(p)} alt="" style={{ width: 56, height: 56 }} /><div className="grow"><b style={{ fontSize: 18 }}>{p.stageName}</b><div className="small muted">@{myHandle(p)} · {fmtNum(p.followers.viewtube)} subscribers · {mine.length} videos</div></div></div>}
@@ -349,13 +417,27 @@ export function TreblrTube() {
           <button className="btn block mt12 yt-red" disabled={p.socialEnergy < SOCIAL.live || (state.weekStats?.live || 0) >= 1} onClick={() => { const r = act(goLive, { platform: 'treblrtube' }); if (r.ok) setLive(r.data); }}>Go live · {SOCIAL.live} social</button>
         </div>
       )}
+      <AppNav className="yt-nav" value={chip} onChange={(v) => (v === 'create' ? (setSel(eligible[0]?.id), setUpload(true)) : setChip(v))} items={[
+        { id: 'all', label: 'Home', icon: 'home', fill: true },
+        { id: 'shorts', label: 'Shorts', icon: 'reel' },
+        { id: 'create', label: 'Create', icon: 'plus', text: false },
+        { id: 'live', label: 'Live', icon: 'live' },
+        { id: 'mine', label: 'You', render: () => <img className="appnav-av" src={facePhoto(p)} alt="" /> },
+      ]} />
       <Sheet open={!!watch} onClose={() => setWatch(null)} title={watch ? `${watch.me ? p.stageName : watch.rival?.name} - ${watch.title} (Official Video)` : ''}>
         {watch && (
           <>
             <div className="yt-player" style={{ background: grad(watch.gradient || 0) }}><div className="yt-playbtn"><Icon name="play" size={22} fill="#fff" /></div></div>
             <div className="row between mt12 small"><span>{fmtNum(watch.views)} views</span><span><Icon name="heart" size={14} /> {fmtNum(watch.likes || watch.views * 0.035)}</span></div>
             <div className="row mt12">{watch.rival ? <ArtistAvatar rival={watch.rival} size={40} onClick={() => { setWatch(null); openArtist(watch.rival.id); }} /> : <img className="avatar" src={facePhoto(p)} alt="" />}<div className="grow"><b>{watch.me ? p.stageName : watch.rival.name}</b><div className="tiny muted">{watch.me ? `${fmtNum(p.followers.viewtube)} subscribers` : `${fmtNum(watch.rival.monthlyListeners * 0.3)} subscribers`}</div></div><button className="btn sm" style={{ background: '#fff', color: '#000' }}>Subscribe</button></div>
-            {watch.me && <div className="tiny muted mt8">{VIDEO_DIRECTORS.find((d) => d.id === watch.tier)?.name} · {VIDEO_CONCEPTS.find((c) => c.id === watch.concept)?.name || 'Performance'} · video score {watch.quality ?? '—'}</div>}
+            {watch.me && <div className="tiny muted mt8">{VIDEO_DIRECTORS.find((d) => d.id === watch.tier)?.name} · {VIDEO_CONCEPTS.find((c) => c.id === watch.concept)?.name || 'Performance'} · video score {watch.quality ?? '—'}{watch.promoted ? ` · ${fmtMoney(watch.promoted)} in ads` : ''}</div>}
+            {watch.me && (
+              <div className="card tight mt12">
+                <Mono className="sm">Promote this video</Mono>
+                <div className="tiny muted mt8">Paid TreblrTube ads: more views this week, subscribers, and a lift to the song’s streams.</div>
+                <div className="row gap6 mt8 wrap">{AD_TIERS.map((t) => <button key={t.id} className="btn sm yt-red" disabled={p.cash < t.cost || state.social.videos.find((v) => v.id === watch.id)?.adWeek === state.week} onClick={() => act(promoteVideo, { videoId: watch.id, tier: t.id })}>{fmtMoney(t.cost)} · ~{fmtNum(t.views)}</button>)}</div>
+              </div>
+            )}
             <Mono className="mt16">Comments</Mono>
             {(watch.comments?.length ? watch.comments : fanComments(state, createRng(hashString(watch.id)), { n: 4 })).map((c, i) => <div key={i} className="list-item small"><b>{c.user}</b><span className="grow">{c.text}</span></div>)}
           </>

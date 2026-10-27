@@ -3,7 +3,7 @@ import { CHARTS, chartItem, movement, playerPositions, fmtNum } from '../engine/
 import { useGame, Icon, Mono, Cover, ArtistAvatar } from '../ui/kit.jsx';
 
 export default function Charts() {
-  const { state, openArtist } = useGame();
+  const { state, openArtist, go } = useGame();
   const [id, setId] = useState('hot100');
   const [limit, setLimit] = useState(30);
   const chart = CHARTS.find((c) => c.id === id);
@@ -25,6 +25,7 @@ export default function Charts() {
             ))}
           </div>
         </>) : <div className="card tight small muted">You're not on any chart yet. Country charts are the easiest way in — your home market gives you a 3× boost.</div>}
+        {state.player.chartBanUntil && state.week <= state.player.chartBanUntil && <div className="card tight small mt8" style={{ borderColor: 'rgba(255,77,94,.4)', color: 'var(--red)' }}>Payola ban: your songs are off every chart until week {state.player.chartBanUntil}.</div>}
       </div>
 
       <Mono className="sm" style={{ display: 'block', margin: '20px 0 8px' }}>Browse charts</Mono>
@@ -41,7 +42,7 @@ export default function Charts() {
           const mv = movement(e);
           const rival = it.rivalId ? state.rivals.find((r) => r.id === it.rivalId) : chart.kind === 'albums' && !e.pl ? state.rivals.find((r) => r.name === it.artist) : it.featId ? state.rivals.find((r) => r.id === it.featId) : null;
           return (
-            <div key={e.id} className={`chart-row ${e.pl ? 'me' : ''}`} onClick={rival ? () => openArtist(rival.id) : undefined} role={rival ? 'button' : undefined} style={rival ? { cursor: 'pointer' } : undefined}>
+            <div key={e.id} className={`chart-row ${e.pl ? 'me' : ''}`} onClick={e.pl ? () => go({ tab: 'phone', app: 'treblify', view: 'artist' }) : rival ? () => openArtist(rival.id) : undefined} role={rival || e.pl ? 'button' : undefined} style={rival || e.pl ? { cursor: 'pointer' } : undefined}>
               <div className="rk" style={{ color: e.r <= 3 ? '#FFB020' : undefined }}>{e.r}</div>
               <div className={`mv ${mv.kind}`}>{mv.label}</div>
               <Cover cover={it.cover} size={44} />

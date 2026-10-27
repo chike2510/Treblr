@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  OUTFITS, SPEECHES, attendAwardShow, giveSpeech, skipAwardShow, handleCrisis, markNotif, markAllNotifs, fmtNum, unreadNotifs,
+  OUTFITS, SPEECHES, attendAwardShow, giveSpeech, skipAwardShow, handleCrisis, markNotif, markAllNotifs, fmtNum, unreadNotifs, confirmAwardEntries,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, ArtistAvatar, facePhoto, Sheet } from '../ui/kit.jsx';
 
@@ -141,7 +141,8 @@ export function NotificationsPanel({ onClose }) {
           {list.slice(0, 40).map((n) => (
             <button key={n.id} className={`notif ${n.read ? '' : 'unread'}`} onClick={() => { act(markNotif, { id: n.id }, { silent: true }); onClose(); go(n.to); }}>
               <span className="notif-ic"><Icon name={KIND_ICON[n.kind] || 'bell'} size={16} /></span>
-              <span className="grow"><span className="small">{n.text}</span><span className="tiny muted" style={{ display: 'block' }}>Week {n.week}</span></span>
+              <span className="grow" style={{ minWidth: 0 }}><span className="small notif-text">{n.count > 1 ? n.latest : n.text}</span><span className="tiny muted" style={{ display: 'block' }}>Week {n.week}{n.count > 1 ? ` · ${n.count} similar` : ''}</span></span>
+              {n.count > 1 && <span className="notif-count">{n.count}</span>}
               {!n.read && <i className="notif-dot" />}
             </button>
           ))}
@@ -149,5 +150,28 @@ export function NotificationsPanel({ onClose }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------- Award submissions: label (or team) suggests entries, you confirm ---------- */
+export function AwardSubmissions({ onClose }) {
+  const { state, act } = useGame();
+  const sub = state.awardSubmission;
+  const [picks, setPicks] = useState(() => sub?.picks || sub?.suggested || []);
+  if (!sub) return null;
+  const toggle = (id) => setPicks(picks.includes(id) ? picks.filter((x) => x !== id) : picks.length < 4 ? [...picks, id] : picks);
+  return (
+    <Sheet open onClose={onClose} title={`${sub.show} submissions`} sub={`${sub.by} ${sub.signed ? 'suggests' : 'recommends'} these entries. Ceremony: week ${sub.showWeek}.`}>
+      <div className="small muted">Pick up to 4. {sub.signed ? 'If you don’t confirm, your label submits its picks.' : 'Unsigned artists must submit themselves or miss out.'} EPs aren’t eligible for album categories.</div>
+      <div className="col gap6 mt12">
+        {sub.options.map((o) => (
+          <button key={o.id} className={`option press ${picks.includes(o.id) ? 'on' : ''}`} style={{ '--accent': '#FFB020' }} onClick={() => toggle(o.id)}>
+            <div className="row between gap6"><b className="small ellipsis">{o.category}</b>{sub.suggested.includes(o.id) && <span className="chip sm" style={{ color: '#FFB020', flexShrink: 0 }}>Suggested</span>}</div>
+            <div className="row between gap6 mt8"><span className="tiny muted ellipsis">{o.title}</span><span className="tiny" style={{ flexShrink: 0 }}>Strength {Math.round(o.strength * 100)}</span></div>
+          </button>
+        ))}
+      </div>
+      <button className="btn primary block mt16" disabled={!picks.length || sub.status === 'confirmed'} onClick={() => { if (act(confirmAwardEntries, { picks }).ok) onClose(); }}>{sub.status === 'confirmed' ? 'Entries submitted' : `Submit ${picks.length} entr${picks.length === 1 ? 'y' : 'ies'}`}</button>
+    </Sheet>
   );
 }

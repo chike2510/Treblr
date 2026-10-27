@@ -112,14 +112,64 @@ export function CountFrom({ to, money, duration = 1200 }) {
   return <>{money ? fmtMoney(v) : fmtNum(v)}</>;
 }
 
+// Generative cover art: style 0 = classic gradient; 1..12 are abstract SVG presets seeded by cover.seed.
+export function CoverArt({ cover, size }) {
+  const st = cover?.style || 0;
+  const g = COVER_GRADIENTS[(cover?.gradient ?? 0) % COVER_GRADIENTS.length];
+  const r = createRng((cover?.seed || 1) * 7919 + st * 131 + (cover?.gradient || 0));
+  const [a, b] = g;
+  const c = cover?.tint || ['#FFFFFF', '#0B0B0F', '#C6FF3D', '#FFB020', '#2DD4BF'][r.int(0, 4)];
+  const id = `cv${st}_${cover?.seed || 1}_${cover?.gradient || 0}`;
+  const shapes = [];
+  const n = (lo, hi) => r.int(lo, hi);
+  switch (st) {
+    case 1: for (let i = 0; i < 7; i++) { const y = 18 + i * 12; shapes.push(<path key={i} d={`M-5 ${y} Q 25 ${y - n(6, 18)} 50 ${y} T 105 ${y}`} stroke={i % 2 ? c : b} strokeWidth={n(2, 5)} fill="none" opacity=".85" />); } break;
+    case 2: for (let x = 0; x < 6; x++) for (let y = 0; y < 6; y++) if (r.chance(0.55)) shapes.push(<rect key={`${x}${y}`} x={x * 17 + 2} y={y * 17 + 2} width="14" height="14" rx={r.chance(0.3) ? 7 : 2} fill={r.chance(0.5) ? c : b} opacity={r.float(0.35, 0.95)} />); break;
+    case 3: for (let i = 0; i < 18; i++) { const t = (i / 18) * Math.PI * 2; shapes.push(<path key={i} d={`M50 ${60} L ${50 + Math.cos(t) * 90} ${60 + Math.sin(t) * 90} L ${50 + Math.cos(t + 0.12) * 90} ${60 + Math.sin(t + 0.12) * 90} Z`} fill={i % 2 ? c : b} opacity=".55" />); } shapes.push(<circle key="s" cx="50" cy="60" r={n(12, 22)} fill={c} />); break;
+    case 4: { const cx = n(30, 70); const cy = n(30, 70); for (let i = 8; i > 0; i--) shapes.push(<circle key={i} cx={cx} cy={cy} r={i * 7} fill="none" stroke={i % 2 ? c : b} strokeWidth={n(2, 4)} opacity=".8" />); break; }
+    case 5: { const ang = n(0, 3) * 45; for (let i = 0; i < 9; i++) shapes.push(<rect key={i} x={-30 + i * 18} y="-30" width={n(4, 10)} height="160" fill={i % 2 ? c : b} opacity=".75" transform={`rotate(${ang} 50 50)`} />); break; }
+    case 6: for (let i = 0; i < 5; i++) shapes.push(<ellipse key={i} cx={n(10, 90)} cy={n(10, 90)} rx={n(15, 40)} ry={n(10, 35)} fill={i % 2 ? c : b} opacity={r.float(0.35, 0.75)} />); break;
+    case 7: for (let i = 0; i < 16; i++) { const x = n(0, 3) * 25; const y = n(0, 3) * 25; shapes.push(<polygon key={i} points={r.chance(0.5) ? `${x},${y} ${x + 25},${y} ${x},${y + 25}` : `${x + 25},${y} ${x + 25},${y + 25} ${x},${y + 25}`} fill={r.chance(0.5) ? c : b} opacity=".8" />); } break;
+    case 8: { const h = n(50, 70); shapes.push(<circle key="sun" cx={n(30, 70)} cy={h - 8} r={n(12, 20)} fill={c} />); for (let i = 0; i < 6; i++) shapes.push(<rect key={i} x="0" y={h + i * 6} width="100" height={3 + i * 0.6} fill={b} opacity={0.9 - i * 0.1} />); shapes.push(<rect key="g" x="0" y={h} width="100" height={100 - h} fill={b} opacity=".35" />); break; }
+    case 9: { shapes.push(<circle key="p" cx="50" cy="50" r={n(10, 16)} fill={c} />); for (let i = 1; i < 4; i++) { shapes.push(<ellipse key={`o${i}`} cx="50" cy="50" rx={18 + i * 11} ry={8 + i * 6} fill="none" stroke={c} strokeOpacity=".5" transform={`rotate(${n(-30, 30)} 50 50)`} />); shapes.push(<circle key={`m${i}`} cx={50 + (18 + i * 11) * Math.cos(i)} cy={50 + (8 + i * 6) * Math.sin(i)} r="3" fill={b} />); } break; }
+    case 10: for (let i = 0; i < 7; i++) shapes.push(<polygon key={i} points={`${n(0, 100)},${n(0, 100)} ${n(0, 100)},${n(0, 100)} ${n(0, 100)},${n(0, 100)}`} fill={i % 2 ? c : b} opacity={r.float(0.3, 0.7)} />); break;
+    case 11: for (let x = 0; x < 10; x++) for (let y = 0; y < 10; y++) { const d = Math.hypot(x - 4.5, y - 4.5); shapes.push(<circle key={`${x}${y}`} cx={x * 10 + 5} cy={y * 10 + 5} r={Math.max(0.6, 4.6 - d * 0.6)} fill={c} opacity=".85" />); } break;
+    case 12: for (let i = 0; i < 10; i++) { const y0 = n(0, 100); shapes.push(<path key={i} d={`M-5 ${y0} C 30 ${y0 + n(-40, 40)}, 70 ${y0 + n(-40, 40)}, 105 ${y0 + n(-20, 20)}`} stroke={i % 2 ? c : b} strokeWidth={r.float(1, 3)} fill="none" opacity=".7" />); } break;
+    default: break;
+  }
+  return (
+    <svg className="cover-art" viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id={id} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={a} /><stop offset="1" stopColor={b === a ? '#000' : st ? '#0B0B0F' : b} /></linearGradient></defs>
+      <rect width="100" height="100" fill={`url(#${id})`} />
+      {shapes}
+    </svg>
+  );
+}
+
 export function Cover({ cover, title, size = 52, radius }) {
   const g = COVER_GRADIENTS[(cover?.gradient ?? 0) % COVER_GRADIENTS.length];
   const style = { width: size, height: size, borderRadius: radius ?? Math.max(6, size * 0.16), background: `linear-gradient(135deg, ${g[0]}, ${g[1]})` };
   return (
     <div className="cover" style={style}>
-      {cover?.image ? <img src={cover.image} alt="" /> : size >= 44 && title ? <div className="ct" style={{ fontSize: Math.max(8, size * 0.15) }}>{title}</div> : null}
+      {cover?.image ? <img src={cover.image} alt="" /> : cover?.style ? <CoverArt cover={cover} size={size} /> : null}
+      {!cover?.image && size >= 44 && title && !cover?.style ? <div className="ct" style={{ fontSize: Math.max(8, size * 0.15) }}>{title}</div> : null}
       {cover?.tint && <i className="cover-tint" style={{ background: `linear-gradient(160deg, ${cover.tint}55, transparent 60%)`, boxShadow: `inset 0 0 0 2px ${cover.tint}88` }} />}
     </div>
+  );
+}
+
+// Bottom tab bar for phone apps, modelled on each real app's layout (Treblr-branded, no real logos).
+export function AppNav({ items, value, onChange, className = '' }) {
+  return (
+    <nav className={`appnav ${className}`} aria-label="App navigation">
+      {items.map((it) => (
+        <button key={it.id} className={value === it.id ? 'on' : ''} onClick={() => onChange(it.id)} aria-label={it.label} aria-current={value === it.id ? 'page' : undefined}>
+          {it.render ? it.render(value === it.id) : <Icon name={it.icon} size={22} fill={value === it.id && it.fill ? 'currentColor' : 'none'} />}
+          {it.text !== false && <span>{it.label}</span>}
+          {it.badge > 0 && <i className="badge">{it.badge > 9 ? '9+' : it.badge}</i>}
+        </button>
+      ))}
+    </nav>
   );
 }
 

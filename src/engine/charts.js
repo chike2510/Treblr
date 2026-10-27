@@ -9,9 +9,10 @@ function shares(genre, country) {
   return shareCache.get(k);
 }
 
+const banned = (state) => state.player.chartBanUntil != null && state.week <= state.player.chartBanUntil;
 function songCandidates(state) {
   const out = [];
-  for (const s of state.songs) {
+  if (!banned(state)) for (const s of state.songs) {
     if (s.status !== 'released' || !s.weeklyStreams) continue;
     out.push({ id: s.id, pl: true, streams: s.weeklyStreams, radio: s.radio || 0, sh: shares(s.genre, state.player.country) });
   }
@@ -24,19 +25,24 @@ function songCandidates(state) {
   return out;
 }
 
+// Album chart: weekly units (2,500 streams = 1 unit, plus sales). EPs chart here too.
 function albumCandidates(state) {
   const out = [];
-  for (const rel of state.releases) {
+  if (!banned(state)) for (const rel of state.releases) {
     if (rel.status !== 'out' || rel.type === 'single') continue;
-    const streams = rel.songIds.reduce((a, id) => a + (state.songs.find((s) => s.id === id)?.weeklyStreams || 0), 0);
-    const age = state.week - rel.releaseWeek;
-    out.push({ id: rel.id, pl: true, score: streams + state.player.fans * 0.4 * decay(60, age) });
+    let units = rel.weeklyUnits;
+    if (units == null) {
+      const streams = rel.songIds.reduce((a, id) => a + (state.songs.find((s) => s.id === id)?.weeklyStreams || 0), 0);
+      units = streams / 2500 + state.player.fans * 0.0012 * decay(62, state.week - rel.releaseWeek);
+    }
+    out.push({ id: rel.id, pl: true, score: units });
   }
   const rivalById = Object.fromEntries(state.rivals.map((r) => [r.id, r]));
   for (const a of state.rivalAlbums) {
     const r = rivalById[a.rivalId];
     if (!r) continue;
-    out.push({ id: a.id, pl: false, score: r.monthlyListeners * 0.12 * decay(70, state.week - a.releasedWeek) });
+    const units = a.weeklyUnits ?? r.monthlyListeners * 0.0011 * decay(70, state.week - a.releasedWeek);
+    out.push({ id: a.id, pl: false, score: units });
   }
   return out;
 }

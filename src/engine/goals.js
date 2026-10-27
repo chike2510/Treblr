@@ -1,4 +1,5 @@
 import { GOALS, cityById } from './data.js';
+import { LIFESTYLE } from './data2.js';
 import { gainHype } from './model.js';
 import { clamp, fmtMoney, fmtNum } from './util.js';
 
@@ -11,7 +12,7 @@ function metric(s, m) {
     case 'monthlyListeners': return p.monthlyListeners;
     case 'lifetimeStreams': return p.lifetimeStreams || 0;
     case 'sellouts': return p.sellouts || 0;
-    case 'golds': return s.songs.filter((x) => x.cert).length;
+    case 'golds': return s.songs.filter((x) => x.cert).length + s.releases.filter((x) => x.cert).length;
     case 'bestRank': return p.bestRank;
     default: return 0;
   }
@@ -81,12 +82,21 @@ export function upNext(s) {
 }
 
 export function staffCost(s) {
-  const sal = { manager: 600, publicist: 450, booking: 400 };
+  const sal = { manager: 1500, publicist: 1000, booking: 700 };
   const mgrRel = (s.contacts || []).find((c) => c.role === 'manager')?.rel ?? 0;
-  if (mgrRel >= 70) sal.manager = 450; // a manager who likes you takes a smaller cut
+  if (mgrRel >= 70) sal.manager = 1200; // a manager who likes you takes a smaller salary
   return Object.entries(s.player.staff).reduce((a, [k, v]) => a + (v ? sal[k] : 0), 0);
 }
+export function housingCost(s) {
+  const owns = (s.lifestyle?.owned || []).some((o) => ['house', 'villa', 'mansion'].includes(o.id));
+  return owns ? 0 : cityById(s.player.city).rent / 4;
+}
 export function weeklyExpenses(s) {
-  return Math.round(cityById(s.player.city).rent / 4 + LIVING_COST + staffCost(s));
+  const loans = (s.bank?.loans || []).reduce((a, l) => a + l.payment, 0);
+  return Math.round(housingCost(s) + LIVING_COST + staffCost(s) + loans + lifestyleWeekly(s));
+}
+function lifestyleWeekly(s) {
+  const W = Object.fromEntries(LIFESTYLE.map((x) => [x.id, x.weekly]));
+  return (s.lifestyle?.owned || []).reduce((a, o) => a + (W[o.id] || 0), 0) + (s.lifestyle?.rental ? W[s.lifestyle.rental] || 0 : 0);
 }
 export const LIVING_COST = 120;

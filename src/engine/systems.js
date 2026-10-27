@@ -2,21 +2,28 @@
 import { clamp, uid, fmtMoney, fmtNum } from './util.js';
 import { gainHype, marketShares } from './model.js';
 import { VENUES, cityById, MARKETS, genreName } from './data.js';
-import { earn, pushNews } from './actions.js';
+import { earn, spend, pushNews } from './actions.js';
+import { trackTickets, addStarPoints, statPost } from './career.js';
+import { tourStaffCost } from './business.js';
+import { labelById } from './data2.js';
 import { contactForRival, openCrisis, meetPerson, endRelationship, resolveSkippedAward, ignoreCrisis } from './features.js';
 import { logTimeline, pushNotif } from './journal.js';
 import { gigDemand, ARTIST_CUT } from './actions.js';
 import { collabQuote } from './npc.js';
 
-// Burnout: ending weeks drained raises burnout; burnout lowers next week's energy cap.
+// Burnout: ending weeks fully drained raises burnout; keeping something in the tank or resting lowers it.
+// Energy refills completely every week; burnout only trims the cap a little (max -20) once it passes 20.
 export function applyBurnout(p) {
   const b = p.burnout || 0;
-  let nb;
-  if (p.energy <= 15) nb = b + 16 + (p.energy <= 0 ? 4 : 0);
-  else if (p.energy >= 40) nb = b - 10;
-  else nb = b - 4;
-  p.burnout = clamp(nb, 0, 100);
-  p.maxEnergy = Math.round(100 - p.burnout * 0.45);
+  const e = p.energy;
+  let d;
+  if (e <= 10) d = 9;
+  else if (e <= 25) d = 4;
+  else if (e >= 45) d = -12;
+  else d = -5;
+  if (p.rested) d -= 4;
+  p.burnout = clamp(b + d, 0, 100);
+  p.maxEnergy = Math.round(100 - Math.max(0, p.burnout - 20) * 0.25);
   return p.burnout;
 }
 
@@ -26,30 +33,44 @@ export function resolveTourWeek(s, rng, ev) {
   const v = VENUES.find((x) => x.id === t.venueId);
   const p = s.player;
   const nights = [];
+  const q = t.showQuality ?? 50;
+  const staff = t.staff || [];
   for (const stop of t.stops) {
     if (stop.done || stop.week > s.week) continue;
-    const demand = gigDemand(s, stop.cityId) * rng.float(0.85, 1.25) * (1 + nights.length * 0.02);
+    const demand = gigDemand(s, stop.cityId) * rng.float(0.85, 1.25) * (1 + nights.length * 0.02) * (0.85 + q / 350);
     const sold = Math.min(v.capacity, Math.round(demand));
     const gross = Math.round(sold * v.ticket * ARTIST_CUT * (p.staff.booking ? 1.2 : 1));
-    const fans = Math.round(sold * rng.float(0.08, 0.18) * (1 + p.skills.performance / 120));
+    const fans = Math.round(sold * rng.float(0.06, 0.14) * (1 + p.skills.performance / 150) * (0.6 + q / 120));
     stop.done = true; stop.sold = sold; stop.gross = gross; stop.fans = fans; stop.soldOut = sold >= v.capacity;
     t.gross += gross; t.fans += fans; if (stop.soldOut) { t.sellouts += 1; p.sellouts += 1; }
     p.fans += fans;
     p.fanHeat[stop.cityId] = (p.fanHeat[stop.cityId] || 0) + fans;
     earn(s, 'gigs', gross, `Tour: ${v.name}, ${cityById(stop.cityId).name}`);
-    nights.push({ city: cityById(stop.cityId).name, flag: cityById(stop.cityId).flag, sold, cap: v.capacity, gross, fans, soldOut: stop.soldOut });
+    if (staff.includes('merchcrew')) { const m = Math.round(sold * 6 * rng.float(0.8, 1.2)); earn(s, 'merch', m, `Tour merch: ${cityById(stop.cityId).name}`); stop.merch = m; }
+    if (!staff.includes('security') && rng.chance(0.06)) {
+      stop.incident = true;
+      spend(s, 'touring', 5000, `Incident damages: ${cityById(stop.cityId).name}`);
+      gainHype(p, -3);
+      pushNews(s, `Chaos at ${p.stageName}’s ${cityById(stop.cityId).name} show as fans rush the stage`, true, 'Live');
+    }
+    trackTickets(s, sold);
+    nights.push({ city: cityById(stop.cityId).name, flag: cityById(stop.cityId).flag, sold, cap: v.capacity, gross, fans, soldOut: stop.soldOut, incident: !!stop.incident });
   }
+  const crew = tourStaffCost(staff, t.venueId);
+  if (crew) spend(s, 'touring', crew, 'Tour crew wages');
   if (nights.length) {
-    gainHype(p, 2 * nights.length);
+    gainHype(p, (2 + (staff.includes('lighting') ? 1 : 0)) * nights.length);
     p.skills.performance = clamp(p.skills.performance + 0.5 * nights.length * (1 - p.skills.performance / 100), 0, 100);
+    if (v.capacity >= 18000) addStarPoints(s, nights.filter((n) => n.soldOut).length * 2);
     ev(55, 'tour', { city: nights[nights.length - 1].city });
   }
   const left = t.stops.filter((x) => !x.done).length;
-  const result = { venue: v.name, nights, left, gross: t.gross };
+  const result = { venue: v.name, nights, left, gross: t.gross, quality: q };
   if (!left) {
     pushNews(s, `${p.stageName} wraps a ${t.stops.length}-city tour${t.sellouts ? ` with ${t.sellouts} sell-outs` : ''}`, true, 'Live');
     logTimeline(s, 'tour', `Tour wrapped: ${t.stops.length} shows`, `${fmtMoney(t.gross)} gross · ${t.sellouts} sell-outs`);
     pushNotif(s, 'tour', `Tour wrapped: ${fmtMoney(t.gross)} gross`, { tab: 'world', section: 'tours' });
+    s.tours = [...(s.tours || []), { name: t.name || `${v.name} tour`, startWeek: t.startWeek, endWeek: s.week, shows: t.stops.length, gross: t.gross, sellouts: t.sellouts }].slice(-20);
     s.tour = null;
     result.wrapped = true;
   }
@@ -100,7 +121,7 @@ export function weeklyMessages(s, rng) {
     c.thread.push({ from: 'them', text: t.text, week: s.week, choices: t.choices.map((x) => ({ ...x, fx: { ...x.fx } })), answered: false });
     if (c.thread.length > 40) c.thread.splice(0, c.thread.length - 40);
     c.unread = (c.unread || 0) + 1;
-    pushNotif(s, 'message', `${c.name}: ${t.text}`, { tab: 'phone', app: 'treblrchat', contact: c.id });
+    pushNotif(s, 'message', `${c.name}: ${t.text}`, { tab: 'phone', app: 'treblrchat', contact: c.id }, 'message');
   }
   // partner neglect & breakups
   const p = s.player;
@@ -185,20 +206,73 @@ export function crisisTick(s, rng) {
 }
 
 // ---------- awards ----------
+// Two phases: submissions open two weeks before a show (your label suggests entries and asks you
+// to confirm), then nominations are drawn from what you entered. EPs never enter album categories.
+export function awardOptions(s) {
+  const p = s.player;
+  const W = s.week;
+  const out = [];
+  const peakScore = (pk) => (pk == null ? 0 : (101 - pk) / 100);
+  const lg = (v, lo, span) => clamp((Math.log10(Math.max(1, v)) - lo) / span, 0, 1);
+  for (const so of s.songs) {
+    if (so.status !== 'released' || W - so.releasedWeek > 52) continue;
+    const st = 0.6 * peakScore(so.peaks?.hot100) + 0.4 * lg(so.lifetimeStreams, 6, 3) + (so.reception > 1.3 ? 0.05 : 0);
+    out.push({ id: `song|${so.id}`, category: 'Song of the Year', title: so.title, strength: st });
+    out.push({ id: `genre|${so.id}`, category: `Best ${genreName(so.genre)} Performance`, title: so.title, strength: Math.min(1, st * 1.15) });
+    if (so.feat) out.push({ id: `collab|${so.id}`, category: 'Best Collaboration', title: `${so.title} (feat. ${so.featName})`, strength: st * 1.05 });
+  }
+  for (const r of s.releases) {
+    if (r.status !== 'out' || r.type !== 'album' || W - r.releaseWeek > 52) continue;
+    out.push({ id: `album|${r.id}`, category: 'Album of the Year', title: r.title, strength: 0.5 * peakScore(r.peaks?.album) + 0.5 * lg(r.totalUnits || 0, 4, 2.5) });
+  }
+  for (const v of s.social.videos || []) {
+    if (W - v.week > 52) continue;
+    out.push({ id: `video|${v.id}`, category: 'Video of the Year', title: v.title, strength: lg(v.views, 5, 3) * 0.9 + (v.quality || 50) / 1000 });
+  }
+  const firstOut = s.releases.filter((r) => r.status === 'out').reduce((m, r) => Math.min(m, r.releaseWeek), Infinity);
+  if (Number.isFinite(firstOut) && W - firstOut <= 104) out.push({ id: 'newartist', category: 'Best New Artist', title: p.stageName, strength: clamp((p.popularity - 30) / 45, 0, 1) });
+  return out.sort((a, b) => b.strength - a.strength);
+}
+export function openAwardSubmissions(s, show, showWeek) {
+  const opts = awardOptions(s);
+  if (!opts.length) return null;
+  const seen = new Set();
+  const suggested = [];
+  for (const o of opts) { if (seen.has(o.category) || suggested.length >= 3) continue; seen.add(o.category); suggested.push(o.id); }
+  const by = s.player.label ? s.player.label.name : 'Your team';
+  s.awardSubmission = { show: show.name, showWeek, options: opts.slice(0, 12), suggested, picks: null, by, signed: !!s.player.label, status: 'open' };
+  pushNotif(s, 'award', `${by} suggests entries for the ${show.name}. Confirm them before week ${showWeek}.`, { tab: 'home', submissions: true });
+  return s.awardSubmission;
+}
 export function awardNomination(s, rng, show, rivalById) {
   const p = s.player;
-  const contender = (p.bestRank && p.bestRank <= 40) || p.popularity >= 55;
-  if (!contender) {
-    const top = Object.values(rivalById).sort((a, b) => b.monthlyListeners - a.monthlyListeners);
+  const sub = s.awardSubmission && s.awardSubmission.show === show.name ? s.awardSubmission : null;
+  const top = Object.values(rivalById).sort((a, b) => b.monthlyListeners - a.monthlyListeners);
+  let picks = sub?.picks || (sub?.signed ? sub.suggested : null);
+  if (sub && !sub.picks && sub.signed) pushNotif(s, 'award', `${sub.by} submitted your entries for the ${show.name}.`, { tab: 'home' });
+  s.awardSubmission = null;
+  if (!picks?.length) {
     pushNews(s, `${rng.pick(top.slice(0, 6)).name} sweeps the ${show.name}`, false, 'Awards');
     return null;
   }
-  const winChance = clamp(0.2 + (p.popularity - 50) / 100 + (p.bestRank && p.bestRank <= 10 ? 0.25 : 0), 0.1, 0.85);
-  const category = rng.pick(['Breakthrough Artist', `Best ${genreName(p.genre)} Act`, 'Song of the Year', 'Fan Favourite', 'Best Collaboration', 'Video of the Year']);
+  const opts = Object.fromEntries((sub?.options || awardOptions(s)).map((o) => [o.id, o]));
+  const fameBonus = { star: 0.08, superstar: 0.15, icon: 0.2 }[p.fame?.tier] || 0;
+  const noms = picks.map((id) => opts[id]).filter(Boolean).filter((o) => rng.chance(clamp(o.strength * 0.95 - 0.12 + fameBonus, 0, 0.9)));
+  if (!noms.length) {
+    pushNews(s, `${p.stageName} is snubbed at the ${show.name}`, true, 'Awards');
+    pushNews(s, `${rng.pick(top.slice(0, 6)).name} sweeps the ${show.name}`, false, 'Awards');
+    return null;
+  }
+  noms.sort((a, b) => b.strength - a.strength);
+  const best = noms[0];
+  const winChance = clamp(0.12 + best.strength * 0.5 + fameBonus, 0.05, 0.85);
   const nominees = s.rivals.filter((r) => r.genres.includes(p.genre) || r.tier === 'superstar').sort(() => rng.next() - 0.5).slice(0, 4);
-  s.awardEvent = { id: uid(s, 'aw'), show: show.name, week: s.week, category, winChance, nominees: nominees.map((r) => r.id), winnerName: nominees[0]?.name || 'A rival', status: 'pending' };
-  pushNews(s, `${p.stageName} nominated for ${category} at the ${show.name}`, true, 'Awards');
-  pushNotif(s, 'award', `You\u2019re nominated for ${category} at the ${show.name}!`, { tab: 'home', awards: true });
+  s.awardEvent = { id: uid(s, 'aw'), show: show.name, week: s.week, category: best.category, entry: best.title, otherNoms: noms.slice(1).map((o) => o.category), winChance, nominees: nominees.map((r) => r.id), winnerName: nominees[0]?.name || 'A rival', status: 'pending' };
+  addStarPoints(s, 6 * noms.length);
+  pushNews(s, `${p.stageName} nominated for ${best.category}${noms.length > 1 ? ` and ${noms.length - 1} more` : ''} at the ${show.name}`, true, 'Awards');
+  pushNotif(s, 'award', `You\u2019re nominated for ${best.category} at the ${show.name}!`, { tab: 'home', awards: true });
+  statPost(s, `${p.stageName} picks up ${noms.length} nomination${noms.length > 1 ? 's' : ''} at the ${show.name}.`, true);
+  void labelById;
   return s.awardEvent;
 }
 export function awardTick(s, rng) {

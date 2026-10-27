@@ -84,7 +84,7 @@ function Write({ onDone }) {
         ))}
       </div>
       <button className="btn accent block" onClick={submit} disabled={p.energy < ENERGY.write || p.cash < cw.fee}>Write song</button>
-      {p.energy < ENERGY.write && <div className="tiny muted" style={{ textAlign: 'center' }}>Not enough energy — rest or start next week.</div>}
+      {p.energy < ENERGY.write && <div className="tiny muted" style={{ textAlign: 'center' }}>Not enough energy, rest or start next week.</div>}
     </div>
   );
 }
@@ -341,14 +341,14 @@ function SongDetail({ s, onDeleted }) {
       {live && (
         <div className="card">
           <Mono>Pitch</Mono>
-          <div className="tiny muted mt8">{s.status === 'released' ? 'Send it to playlist curators ($50 + 5 social).' : s.prePitch ? 'Pitched to editors — you’ll hear on release week.' : 'Pitch to editors before release: placements land on release day.'}</div>
+          <div className="tiny muted mt8">{s.status === 'released' ? 'Send it to playlist curators ($50 + 5 social).' : s.prePitch ? 'Pitched to editors, you’ll hear on release week.' : 'Pitch to editors before release: placements land on release day.'}</div>
           <button className="btn sm mt8" disabled={s.pitchedWeek === state.week || (s.status !== 'released' && s.prePitch) || p.socialEnergy < SOCIAL.pitch || p.cash < 50} onClick={() => act(pitchPlaylist, { songId: s.id })}>{s.status === 'released' ? 'Pitch to playlists' : 'Pitch to editors'}</button>
         </div>
       )}
       {live && (
         <div className="card">
           <Mono>Promote</Mono>
-          <div className="tiny muted mt8">Ideas that fit {genreName(s.genre)}. Before release they build buzz for the first weeks.</div>
+          <div className="tiny muted mt8">Moves {genreName(s.genre)} fans respond to. Before release they build buzz for the first weeks.</div>
           <div className="row wrap gap6 mt8">{ideas.map((it) => <button key={it.id} className="btn sm" disabled={p.socialEnergy < it.social} onClick={() => act(promoIdea, { songId: s.id, idea: it.id })}>{it.name} · {it.social}</button>)}</div>
           <Mono className="mt12 sm">Paid ads</Mono>
           <div className="row wrap gap6 mt8">{AD_TIERS.map((t) => <button key={t.id} className="btn sm" disabled={p.cash < t.cost} onClick={() => act(buyAds, { songId: s.id, tier: t.id })}>{fmtMoney(t.cost)} · ~{fmtNum(t.streams)}</button>)}</div>
@@ -398,6 +398,7 @@ function Collab({ initialRival }) {
   const [songId, setSongId] = useState(songs[0]?.id);
   const [q, setQ] = useState('');
   const [pick, setPick] = useState(initialRival || null);
+  const [deal, setDeal] = useState('fee');
   const p = state.player;
   const list = useMemo(() => {
     const base = state.rivals.filter((r) => r.name.toLowerCase().includes(q.toLowerCase()));
@@ -408,23 +409,35 @@ function Collab({ initialRival }) {
   if (!songs.length) return <div className="card mt16"><Empty icon="users">Write or record a song first, then bring in a feature.</Empty></div>;
   return (
     <div className="col gap16 mt16">
-      <div className="card tight small muted">A feature costs a fee and 10 energy. Their audience boosts the song’s discovery, and you’re both credited on the charts. Bigger stars cost more and say no more often; a good relationship lowers both.</div>
+      <div className="card tight small muted">A feature costs a fee and 10 energy. Their audience boosts the song’s discovery, and you’re both credited on the charts. Big stars charge hundreds of thousands and rarely say yes to smaller acts; genre fit, your relationship and shared labels help.</div>
       <label className="col gap6"><Mono>Song</Mono>
         <select value={songId} onChange={(e) => setSongId(e.target.value)}>{songs.map((s) => <option key={s.id} value={s.id}>{s.title} · {s.status} · Q{s.quality}</option>)}</select>
       </label>
+      <div className="col gap6"><Mono>Deal</Mono><Seg options={[{ value: 'fee', label: 'Flat fee' }, { value: 'split', label: 'Royalty split' }]} value={deal} onChange={setDeal} /><div className="tiny muted">{deal === 'split' ? 'Small upfront fee; they keep a share of the song’s streaming money forever. Big names prefer this.' : 'Pay once and keep every stream.'} Stars in an album era are usually busy.</div></div>
       <div className="phone-search"><Icon name="search" size={18} color="#bbb" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search artists" aria-label="Search artists" /></div>
       <div className="col">
-        {list.map(({ r, quote, c }) => (
+        {list.map(({ r, quote, c }) => {
+          const split = deal === 'split';
+          const fee = split ? quote.splitFee : quote.fee;
+          const odds = split ? quote.splitOdds : quote.odds;
+          const need = c?.beef ? 'Beef: they won’t answer' : !songId ? 'Pick a song' : p.energy < 10 ? 'Need 10 energy' : p.cash < fee ? `Need ${fmtMoney(fee)}` : c?.lastAsk != null && state.week - c.lastAsk < 4 ? `Ask again wk ${c.lastAsk + 4}` : null;
+          return (
           <div key={r.id} className={`option row ${pick === r.id ? 'on' : ''}`} style={{ alignItems: 'center' }}>
             <ArtistAvatar rival={r} size={46} onClick={() => openArtist(r.id)} />
             <button className="grow" style={{ textAlign: 'left', minWidth: 0 }} onClick={() => setPick(r.id)}>
               <b className="ellipsis" style={{ display: 'block' }}>{r.name}</b>
-              <div className="tiny muted">{genreName(r.genre)} · {tierLabel(r.tier)} · {fmtNum(r.monthlyListeners)} listeners{c ? ` · rel ${c.rel}` : ''}{c?.beef ? ' · beef' : ''}</div>
-              <div className="tiny" style={{ color: quote.odds >= 0.5 ? 'var(--green)' : quote.odds >= 0.2 ? 'var(--amber)' : 'var(--red)' }}>{fmtMoney(quote.fee)} · {Math.round(quote.odds * 100)}% odds{quote.labelmate ? ' · labelmate discount' : ''}</div>
+              <div className="tiny muted">{genreName(r.genre)} · {tierLabel(r.tier)} · {fmtNum(r.monthlyListeners)} listeners{c ? ` · rel ${c.rel}` : ''}</div>
+              <div className="tiny" style={{ color: quote.fit >= 1 ? 'var(--green)' : quote.fit > 0 ? 'var(--amber)' : 'var(--muted)' }}>{quote.fit >= 1 ? 'Same genre: great fit' : quote.fit > 0 ? 'Close genre: decent fit' : 'Different lane: harder sell'}{quote.labelmate ? ' · Labelmate (discount)' : ''}</div>
+              <div className="tiny" style={{ color: odds >= 0.5 ? 'var(--green)' : odds >= 0.2 ? 'var(--amber)' : 'var(--red)' }}>{fmtMoney(fee)}{split ? ` + ${Math.round(quote.splitShare * 100)}% of streams` : ''} · {Math.round(odds * 100)}% odds</div>
+              {quote.note && <div className="tiny muted">{quote.note}</div>}
             </button>
-            <button className="btn sm accent" style={{ '--accent': '#FF6B4A' }} disabled={!songId || p.cash < quote.fee || p.energy < 10 || c?.beef} onClick={() => act(requestFeature, { rivalId: r.id, songId })}>Ask</button>
+            <div className="col" style={{ alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+              <button className="btn sm accent" style={{ '--accent': '#FF6B4A' }} aria-disabled={!!need} onClick={() => act(requestFeature, { rivalId: r.id, songId, mode: deal })}>Ask</button>
+              {need && <span className="need">{need}</span>}
+            </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

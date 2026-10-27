@@ -103,7 +103,7 @@ export function WrappedCard({ wrapped, onClose }) {
   const { state } = useGame();
   if (!wrapped) return null;
   const share = async () => {
-    const text = `My Treblr Year ${wrapped.year} Wrapped: ${fmtNum(wrapped.streams)} streams, ${fmtNum(wrapped.listeners)} monthly listeners, top song “${wrapped.topSongs[0]?.title || '—'}”. I'm ${wrapped.type.name}.`;
+    const text = `My Treblr Year ${wrapped.year} Wrapped: ${fmtNum(wrapped.streams)} streams, ${fmtNum(wrapped.listeners)} monthly listeners, top song “${wrapped.topSongs[0]?.title || '-'}”. I'm ${wrapped.type.name}.`;
     try { if (navigator.share) await navigator.share({ text }); else await navigator.clipboard?.writeText(text); } catch { /* user cancelled */ }
   };
   return (
@@ -116,7 +116,7 @@ export function WrappedCard({ wrapped, onClose }) {
         <div className="wrapped-grid">
           <div><span>Streams</span><b>{fmtNum(wrapped.streams)}</b></div>
           <div><span>Listeners</span><b>{fmtNum(wrapped.listeners)}</b></div>
-          <div><span>Best peak</span><b>{wrapped.bestPeak ? `#${wrapped.bestPeak}` : '—'}</b></div>
+          <div><span>Best peak</span><b>{wrapped.bestPeak ? `#${wrapped.bestPeak}` : '-'}</b></div>
           <div><span>Fans</span><b>{fmtNum(wrapped.fans)}</b></div>
         </div>
         <div className="wrapped-list"><span>Top songs</span>{wrapped.topSongs.length ? wrapped.topSongs.map((t, i) => <div key={t.id}><i>{i + 1}</i><b className="ellipsis">{t.title}</b><em>{fmtNum(t.streams)}</em></div>) : <div><b>No releases yet</b></div>}</div>

@@ -208,10 +208,10 @@ function FameCard() {
       {next ? (
         <div className="fame-reqs mt8">
           {reqs.map((r) => (
-            <div key={r.k}><div className="row between tiny"><span className="muted">{r.k}</span><span>{r.v}/{r.t}</span></div><Bar pct={r.t ? r.v / r.t : 1} color={r.v >= r.t ? '#3DDC84' : '#C6FF3D'} /></div>
+            <div key={r.k}><div className="row between tiny"><span className="muted">{r.k}</span><span style={{ color: r.v >= r.t ? '#3DDC84' : undefined }}>{r.v >= r.t ? `\u2713 ${r.v}` : `${r.v} / ${r.t}`}</span></div><Bar pct={r.t ? r.v / r.t : 1} color={r.v >= r.t ? '#3DDC84' : '#C6FF3D'} /></div>
           ))}
         </div>
-      ) : <div className="tiny muted mt8">The top of the mountain. Keep it up — fame fades without new music.</div>}
+      ) : <div className="tiny muted mt8">The top of the mountain. Keep it up, fame fades without new music.</div>}
       <div className="tiny muted mt8">Popularity is a 26-week rolling average. Star points come from top 10s, #1s, awards, certifications and headline shows.</div>
     </div>
   );
@@ -222,7 +222,7 @@ function Stat({ label, value, delta, money, raw }) {
     <div className="stat">
       <Mono className="sm ellipsis">{label}</Mono>
       <div className="v">{raw ? <CountUp value={value} format={(v) => Math.round(v)} /> : <CountUp value={value} money={money} />}</div>
-      <div className="d">{raw ? (delta ? <span className={delta > 0 ? 'up' : 'down'}>{delta > 0 ? '▲' : '▼'} {Math.abs(delta)}</span> : <span className="faint">—</span>) : <Delta v={delta} money={money} />}</div>
+      <div className="d">{raw ? (delta ? <span className={delta > 0 ? 'up' : 'down'}>{delta > 0 ? '▲' : '▼'} {Math.abs(delta)}</span> : <span className="faint">-</span>) : <Delta v={delta} money={money} />}</div>
     </div>
   );
 }
@@ -271,7 +271,7 @@ function Alerts({ onCrisis, onAwards, onWrapped, latestWrapped, onSubmissions })
   const { state } = useGame();
   const a = state.awardEvent;
   const items = [];
-  if (state.crisis) items.push({ k: 'crisis', icon: 'skull', color: '#FF4D5E', title: state.crisis.title, body: 'PR crisis — respond before it spreads.', cta: 'Respond', on: onCrisis });
+  if (state.crisis) items.push({ k: 'crisis', icon: 'skull', color: '#FF4D5E', title: state.crisis.title, body: 'PR crisis, respond before it spreads.', cta: 'Respond', on: onCrisis });
   const sub = state.awardSubmission;
   if (sub && sub.status === 'open') items.push({ k: 'sub', icon: 'trophy', color: '#FFB020', title: `${sub.show}: confirm your entries`, body: `${sub.by} ${sub.signed ? 'suggested' : 'recommends'} ${sub.suggested.length} entr${sub.suggested.length === 1 ? 'y' : 'ies'}. Due week ${sub.showWeek}.`, cta: 'Review', on: () => onSubmissions() });
   if (a && a.status === 'pending') items.push({ k: 'aw', icon: 'trophy', color: '#FFB020', title: `Nominated: ${a.category}`, body: `${a.show} is tonight. Walk the carpet.`, cta: 'Attend', on: onAwards });

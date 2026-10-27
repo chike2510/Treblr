@@ -77,11 +77,11 @@ function PlayerArticle({ onOpen }) {
       <h2 className="wp-h2">Discography</h2>
       {out.length ? (
         <table className="wp-table"><thead><tr><th>Title</th><th>Type</th><th>Year</th><th>Peak</th></tr></thead><tbody>
-          {out.map((r) => { const songs = r.songIds.map((id) => state.songs.find((x) => x.id === id)).filter(Boolean); const pk = r.type === 'single' ? songs[0]?.peaks?.hot100 : r.peaks?.album; return <tr key={r.id}><td><i>{r.title}</i></td><td>{r.type === 'single' ? 'Single' : r.type.toUpperCase()}</td><td>{yearOf(r.releaseWeek)}</td><td>{pk ? `#${pk}` : '—'}</td></tr>; })}
+          {out.map((r) => { const songs = r.songIds.map((id) => state.songs.find((x) => x.id === id)).filter(Boolean); const pk = r.type === 'single' ? songs[0]?.peaks?.hot100 : r.peaks?.album; return <tr key={r.id}><td><i>{r.title}</i></td><td>{r.type === 'single' ? 'Single' : r.type.toUpperCase()}</td><td>{yearOf(r.releaseWeek)}</td><td>{pk ? `#${pk}` : '-'}</td></tr>; })}
         </tbody></table>
       ) : <p className="muted">No releases yet.</p>}
-      {certs.length > 0 && (<><h2 className="wp-h2">Certifications</h2><ul>{certs.map((c, i) => <li key={i}><i>{c.t}</i> — {c.c}</li>)}</ul></>)}
-      {state.acting?.credits?.length > 0 && (<><h2 className="wp-h2">Filmography</h2><ul>{state.acting.credits.map((c) => <li key={c.id}><i>{c.title}</i> ({yearOf(c.releaseWeek)}) — {c.role}</li>)}</ul></>)}
+      {certs.length > 0 && (<><h2 className="wp-h2">Certifications</h2><ul>{certs.map((c, i) => <li key={i}><i>{c.t}</i>, {c.c}</li>)}</ul></>)}
+      {state.acting?.credits?.length > 0 && (<><h2 className="wp-h2">Filmography</h2><ul>{state.acting.credits.map((c) => <li key={c.id}><i>{c.title}</i> ({yearOf(c.releaseWeek)}), {c.role}</li>)}</ul></>)}
       {awards.length > 0 && (<><h2 className="wp-h2">Awards</h2><ul>{awards.map((a, i) => <li key={i}>{a.name} ({yearOf(a.week)})</li>)}</ul></>)}
       {collabs.length > 0 && (<><h2 className="wp-h2">See also</h2><ul>{collabs.map((r) => <li key={r.id}><button className="wp-link" onClick={() => onOpen(r.id)}>{r.name}</button></li>)}</ul></>)}
       <div className="wp-foot">This page was last edited in week {state.week}. Text is generated from your in-game career.</div>
@@ -107,8 +107,8 @@ function RivalArticle({ r, onBack }) {
       <h2 className="wp-h2">Recent releases (in this world)</h2>
       <p className="tiny muted">Song and album titles in Treblr are generated and fictional.</p>
       <table className="wp-table"><thead><tr><th>Title</th><th>Type</th><th>Year</th><th>Peak</th></tr></thead><tbody>
-        {albums.slice(0, 3).map((a) => <tr key={a.id}><td><i>{a.title}</i></td><td>Album</td><td>{a.releasedWeek > 0 ? yearOf(a.releasedWeek) : 2026}</td><td>{a.firstWeek ? `${fmtNum(a.firstWeek)} 1st wk` : '—'}</td></tr>)}
-        {songs.slice(0, 6).map((x) => <tr key={x.id}><td><i>{x.title}</i></td><td>Single</td><td>{x.releasedWeek > 0 ? yearOf(x.releasedWeek) : 2026}</td><td>{peak(x.id) ? `#${peak(x.id)}` : '—'}</td></tr>)}
+        {albums.slice(0, 3).map((a) => <tr key={a.id}><td><i>{a.title}</i></td><td>Album</td><td>{a.releasedWeek > 0 ? yearOf(a.releasedWeek) : 2026}</td><td>{a.firstWeek ? `${fmtNum(a.firstWeek)} 1st wk` : '-'}</td></tr>)}
+        {songs.slice(0, 6).map((x) => <tr key={x.id}><td><i>{x.title}</i></td><td>Single</td><td>{x.releasedWeek > 0 ? yearOf(x.releasedWeek) : 2026}</td><td>{peak(x.id) ? `#${peak(x.id)}` : '-'}</td></tr>)}
       </tbody></table>
     </article>
   );
@@ -164,7 +164,7 @@ export function npcReview(a) {
 }
 const BLURB = [
   (t, n) => `On “${t}”, ${n} sounds like they finally trust the quiet parts.`,
-  (t, n) => `“${t}” is ${n} at full volume — not every swing lands, but the big ones do.`,
+  (t, n) => `“${t}” is ${n} at full volume, not every swing lands, but the big ones do.`,
   (t, n) => `${n}’s “${t}” is a tidy record that rarely risks anything.`,
   (t, n) => `A restless, generous record: “${t}” keeps rewarding repeat listens from ${n}.`,
   (t, n) => `${n} spreads “${t}” thin; the singles carry a lot of weight.`,
@@ -174,7 +174,7 @@ export function Treblrfork() {
   const p = state.player;
   const [open, setOpen] = useState(null);
   const mine = state.releases.filter((r) => r.status === 'out' && r.review).map((r) => ({ id: r.id, title: r.title, artist: p.stageName, cover: r.cover, type: r.type, week: r.releaseWeek, ...r.review, me: true }));
-  const npc = state.rivalAlbums.filter((a) => a.releasedWeek > 0).map((a) => { const r = state.rivals.find((x) => x.id === a.rivalId); return { id: a.id, title: a.title, artist: r?.name || '—', cover: a.cover, type: 'album', week: a.releasedWeek, ...npcReview(a) }; });
+  const npc = state.rivalAlbums.filter((a) => a.releasedWeek > 0).map((a) => { const r = state.rivals.find((x) => x.id === a.rivalId); return { id: a.id, title: a.title, artist: r?.name || '-', cover: a.cover, type: 'album', week: a.releasedWeek, ...npcReview(a) }; });
   const all = [...mine, ...npc].sort((a, b) => b.week - a.week).slice(0, 30);
   const bnm = all.filter((x) => x.bnm).slice(0, 6);
   const item = open && all.find((x) => x.id === open);

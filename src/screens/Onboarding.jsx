@@ -29,7 +29,7 @@ export const STRAPLINES = {
   viral: 'One clip. Millions of views. Now what?',
   signed: 'The rookie a label just bet on',
   songwriter: "You've sung their hits. Meet the pen behind them",
-  plant: 'Overnight sensation — or something more expensive?',
+  plant: 'Overnight sensation, or something more expensive?',
 };
 
 const DESK = [

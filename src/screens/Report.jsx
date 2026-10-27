@@ -33,7 +33,7 @@ export function MagazineCover({ player, week, headline, lines = [], onRead, kick
 }
 
 export function ReportBody({ report, state }) {
-  if (!report) return <div className="muted">No issue yet — play your first week.</div>;
+  if (!report) return <div className="muted">No issue yet, play your first week.</div>;
   const inc = Object.entries(report.income || {}).filter(([, v]) => v);
   const exp = Object.entries(report.expense || {}).filter(([, v]) => v);
   const totalIn = inc.reduce((a, [, v]) => a + v, 0);
@@ -64,9 +64,9 @@ export function ReportBody({ report, state }) {
         {report.chartMoves?.length ? report.chartMoves.slice(0, 10).map((m, i) => (
           <div key={i} className="row between mt8 small">
             <span className="ellipsis"><b>#{m.r}</b> {m.title} · <span className="muted">{m.chart}</span></span>
-            <span className={m.p == null ? '' : m.p > m.r ? 'up' : m.p < m.r ? 'down' : 'faint'} style={{ color: m.p == null ? 'var(--amber)' : undefined, fontWeight: 700 }}>{m.p == null ? 'NEW' : m.p > m.r ? `▲${m.p - m.r}` : m.p < m.r ? `▼${m.r - m.p}` : '—'}</span>
+            <span className={m.p == null ? '' : m.p > m.r ? 'up' : m.p < m.r ? 'down' : 'faint'} style={{ color: m.p == null ? 'var(--amber)' : undefined, fontWeight: 700 }}>{m.p == null ? 'NEW' : m.p > m.r ? `▲${m.p - m.r}` : m.p < m.r ? `▼${m.r - m.p}` : '-'}</span>
           </div>
-        )) : <div className="muted small mt8">Not charting yet{state?.songs?.some((s) => s.status === 'released') ? ' — keep pushing.' : '. Release something!'}</div>}
+        )) : <div className="muted small mt8">Not charting yet{state?.songs?.some((s) => s.status === 'released') ? ', keep pushing.' : '. Release something!'}</div>}
       </div>
 
       {report.tour?.nights?.length > 0 && (

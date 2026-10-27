@@ -93,7 +93,7 @@ function Bank() {
       <div className="card" style={{ background: 'linear-gradient(135deg,#3DDC8433,#15151B)' }}>
         <Mono>Available balance</Mono>
         <div className="num" style={{ fontSize: 40, color: p.cash < 0 ? '#FF4D5E' : undefined }}>{fmtMoney(p.cash)}</div>
-        <div className="small muted">Fixed costs ≈ {fmtMoney(weeklyExpenses(state))}/week · {p.label ? `${p.label.name} keeps ${100 - Math.round(p.label.royalty * 100)}% of streams` : 'Independent — you keep 100% of streams'}</div>
+        <div className="small muted">Fixed costs ≈ {fmtMoney(weeklyExpenses(state))}/week · {p.label ? `${p.label.name} keeps ${100 - Math.round(p.label.royalty * 100)}% of streams` : 'Independent: you keep 100% of streams'}</div>
       </div>
       <div className="grid2 mt12">
         <div className="stat"><Mono className="sm">In this week</Mono><div className="v up">+{fmtMoney(inc)}</div></div>
@@ -222,7 +222,7 @@ function Manager() {
   const hired = STAFF.filter((s) => p.staff[s.id]);
   const tips = [];
   if (p.cash < weeklyExpenses(state) * 3) tips.push('Cash is thin. Book jobs or gigs before spending on rollouts.');
-  if (state.songs.filter((s) => s.status === 'recorded').length >= 3) tips.push('You have enough recorded songs for an EP — EPs can chart on the Album Chart.');
+  if (state.songs.filter((s) => s.status === 'recorded').length >= 3) tips.push('You have enough recorded songs for an EP, EPs can chart on the Album Chart.');
   if (!p.label && p.popularity >= 25) tips.push(`Labels are watching. ${LABELS.find((l) => p.popularity >= l.minPop && l.minPop >= 25)?.name || 'An indie label'} could sign you now.`);
   if (p.suspicion > 40) tips.push('Suspicion is high. Lay off the "consulting fees" or risk a payola scandal.');
   if (p.hype < 15) tips.push('Hype is cold. Post on TreblrX or do press before your next release.');
@@ -269,7 +269,7 @@ function Settings() {
       <InstallCard />
       <button className="btn block" onClick={() => setStore(true)}><Icon name="gift" size={18} />Store <span className="chip sm" style={{ marginLeft: 6 }}>Coming soon</span></button>
       <button className="btn block" onClick={() => setRoster(true)}><Icon name="users" size={18} />Roster editor (artist packs)</button>
-      <Sheet open={store} onClose={() => setStore(false)} title="Store" sub="Placeholder — nothing is for sale yet."><StoreScreen /></Sheet>
+      <Sheet open={store} onClose={() => setStore(false)} title="Store" sub="Placeholder: nothing is for sale yet."><StoreScreen /></Sheet>
       <Sheet open={roster} onClose={() => setRoster(false)} title="Roster editor" sub="Custom artist packs apply to NEW careers."><RosterEditor /></Sheet>
       <div className="card">
         <Mono>Save slots</Mono>

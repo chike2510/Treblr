@@ -216,7 +216,7 @@ export function SectionHead({ title, action, onAction }) {
 }
 
 export function Delta({ v, money }) {
-  if (!v) return <span className="faint">—</span>;
+  if (!v) return <span className="faint">-</span>;
   return <span className={v > 0 ? 'up' : 'down'}>{v > 0 ? '▲' : '▼'} {money ? fmtMoney(Math.abs(v)) : fmtNum(Math.abs(v))}</span>;
 }
 

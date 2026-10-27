@@ -307,7 +307,7 @@ export function TreblrTok() {
             <>
               <select className="mt12" value={sel} onChange={(e) => setSel(e.target.value)} aria-label="Song">{eligible.map((s) => <option key={s.id} value={s.id}>{s.title} (Q{s.quality})</option>)}</select>
               <button className="btn block mt12 tt-red" disabled={p.socialEnergy < SOCIAL.clipz} onClick={() => create('snippet')}>Post snippet · {SOCIAL.clipz} social</button>
-              <Mono className="mt16">Promo ideas that fit {genreName(eligible.find((x) => x.id === sel)?.genre || p.genre)}</Mono>
+              <Mono className="mt16">Best promo moves for {genreName(eligible.find((x) => x.id === sel)?.genre || p.genre)} fans</Mono>
               <div className="col mt8">
                 {promoIdeasFor(eligible.find((x) => x.id === sel)?.genre || p.genre).map((it) => (
                   <button key={it.id} className="option press" style={{ '--accent': '#FE2C55' }} disabled={p.socialEnergy < it.social} onClick={() => act(promoIdea, { songId: sel || eligible[0]?.id, idea: it.id })}>
@@ -430,7 +430,7 @@ export function TreblrTube() {
             <div className="yt-player" style={{ background: grad(watch.gradient || 0) }}><div className="yt-playbtn"><Icon name="play" size={22} fill="#fff" /></div></div>
             <div className="row between mt12 small"><span>{fmtNum(watch.views)} views</span><span><Icon name="heart" size={14} /> {fmtNum(watch.likes || watch.views * 0.035)}</span></div>
             <div className="row mt12">{watch.rival ? <ArtistAvatar rival={watch.rival} size={40} onClick={() => { setWatch(null); openArtist(watch.rival.id); }} /> : <img className="avatar" src={facePhoto(p)} alt="" />}<div className="grow"><b>{watch.me ? p.stageName : watch.rival.name}</b><div className="tiny muted">{watch.me ? `${fmtNum(p.followers.viewtube)} subscribers` : `${fmtNum(watch.rival.monthlyListeners * 0.3)} subscribers`}</div></div><button className="btn sm" style={{ background: '#fff', color: '#000' }}>Subscribe</button></div>
-            {watch.me && <div className="tiny muted mt8">{VIDEO_DIRECTORS.find((d) => d.id === watch.tier)?.name} · {VIDEO_CONCEPTS.find((c) => c.id === watch.concept)?.name || 'Performance'} · video score {watch.quality ?? '—'}{watch.promoted ? ` · ${fmtMoney(watch.promoted)} in ads` : ''}</div>}
+            {watch.me && <div className="tiny muted mt8">{VIDEO_DIRECTORS.find((d) => d.id === watch.tier)?.name} · {VIDEO_CONCEPTS.find((c) => c.id === watch.concept)?.name || 'Performance'} · video score {watch.quality ?? '-'}{watch.promoted ? ` · ${fmtMoney(watch.promoted)} in ads` : ''}</div>}
             {watch.me && (
               <div className="card tight mt12">
                 <Mono className="sm">Promote this video</Mono>

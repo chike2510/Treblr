@@ -84,7 +84,7 @@ export default function Phone({ initialApp, contact, view }) {
         </div>
         <div className="card tight mt24" style={{ background: 'rgba(255,255,255,.05)' }}>
           <div className="row between"><Mono className="sm">Social energy</Mono><span className="num small">{p.socialEnergy}/{p.maxSocial}</span></div>
-          <div className="tiny muted mt8">Posting, pitching, going LIVE and dates use social energy — separate from studio energy. Refills weekly.</div>
+          <div className="tiny muted mt8">Posting, pitching, going LIVE and dates use social energy, separate from studio energy. Refills weekly.</div>
           <div className="row gap16 mt12 tiny wrap">
             <span>TreblrX <b>{fmtNum(p.followers.chirp)}</b></span><span>Treblrgram <b>{fmtNum(p.followers.snapshot)}</b></span><span>TreblrTok <b>{fmtNum(p.followers.clipz)}</b></span><span>TreblrTube <b>{fmtNum(p.followers.viewtube)}</b></span>
           </div>

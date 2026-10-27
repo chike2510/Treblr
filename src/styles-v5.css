@@ -1,0 +1,68 @@
+/* v5 (fix list 2): solid chrome, large-text safety, scroll hints. */
+/* Top bar and bottom nav are solid; the shell measures their real height into --top-h/--nav-h. */
+.topbar { background: #0B0B0F; backdrop-filter: none; -webkit-backdrop-filter: none; height: auto; min-height: var(--top-h-min, 64px); padding-top: env(safe-area-inset-top); }
+.bottomnav { background: #0B0B0F; backdrop-filter: none; -webkit-backdrop-filter: none; height: auto; min-height: var(--nav-h-min, 76px); }
+.topbar .wk { flex-shrink: 0; overflow: visible; min-width: max-content; }
+.topbar .wk b { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.topbar .stat-chip { flex-shrink: 1; min-width: 0; overflow: hidden; }
+.topbar .next-btn { flex-shrink: 0; }
+@media (max-width: 400px) { .topbar .wk > span { font-size: 10px; } }
+/* chips never shrink (chart positions like #94 stay whole) */
+.pills > .chip, .pills > .pill, .chip-scroll > * { flex-shrink: 0; max-width: none; overflow: visible; }
+.chart-row .rk { width: auto; min-width: 2.2em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chart-row .mv { width: auto; min-width: 2.6em; white-space: nowrap; }
+.rank-chip { display: inline-flex; align-items: center; gap: 8px; height: auto; min-height: 40px; padding: 4px 12px 4px 4px; border-radius: 999px; background: #C6FF3D; color: #0B0B0F; font-weight: 700; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
+.rank-chip.fp { background: #2B2F1A; color: #C6FF3D; border: 1px solid rgba(198,255,61,.5); }
+.rank-chip b { font-family: var(--font-head); font-size: 15px; font-variant-numeric: tabular-nums; }
+.rank-chip .cover { flex-shrink: 0; }
+/* stat tiles: 2 columns on phones, compact numbers never ellipsize */
+@media (max-width: 440px) { .stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stat .v { overflow-wrap: normal; }
+.stat > .mono { display: block; }
+/* fame card: each requirement on its own row on phones */
+@media (max-width: 440px) { .fame-reqs { grid-template-columns: 1fr; gap: 8px; } }
+.fame-reqs .row.between { gap: 8px; }
+.fame-reqs .row.between > span:first-child { white-space: nowrap; }
+/* segmented tabs and chip rows scroll with a fade hint instead of clipping */
+.seg.many, .scroll-fade { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+.seg.many.at-end, .scroll-fade.at-end { -webkit-mask-image: none; mask-image: none; }
+.chip-scroll { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+.chip-scroll::-webkit-scrollbar { display: none; }
+.need { font-size: 11px; color: var(--amber); white-space: nowrap; }
+/* cover picker: the preview is never cut by the sheet edge */
+.cover-preview { display: grid; place-items: center; padding-top: 6px; }
+.preset-row { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 6px; }
+.preset-row::-webkit-scrollbar { display: none; }
+.preset-row > button { flex-shrink: 0; border-radius: 12px; }
+.preset-row img { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; }
+/* full-screen detail pages (song, project) */
+.detail { position: absolute; inset: 0; z-index: 70; background: var(--bg); display: flex; flex-direction: column; animation: slideIn 0.25s cubic-bezier(0.2,0.9,0.3,1); }
+.detail-head { display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 12px 10px; border-bottom: 1px solid var(--border); background: #0B0B0F; }
+.detail-head h2 { font-size: 18px; flex: 1; min-width: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail-body { flex: 1; overflow-y: auto; padding: 16px 16px calc(32px + env(safe-area-inset-bottom)); }
+.hero-cover { display: grid; place-items: center; margin: 4px auto 12px; position: relative; }
+.hero-cover::before { content: ''; position: absolute; inset: 14px -14px -10px; border-radius: 28px; background: var(--glow, #6C7BFF); opacity: .25; filter: blur(18px); }
+.kv { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.kv:last-child { border-bottom: 0; }
+.kv > span:first-child { color: var(--muted); flex-shrink: 0; }
+.kv > span:last-child { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.pbar { height: 8px; border-radius: 99px; background: var(--raised); overflow: hidden; }
+.pbar > i { display: block; height: 100%; border-radius: 99px; }
+.badge-status { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .12em; border: 1px solid; }
+.showroom { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; margin: 0 -18px; padding-left: 18px; padding-right: 18px; }
+.showroom::-webkit-scrollbar { display: none; }
+.showroom .item { flex: 0 0 172px; border-radius: 18px; background: var(--raised); border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; }
+.showroom .item .art { width: 100%; aspect-ratio: 4 / 3; display: block; }
+.showroom .item .body { padding: 10px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.spark { display: flex; align-items: flex-end; gap: 2px; height: 36px; }
+.spark i { flex: 1; border-radius: 2px; min-height: 2px; }
+.pills { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+.pills.at-end, .chip-scroll.at-end { -webkit-mask-image: none; mask-image: none; }
+.topbar .stat-chip { flex-shrink: 0; overflow: visible; }
+@media (max-width: 400px) {
+  .topbar { gap: 5px; padding-left: 8px; padding-right: 8px; }
+  .topbar .avatar { width: 34px; height: 34px; }
+  .topbar .next-btn { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  .topbar .next-btn .nx-l { display: none; }
+  .topbar .stat-chip.bell { margin-left: 2px; }
+}

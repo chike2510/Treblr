@@ -40,7 +40,7 @@ export default function Profile({ onClose }) {
               <div className="stat"><Mono className="sm">Streams</Mono><div className="v">{fmtNum(p.lifetimeStreams || 0)}</div></div>
               <div className="stat"><Mono className="sm">Popularity</Mono><div className="v">{p.popularity}</div></div>
               <div className="stat"><Mono className="sm">Hype</Mono><div className="v">{Math.round(p.hype)}</div></div>
-              <div className="stat"><Mono className="sm">Best rank</Mono><div className="v">{p.bestRank ? `#${p.bestRank}` : '—'}</div></div>
+              <div className="stat"><Mono className="sm">Best rank</Mono><div className="v">{p.bestRank ? `#${p.bestRank}` : '-'}</div></div>
             </div>
             <div className="card">
               <Mono>Skills</Mono>

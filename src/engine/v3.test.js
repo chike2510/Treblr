@@ -6,8 +6,9 @@ import realListeners from '../../scripts/real_listeners-2026-10-26.json' with { 
 const setup = { firstName: 'Sam', lastName: 'Lee', stageName: 'SAMLEE', city: 'tor', age: 22, genre: 'pop', subgenres: [], path: 'bedroom' };
 const fresh = (over = {}, seed = 777) => E.createNewGame({ ...setup, ...over }, seed);
 const ok = (r) => { expect(r.ok, r.msg).toBe(true); return r.state; };
+let tuneN = 0;
 function recorded(s, q = 70) {
-  s = ok(E.writeSong(s, { title: 'Tune', genre: 'pop', theme: 'Love', length: 180 }));
+  s = ok(E.writeSong(s, { title: `Tune ${++tuneN}`, genre: 'pop', theme: 'Love', length: 180 }));
   const id = s.songs[0].id;
   s.player.cash += 100000; s.player.energy = 100;
   s = ok(E.recordSong(s, { songId: id, producerId: 'local' }));
@@ -87,16 +88,17 @@ describe('balance mechanics', () => {
     s = ok(E.playGig(s, { venueId: 'bar', cityId: 'tor' }));
     expect(E.doJob(s, { jobId: 'barista' }).ok).toBe(false);
   });
-  it('burnout: draining to 0 repeatedly lowers next week energy cap; rest restores', () => {
+  it('burnout: energy refills fully each week; draining to 0 builds burnout that trims the cap a little; rest restores', () => {
     let s = fresh();
-    for (let i = 0; i < 4; i++) { s.player.energy = 0; s = E.advanceWeek(s); }
+    for (let i = 0; i < 7; i++) { s.player.energy = 0; s = E.advanceWeek(s); expect(s.player.energy).toBe(s.player.maxEnergy); }
     expect(s.player.burnout).toBeGreaterThan(40);
-    expect(s.player.maxEnergy).toBeLessThan(85);
+    expect(s.player.maxEnergy).toBeLessThan(100);
+    expect(s.player.maxEnergy).toBeGreaterThanOrEqual(80);
     const b = s.player.burnout;
     s = ok(E.rest(s));
     expect(s.player.burnout).toBeLessThan(b);
     for (let i = 0; i < 6; i++) { s.player.energy = 80; s = E.advanceWeek(s); }
-    expect(s.player.maxEnergy).toBeGreaterThanOrEqual(95);
+    expect(s.player.maxEnergy).toBe(100);
   });
   it('hype decays faster at high values and gains are soft-capped', () => {
     expect(85 - E.hypeDecay(85)).toBeGreaterThan(20 - E.hypeDecay(20));
@@ -348,9 +350,17 @@ describe('v3 systems', () => {
   });
   it('award shows: nomination -> attend -> reveal -> speech', () => {
     let s = fresh(); s.player.popularity = 70; s.player.bestRank = 5;
-    s.week = 8;
+    const r0 = recorded(s, 90); s = ok(E.releaseMusic(r0.s, { type: 'single', songIds: [r0.id], rollout: 'drop' }));
     s = E.advanceWeek(s);
-    expect(s.awardEvent.status).toBe('pending');
+    s.songs[0].peaks = { hot100: 1 }; s.songs[0].lifetimeStreams = 9e8;
+    s.week = 6;
+    s = E.advanceWeek(s); // submissions open for the week-8 show
+    expect(s.awardSubmission?.status).toBe('open');
+    expect(s.awardSubmission.suggested.length).toBeGreaterThan(0);
+    s = ok(E.confirmAwardEntries(s, { picks: s.awardSubmission.suggested }));
+    s.player.fame = { tier: 'superstar', points: 900 };
+    s = E.advanceWeek(s); s = E.advanceWeek(s);
+    expect(s.awardEvent?.status).toBe('pending');
     const r = E.attendAwardShow(s, { outfit: 'bold', perform: true });
     expect(r.ok).toBe(true);
     if (r.data.won) {
@@ -438,7 +448,7 @@ describe('saves & stability', () => {
     v2.songs = [{ id: 's1', title: 'Mine', genre: 'pop', status: 'released', releasedWeek: 1, quality: 60, weeklyStreams: 10, lifetimeStreams: 10, history: [], cover: { gradient: 1 }, peaks: { hot100: 50 } }];
     const m = E.migrate(v2);
     expect(m.version).toBe(E.SAVE_VERSION);
-    expect(E.SAVE_VERSION).toBe(3);
+    expect(E.SAVE_VERSION).toBe(4);
     expect(m.rivals.length).toBe(E.ARTIST_ROSTER.length);
     expect(m.rivalSongs.every((x) => m.rivals.some((r) => r.id === x.rivalId))).toBe(true);
     expect(m.songs[0].peaks.hot100).toBe(50);

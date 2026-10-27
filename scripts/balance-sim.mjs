@@ -13,7 +13,7 @@ function bestGig(s) {
   const cities = Object.entries(p.fanHeat).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c]) => c);
   let best = null;
   for (const v of E.VENUES) {
-    if (p.fans < v.minFans || p.energy < v.energy) continue;
+    if (!E.venueUnlocked(p, v) || p.energy < v.energy) continue;
     for (const c of cities) {
       const travel = c === p.city ? 0 : 150 + v.capacity * 0.6;
       if (travel > p.cash * 0.3) continue;

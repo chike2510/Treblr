@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import {
-  GENRES, THEMES, COWRITERS, PRODUCERS, ROLLOUTS, COVER_GRADIENTS, CERTS, ENERGY, CHARTS,
+  GENRES, THEMES, COWRITERS, PRODUCERS, ROLLOUTS, COVER_GRADIENTS, ENERGY, CHARTS,
   writeSong, recordSong, releaseMusic, projectWriteQuality, projectRecordQuality, lengthFit, randomTitle,
   fmtMoney, fmtNum, fmtLength, genreName, producerPrice, sequencingScore, requestFeature, featureQuote, tierLabel, eraOf,
-  releaseFatigue,
+  releaseFatigue, COVER_STYLES, SONG_CERTS, ALBUM_CERTS, certName, nextCert, receptionLabel, deleteSong, pitchPlaylist, promoIdea, promoIdeasFor,
+  buyAds, AD_TIERS, ROLLOUT_STEPS, rolloutStep, SOCIAL, cloudUpload,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Cover, Seg, Bar, Sheet, UploadButton, Empty, SAMPLE_COVERS, ArtistAvatar } from '../ui/kit.jsx';
+import { CertBadge } from '../phone/media.jsx';
 
 const TABS = [{ value: 'write', label: 'Write' }, { value: 'record', label: 'Record' }, { value: 'collab', label: 'Collab' }, { value: 'release', label: 'Release' }, { value: 'catalog', label: 'Catalog' }];
 
@@ -215,12 +217,20 @@ function Release({ onDone }) {
       <button className="btn accent block" onClick={submit} disabled={state.player.cash < ro.cost}>Release {type === 'single' ? 'single' : type.toUpperCase()}</button>
       {scheduled.length > 0 && <ScheduledList list={scheduled} />}
 
-      <Sheet open={coverOpen} onClose={() => setCoverOpen(false)} title="Cover art" sub="Pick a gradient, a sample shot, or upload your own.">
+      <Sheet open={coverOpen} onClose={() => setCoverOpen(false)} title="Cover art" sub="Pick a generated style and colour, a sample shot, or upload your own.">
         <div style={{ display: 'grid', placeItems: 'center' }}><Cover cover={cover} title={relTitle} size={200} /></div>
-        <Mono className="mt16">Gradients</Mono>
+        <Mono className="mt16">Art styles</Mono>
+        <div className="cover-grid mt8">
+          {COVER_STYLES.slice(1).map((name, i) => {
+            const c = { gradient: cover.gradient ?? 0, style: i + 1, seed: cover.style === i + 1 ? cover.seed : (i + 1) * 97 + state.week };
+            return <button key={name} className="press" onClick={() => setCover(c)} style={{ outline: !cover.image && cover.style === i + 1 ? '2px solid #fff' : 'none', borderRadius: 12 }} aria-label={`${name} cover style`}><Cover cover={c} size={60} radius={12} /></button>;
+          })}
+        </div>
+        {cover.style ? <button className="btn sm mt8" onClick={() => setCover({ ...cover, image: undefined, seed: Math.floor(Math.random() * 1e6) })}><Icon name="dice" size={16} />Shuffle this style</button> : null}
+        <Mono className="mt16">Colours</Mono>
         <div className="row wrap gap6 mt8">
           {COVER_GRADIENTS.map((g, i) => (
-            <button key={i} className="press" onClick={() => setCover({ gradient: i })} style={{ width: 48, height: 48, borderRadius: 12, background: `linear-gradient(135deg, ${g[0]}, ${g[1]})`, outline: !cover.image && cover.gradient === i ? '2px solid #fff' : 'none' }} aria-label={`Gradient ${i + 1}`} />
+            <button key={i} className="press" onClick={() => setCover({ gradient: i, style: cover.style || 0, seed: cover.seed })} style={{ width: 48, height: 48, borderRadius: 12, background: `linear-gradient(135deg, ${g[0]}, ${g[1]})`, outline: !cover.image && cover.gradient === i ? '2px solid #fff' : 'none' }} aria-label={`Colour ${i + 1}`} />
           ))}
         </div>
         <Mono className="mt16">Photos</Mono>
@@ -237,12 +247,31 @@ function Release({ onDone }) {
 }
 
 function ScheduledList({ list }) {
+  const { state, act } = useGame();
+  const p = state.player;
   return (
     <div className="card">
       <Mono>Scheduled</Mono>
       {list.map((r) => (
-        <div key={r.id} className="list-item"><Cover cover={r.cover} size={40} /><div className="grow"><b>{r.title}</b><div className="tiny muted">{r.type.toUpperCase()} · drops week {r.releaseWeek}</div></div></div>
+        <div key={r.id} className="sched">
+          <div className="list-item"><Cover cover={r.cover} size={40} /><div className="grow" style={{ minWidth: 0 }}><b className="ellipsis" style={{ display: 'block' }}>{r.title}</b><div className="tiny muted">{r.type.toUpperCase()} · drops week {r.releaseWeek}{r.preHype ? ` · first-week boost +${Math.round(r.preHype * 100)}%` : ''}</div></div></div>
+          {r.type !== 'single' && (
+            <div className="rollout-steps">
+              {ROLLOUT_STEPS.map((st) => {
+                const done = r.steps?.[st.id];
+                const cost = [st.energy && `${st.energy} energy`, st.social && `${st.social} social`, st.cost && fmtMoney(st.cost)].filter(Boolean).join(' · ');
+                return (
+                  <button key={st.id} className={`rstep ${done ? 'done' : ''}`} disabled={!!done || (st.energy && p.energy < st.energy) || (st.social && p.socialEnergy < st.social) || (st.cost && p.cash < st.cost)} onClick={() => act(rolloutStep, { releaseId: r.id, step: st.id })}>
+                    <span className="row gap6">{done ? <Icon name="check" size={14} color="#3DDC84" /> : <Icon name="sparkle" size={14} />}<b>{st.name}</b></span>
+                    <span className="tiny muted">{done ? `Done week ${done}` : `${cost} · +${Math.round(st.pre * 100)}% first week`}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       ))}
+      {list.some((r) => r.type !== 'single') && <div className="tiny muted mt8">Rollout steps build pre-release hype and boost the first week. Announce projects a few weeks out to have time for them.</div>}
     </div>
   );
 }
@@ -253,7 +282,6 @@ function Catalog() {
   const songs = useMemo(() => [...state.songs].sort((a, b) => (b.lifetimeStreams || 0) - (a.lifetimeStreams || 0)), [state.songs]);
   if (!songs.length) return <div className="card mt16"><Empty icon="disc">Your catalogue is empty.</Empty></div>;
   const total = songs.reduce((a, s) => a + (s.lifetimeStreams || 0), 0);
-  const certName = (id) => CERTS.find((c) => c.id === id)?.name;
   const s = open && state.songs.find((x) => x.id === open);
   return (
     <div className="col gap16 mt16">
@@ -267,24 +295,31 @@ function Catalog() {
           <button key={x.id} className="list-item press" style={{ width: '100%', textAlign: 'left' }} onClick={() => setOpen(x.id)}>
             <Cover cover={x.cover} title={x.title} size={48} />
             <div className="grow">
-              <div className="row gap6"><b className="ellipsis">{x.title}</b>{x.cert && <span className="chip sm" style={{ color: x.cert === 'gold' ? '#FFB020' : '#E5E7EB' }}>{certName(x.cert)}</span>}</div>
-              <div className="tiny muted">{x.status === 'released' ? `${fmtNum(x.weeklyStreams)} this week` : x.status === 'scheduled' ? 'Scheduled' : x.status === 'recorded' ? 'Recorded · unreleased' : 'Demo'} · Q{x.quality}</div>
+              <div className="row gap6" style={{ minWidth: 0 }}><b className="ellipsis">{x.title}</b>{x.cert && <CertBadge id={x.cert} small />}</div>
+              <div className="tiny muted ellipsis">{x.status === 'released' ? `${fmtNum(x.weeklyStreams)} this week` : x.status === 'scheduled' ? 'Scheduled' : x.status === 'recorded' ? 'Recorded · unreleased' : 'Demo'} · Q{x.quality}{x.reception ? ` · ${receptionLabel(x.reception)}` : ''}</div>
             </div>
             <div style={{ textAlign: 'right' }}><div className="num">{fmtNum(x.lifetimeStreams || 0)}</div><Mono className="sm">Lifetime</Mono></div>
           </button>
         ))}
       </div>
       <Sheet open={!!s} onClose={() => setOpen(null)} title={s?.title} sub={s && `${genreName(s.genre)} · ${s.theme} · ${fmtLength(s.length)}`}>
-        {s && <SongDetail s={s} />}
+        {s && <SongDetail s={s} onDeleted={() => setOpen(null)} />}
       </Sheet>
+      <AlbumsCard />
     </div>
   );
 }
 
-function SongDetail({ s }) {
-  const next = CERTS.slice().reverse().find((c) => (s.lifetimeStreams || 0) < c.streams);
+function SongDetail({ s, onDeleted }) {
+  const { state, act } = useGame();
+  const p = state.player;
+  const [confirmDel, setConfirmDel] = useState(false);
+  const next = nextCert(s.lifetimeStreams || 0, SONG_CERTS);
   const hist = s.history || [];
   const max = Math.max(1, ...hist);
+  const ideas = promoIdeasFor(s.genre);
+  const live = ['released', 'scheduled', 'recorded'].includes(s.status);
+  const unreleased = ['written', 'recorded'].includes(s.status) && !state.releases.some((r) => r.status === 'scheduled' && r.songIds.includes(s.id));
   return (
     <div className="col gap16">
       <div className="grid3">
@@ -292,6 +327,7 @@ function SongDetail({ s }) {
         <div className="stat"><Mono className="sm">Weekly</Mono><div className="v">{fmtNum(s.weeklyStreams || 0)}</div></div>
         <div className="stat"><Mono className="sm">Playlists</Mono><div className="v">{s.playlists || 0}</div></div>
       </div>
+      {(s.cert || s.reception) && <div className="row wrap gap6">{s.cert && <CertBadge id={s.cert} />}{s.reception && <span className="chip sm">{receptionLabel(s.reception)}</span>}{s.firstWeekStreams ? <span className="chip sm">First week {fmtNum(s.firstWeekStreams)}</span> : null}{s.lifetimeSales ? <span className="chip sm">{fmtNum(s.lifetimeSales)} downloads</span> : null}</div>}
       {hist.length > 1 && (
         <div className="card"><Mono>Weekly streams</Mono>
           <div className="row mt12" style={{ alignItems: 'flex-end', height: 80, gap: 3 }}>
@@ -299,9 +335,59 @@ function SongDetail({ s }) {
           </div>
         </div>
       )}
-      {next && <div className="card"><div className="row between small"><span>Next: <b>{next.name}</b></span><span className="muted">{fmtNum(s.lifetimeStreams || 0)} / {fmtNum(next.streams)}</span></div><div className="mt8"><Bar pct={(s.lifetimeStreams || 0) / next.streams} color="#FFB020" /></div></div>}
+      {next && s.status === 'released' && <div className="card"><div className="row between small gap6"><span>Next: <b>{next.name}</b></span><span className="muted">{fmtNum(s.lifetimeStreams || 0)} / {fmtNum(next.min)}</span></div><div className="mt8"><Bar pct={(s.lifetimeStreams || 0) / next.min} color="#FFB020" /></div></div>}
       {Object.keys(s.peaks || {}).length > 0 && <div className="row wrap gap6">{Object.entries(s.peaks).map(([k, v]) => <span key={k} className="chip sm">Peak #{v} · {CHARTS.find((c) => c.id === k)?.short || CHARTS.find((c) => c.id === k)?.name || k}</span>)}</div>}
       {s.playlistNames?.length > 0 && <div className="tiny muted">On: {s.playlistNames.join(', ')}</div>}
+      {live && (
+        <div className="card">
+          <Mono>Pitch</Mono>
+          <div className="tiny muted mt8">{s.status === 'released' ? 'Send it to playlist curators ($50 + 5 social).' : s.prePitch ? 'Pitched to editors — you’ll hear on release week.' : 'Pitch to editors before release: placements land on release day.'}</div>
+          <button className="btn sm mt8" disabled={s.pitchedWeek === state.week || (s.status !== 'released' && s.prePitch) || p.socialEnergy < SOCIAL.pitch || p.cash < 50} onClick={() => act(pitchPlaylist, { songId: s.id })}>{s.status === 'released' ? 'Pitch to playlists' : 'Pitch to editors'}</button>
+        </div>
+      )}
+      {live && (
+        <div className="card">
+          <Mono>Promote</Mono>
+          <div className="tiny muted mt8">Ideas that fit {genreName(s.genre)}. Before release they build buzz for the first weeks.</div>
+          <div className="row wrap gap6 mt8">{ideas.map((it) => <button key={it.id} className="btn sm" disabled={p.socialEnergy < it.social} onClick={() => act(promoIdea, { songId: s.id, idea: it.id })}>{it.name} · {it.social}</button>)}</div>
+          <Mono className="mt12 sm">Paid ads</Mono>
+          <div className="row wrap gap6 mt8">{AD_TIERS.map((t) => <button key={t.id} className="btn sm" disabled={p.cash < t.cost} onClick={() => act(buyAds, { songId: s.id, tier: t.id })}>{fmtMoney(t.cost)} · ~{fmtNum(t.streams)}</button>)}</div>
+        </div>
+      )}
+      {unreleased && (
+        <div className="card">
+          <Mono>Unreleased</Mono>
+          <div className="row wrap gap6 mt8">
+            <button className="btn sm" disabled={p.socialEnergy < 6} onClick={() => act(cloudUpload, { songId: s.id, kind: 'demo' })}>Upload demo to TreblrCloud</button>
+            {!confirmDel ? <button className="btn sm danger" onClick={() => setConfirmDel(true)}>Delete song</button> : <button className="btn sm danger" onClick={() => { if (act(deleteSong, { songId: s.id }).ok) onDeleted?.(); }}>Tap again to delete “{s.title}”</button>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AlbumsCard() {
+  const { state } = useGame();
+  const list = state.releases.filter((r) => r.status === 'out' && r.type !== 'single');
+  if (!list.length) return null;
+  return (
+    <div className="card">
+      <Mono>Projects · units & plaques</Mono>
+      {list.map((r) => {
+        const next = nextCert(r.totalUnits || 0, ALBUM_CERTS);
+        return (
+          <div key={r.id} className="list-item">
+            <Cover cover={r.cover} title={r.title} size={48} />
+            <div className="grow" style={{ minWidth: 0 }}>
+              <div className="row gap6" style={{ minWidth: 0 }}><b className="ellipsis">{r.title}</b>{r.cert && <CertBadge id={r.cert} album small />}</div>
+              <div className="tiny muted ellipsis">{r.type.toUpperCase()} · first week {fmtNum(r.firstWeek || 0)} · {fmtNum(r.totalUnits || 0)} units{r.review ? ` · Treblrfork ${r.review.score.toFixed(1)}` : ''}</div>
+              {next && <div className="mt8"><Bar pct={(r.totalUnits || 0) / next.min} color="#FFB020" /></div>}
+            </div>
+          </div>
+        );
+      })}
+      <div className="tiny muted mt8">2,500 streams = 1 unit, plus sales. Lead singles’ earlier streams count toward the total, never the first week.</div>
     </div>
   );
 }
@@ -334,7 +420,7 @@ function Collab({ initialRival }) {
             <button className="grow" style={{ textAlign: 'left', minWidth: 0 }} onClick={() => setPick(r.id)}>
               <b className="ellipsis" style={{ display: 'block' }}>{r.name}</b>
               <div className="tiny muted">{genreName(r.genre)} · {tierLabel(r.tier)} · {fmtNum(r.monthlyListeners)} listeners{c ? ` · rel ${c.rel}` : ''}{c?.beef ? ' · beef' : ''}</div>
-              <div className="tiny" style={{ color: quote.odds >= 0.5 ? 'var(--green)' : quote.odds >= 0.2 ? 'var(--amber)' : 'var(--red)' }}>{fmtMoney(quote.fee)} · {Math.round(quote.odds * 100)}% odds</div>
+              <div className="tiny" style={{ color: quote.odds >= 0.5 ? 'var(--green)' : quote.odds >= 0.2 ? 'var(--amber)' : 'var(--red)' }}>{fmtMoney(quote.fee)} · {Math.round(quote.odds * 100)}% odds{quote.labelmate ? ' · labelmate discount' : ''}</div>
             </button>
             <button className="btn sm accent" style={{ '--accent': '#FF6B4A' }} disabled={!songId || p.cash < quote.fee || p.energy < 10 || c?.beef} onClick={() => act(requestFeature, { rivalId: r.id, songId })}>Ask</button>
           </div>

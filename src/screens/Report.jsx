@@ -4,7 +4,7 @@ import { Mono, Delta, facePhoto } from '../ui/kit.jsx';
 const LABELS = {
   streams: 'Streaming', gigs: 'Gigs & tours', jobs: 'Jobs', brand: 'Brand deals', features: 'Features', merch: 'Merch', video: 'TreblrTube', live: 'Live tips', training: 'Training',
   advance: 'Label advance', rewards: 'Milestones', other: 'Other', rent: 'Rent', living: 'Living costs', staff: 'Team salaries', studio: 'Studio time',
-  cowriters: 'Co-writers', marketing: 'Marketing', touring: 'Touring costs', videoProd: 'Music videos', 
+  cowriters: 'Co-writers', marketing: 'Marketing', touring: 'Touring costs', videoProd: 'Music videos', sales: 'Sales', loan: 'Loans', lifestyle: 'Lifestyle', acting: 'Acting', distribution: 'Distribution',
 };
 
 export function MagazineCover({ player, week, headline, lines = [], onRead, kicker = 'COVER STORY' }) {
@@ -16,15 +16,17 @@ export function MagazineCover({ player, week, headline, lines = [], onRead, kick
         <h1>TREBLR<small>WEEKLY</small></h1>
         <div className="issue">ISSUE №{week}<br />{formatWeekDate(week, { month: 'short', day: 'numeric' }).toUpperCase()}<br />$4.99</div>
       </div>
-      {lines.length > 0 && (
-        <div className="side">
-          {lines.slice(0, 3).map((l) => <div key={l.k}><i>{l.k}</i>{l.v}</div>)}
+      <div className="mag-bottom">
+        {lines.length > 0 && (
+          <div className="side">
+            {lines.slice(0, 3).map((l) => <div key={l.k}><i>{l.k}</i>{l.v}</div>)}
+          </div>
+        )}
+        <div className="story">
+          <span className="kicker">{kicker}</span>
+          <h2>{headline}</h2>
+          {onRead && <button className="btn primary sm" onClick={onRead}>Read the issue ›</button>}
         </div>
-      )}
-      <div className="story">
-        <span className="kicker">{kicker}</span>
-        <h2>{headline}</h2>
-        {onRead && <button className="btn primary sm" onClick={onRead}>Read the issue ›</button>}
       </div>
     </div>
   );

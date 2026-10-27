@@ -12,7 +12,10 @@ import World from './screens/World.jsx';
 import Profile from './screens/Profile.jsx';
 import Reveal from './screens/Reveal.jsx';
 import ArtistSheet from './ui/ArtistSheet.jsx';
-import { AwardShow, CrisisSheet, WrappedCard, NotificationsPanel } from './screens/Overlays.jsx';
+import { AwardShow, CrisisSheet, WrappedCard, NotificationsPanel, AwardSubmissions } from './screens/Overlays.jsx';
+import { InstallButton, UpdateToast } from './pwa.jsx';
+import { StoreScreen } from './phone/extra.jsx';
+import { Sheet } from './ui/kit.jsx';
 
 const TABS = [
   { id: 'home', label: 'Home', icon: 'home' },
@@ -30,9 +33,25 @@ export default function App() {
   });
   const [mode, setMode] = useState(() => (state ? 'game' : 'title'));
 
+  // Save off the critical path: the week renders first, the (large) save is written when idle,
+  // and rapid taps coalesce into one write. Flushed on tab hide so nothing is lost.
+  const pendingSave = useRef(null);
+  useEffect(() => { if (pendingSave.current) pendingSave.current(); }, [mode, slot]); // flush before switching
   useEffect(() => {
-    if (state && mode === 'game') saveGame(state, slot);
+    if (!state || mode !== 'game') return undefined;
+    const write = () => { pendingSave.current = null; saveGame(state, slot); };
+    pendingSave.current = write;
+    const ric = window.requestIdleCallback || ((fn) => setTimeout(fn, 120));
+    const cic = window.cancelIdleCallback || clearTimeout;
+    const id = ric(write, { timeout: 1500 });
+    return () => cic(id);
   }, [state, slot, mode]);
+  useEffect(() => {
+    const flush = () => { if (document.visibilityState === 'hidden' && pendingSave.current) pendingSave.current(); };
+    document.addEventListener('visibilitychange', flush);
+    window.addEventListener('pagehide', flush);
+    return () => { document.removeEventListener('visibilitychange', flush); window.removeEventListener('pagehide', flush); };
+  }, []);
 
   const startNew = (s) => { setSlot(s); setMode('onboarding'); };
   const loadSlot = (s) => {
@@ -40,7 +59,7 @@ export default function App() {
     if (g) { setSlot(s); setState(g); setMode('game'); }
   };
 
-  if (mode === 'title') return <div className="app"><Title onNew={startNew} onLoad={loadSlot} /></div>;
+  if (mode === 'title') return <div className="app"><Title onNew={startNew} onLoad={loadSlot} /><UpdateToast /></div>;
   if (mode === 'onboarding') {
     return (
       <div className="app">
@@ -53,6 +72,7 @@ export default function App() {
 
 export function Title({ onNew, onLoad }) {
   const saves = listSaves();
+  const [store, setStore] = useState(false);
   return (
     <div className="ts">
       <div className="ts-glow" aria-hidden="true" />
@@ -60,6 +80,7 @@ export function Title({ onNew, onLoad }) {
         <h1 className="ts-word" aria-label="Treblr">{'TREBLR'.split('').map((c, i) => <span key={i} style={{ animationDelay: `${i * 0.12}s` }}>{c}</span>)}</h1>
         <div className="ts-eq" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ animationDelay: `${((i * 37) % 11) * -0.11}s`, animationDuration: `${0.9 + ((i * 13) % 7) * 0.12}s` }} />)}</div>
         <p className="ts-tag">A global music career, one issue a week. Write, release, chart in twelve countries and tour the world.</p>
+        <div className="ts-actions"><InstallButton className="btn sm primary" /><button className="btn sm" onClick={() => setStore(true)}><Icon name="gift" size={16} />Store · soon</button></div>
       </div>
       <div className="ts-rack">
         <div className="ts-rack-head"><span>On the rack</span><span>{`${saves.filter((s) => !s.empty).length}/3 careers`}</span></div>
@@ -81,6 +102,7 @@ export function Title({ onNew, onLoad }) {
           )))}
         </div>
       </div>
+      <Sheet open={store} onClose={() => setStore(false)} title="Store" sub="Placeholder — nothing is for sale yet."><StoreScreen /></Sheet>
     </div>
   );
 }
@@ -124,10 +146,11 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
     if (to.action === 'rest') { act(rest); return; }
     if (to.action === 'next') { nextWeek(); return; }
     if (to.awards) { setOverlay('awards'); return; }
+    if (to.submissions) { setOverlay('submissions'); return; }
     if (to.crisis) { setOverlay('crisis'); return; }
     if (to.wrapped) { setOverlay({ wrapped: to.wrapped }); return; }
     if (to.artist) { setArtist(to.artist); return; }
-    setNav((n) => ({ tab: to.tab || n.tab, section: to.section, app: to.app, contact: to.contact, rival: to.rival, n: n.n + 1 }));
+    setNav((n) => ({ tab: to.tab || n.tab, section: to.section, app: to.app, contact: to.contact, rival: to.rival, view: to.view, n: n.n + 1 }));
     scrollRef.current?.scrollTo({ top: 0 });
   }, [act, nextWeek]);
 
@@ -144,7 +167,7 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
         <header className="topbar">
           <button onClick={() => setProfile(true)} aria-label="Profile"><img className="avatar" src={facePhoto(p)} alt="" /></button>
           <div className="wk">
-            <b>WEEK {state.week}</b>
+            <b><span className="wk-l">WEEK </span><span className="wk-s">WK </span>{state.week}</b>
             <span>{formatWeekDate(state.week, { month: 'short', day: 'numeric' })}</span>
           </div>
           <button className="stat-chip bell" title="Notifications" aria-label={`Notifications${notifs ? `, ${notifs} unread` : ''}`} onClick={() => setOverlay('notifs')}><Icon name="bell" size={15} />{notifs > 0 && <i className="badge">{notifs > 9 ? '9+' : notifs}</i>}</button>
@@ -156,7 +179,7 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
         <main className="scroll" ref={scrollRef}>
           {nav.tab === 'home' && <Home key={`h${nav.n}`} />}
           {nav.tab === 'studio' && <Studio key={`s${nav.n}`} initial={nav.section} rival={nav.rival} />}
-          {nav.tab === 'phone' && <Phone key={`p${nav.n}`} initialApp={nav.app} contact={nav.contact} />}
+          {nav.tab === 'phone' && <Phone key={`p${nav.n}`} initialApp={nav.app} contact={nav.contact} view={nav.view} />}
           {nav.tab === 'charts' && <Charts key={`c${nav.n}`} />}
           {nav.tab === 'world' && <World key={`w${nav.n}`} initial={nav.section} />}
         </main>
@@ -177,6 +200,8 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
         {artist && <ArtistSheet rivalId={artist} onClose={() => setArtist(null)} />}
         {overlay === 'notifs' && <NotificationsPanel onClose={() => setOverlay(null)} />}
         {overlay === 'awards' && state.awardEvent && <AwardShow onClose={() => setOverlay(null)} />}
+        {overlay === 'submissions' && state.awardSubmission && <AwardSubmissions onClose={() => setOverlay(null)} />}
+        <UpdateToast />
         {overlay === 'crisis' && state.crisis && <CrisisSheet onClose={() => setOverlay(null)} />}
         {overlay?.wrapped && <WrappedCard wrapped={state.wrapped.find((w) => w.year === overlay.wrapped)} onClose={() => setOverlay(null)} />}
       </div>

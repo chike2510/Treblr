@@ -3,10 +3,12 @@
 import { run, spend, earn, pushNews, bump, writeSong, ENERGY, SOCIAL, promoteClip } from './actions.js';
 import { clamp, uid, fmtMoney, fmtNum } from './util.js';
 import { gainHype } from './model.js';
-import { TRAINING, ERA_COLORS, ERA_VIBES, OUTFITS, SPEECHES, VENUES, cityById, FICTIONAL_PEOPLE } from './data.js';
+import { TRAINING, ERA_COLORS, ERA_VIBES, OUTFITS, SPEECHES, VENUES, cityById, FICTIONAL_PEOPLE, venueUnlocked, venueLockReason } from './data.js';
 import { collabQuote, tierLabel } from './npc.js';
 import { weeklyProgress, stat } from './weekly.js';
 import { logTimeline, pushNotif } from './journal.js';
+import { sameLabel, setlistScore, tourStaffCost, ownsKind } from './business.js';
+import { addStarPoints, statPost } from './career.js';
 
 const fail = (msg) => ({ ok: false, msg });
 
@@ -345,7 +347,7 @@ export function markAllNotifs(state) {
 // ---------- collabs ----------
 export function featureQuote(state, rivalId) {
   const r = state.rivals.find((x) => x.id === rivalId);
-  return r ? { ...collabQuote(state.player, r, relOf(state, rivalId)), tier: tierLabel(r.tier) } : null;
+  return r ? { ...collabQuote(state.player, r, relOf(state, rivalId), sameLabel(state, r)), tier: tierLabel(r.tier) } : null;
 }
 export function requestFeature(state, { rivalId, songId }) {
   return run(state, (s, rng) => {
@@ -357,7 +359,7 @@ export function requestFeature(state, { rivalId, songId }) {
     const c = contactForRival(s, rivalId);
     if (c.beef) return fail(`${r.name} isn\u2019t taking your calls right now.`);
     if (c.lastAsk != null && s.week - c.lastAsk < 4) return fail(`${r.name}\u2019s team said ask again in a few weeks.`);
-    const q = collabQuote(s.player, r, c.rel);
+    const q = collabQuote(s.player, r, c.rel, sameLabel(s, r));
     if (s.player.cash < q.fee) return fail(`${r.name}\u2019s feature fee is ${fmtMoney(q.fee)}.`);
     if (s.player.energy < 10) return fail('Needs 10 energy.');
     s.player.energy -= 10;
@@ -403,6 +405,8 @@ export function attendAwardShow(state, { outfit = 'classic', perform = false }) 
       gainHype(p, 14);
       pushNews(s, `${p.stageName} wins ${a.category} at the ${a.show}`, true, 'Awards');
       logTimeline(s, 'award', `Won ${a.category}`, a.show);
+      addStarPoints(s, 30);
+      statPost(s, `${p.stageName} wins ${a.category} at the ${a.show}. 🏆`, true);
     } else {
       pushNews(s, `${a.winnerName} beats ${p.stageName} to ${a.category} at the ${a.show}`, true, 'Awards');
       logTimeline(s, 'award', `Nominated: ${a.category}`, `${a.show} · lost to ${a.winnerName}`);
@@ -444,6 +448,7 @@ export function resolveSkippedAward(s, rng) {
     p.awards = [...(p.awards || []), { week: s.week, name: `${a.show}: ${a.category}`, kind: 'award' }];
     gainHype(p, 8);
     pushNews(s, `${p.stageName} wins ${a.category} at the ${a.show} (accepted in absentia)`, true, 'Awards');
+    addStarPoints(s, 25);
     logTimeline(s, 'award', `Won ${a.category}`, `${a.show} · in absentia`);
   } else {
     pushNews(s, `${p.stageName} skips the ${a.show}; ${a.winnerName} wins ${a.category}`, true, 'Awards');
@@ -495,30 +500,35 @@ export function ignoreCrisis(s, rng) {
 }
 
 // ---------- multi-week tours ----------
-export function tourQuote(state, { venueId, cityIds, perWeek = 2 }) {
+export function tourQuote(state, { venueId, cityIds, perWeek = 2, staff = [] }) {
   const v = VENUES.find((x) => x.id === venueId);
   if (!v) return null;
   const n = cityIds?.length || 0;
-  return { cost: Math.round(n * (300 + v.capacity * 0.8)), weeks: Math.ceil(n / Math.max(1, perWeek)), reserve: 15 + 10 * Math.min(3, perWeek) };
+  const mgr = staff.includes('tourmgr');
+  const jet = ownsKind(state, 'jet');
+  const weeks = Math.ceil(n / Math.max(1, perWeek));
+  const cost = Math.round(n * (300 + v.capacity * 0.8) * (mgr ? 0.9 : 1) * (jet ? 0.75 : 1));
+  return { cost, weeks, reserve: 15 + 10 * Math.min(3, perWeek) - (mgr ? 5 : 0), crewWeekly: tourStaffCost(staff, venueId) };
 }
-export function planTour(state, { venueId, cityIds, perWeek = 2 }) {
+export function planTour(state, { venueId, cityIds, perWeek = 2, setlist = [], staff = [], name = '' }) {
   return run(state, (s) => {
     const v = VENUES.find((x) => x.id === venueId);
     if (!v || !cityIds?.length) return fail('Pick a venue size and cities.');
     if (s.tour) return fail('You\u2019re already on tour.');
     if (cityIds.length < 3) return fail('A tour needs at least 3 cities.');
     if (cityIds.length > 12) return fail('12 stops max.');
-    if (s.player.fans < v.minFans * 1.2) return fail(`Touring ${v.name.toLowerCase()}s needs ${fmtNum(Math.round(v.minFans * 1.2))}+ fans.`);
-    const q = tourQuote(s, { venueId, cityIds, perWeek });
-    if (s.player.cash < q.cost) return fail(`Tour production costs ${fmtMoney(q.cost)}.`);
+    if (!venueUnlocked(s.player, v, 1.2)) return fail(`Touring ${v.name.toLowerCase()}s: ${venueLockReason(s.player, v, 1.2).toLowerCase()}.`);
+    const q = tourQuote(s, { venueId, cityIds, perWeek, staff });
+    if (s.player.cash < q.cost + q.crewWeekly) return fail(`Tour production and the first week of crew cost ${fmtMoney(q.cost + q.crewWeekly)}.`);
     if (s.player.energy < q.reserve) return fail(`Touring reserves ${q.reserve} energy a week.`);
     spend(s, 'touring', q.cost, `Tour production (${cityIds.length} cities)`);
     s.player.energy -= q.reserve;
     const pw = clamp(perWeek, 1, 3);
-    s.tour = { id: uid(s, 'tour'), venueId, perWeek: pw, reserve: q.reserve, startWeek: s.week, cost: q.cost, gross: 0, fans: 0, sellouts: 0, stops: cityIds.map((cid, i) => ({ cityId: cid, week: s.week + Math.floor(i / pw), done: false })) };
-    logTimeline(s, 'tour', `Announced a ${cityIds.length}-city ${v.name.toLowerCase()} tour`, `${q.weeks} weeks`);
+    const sl = setlistScore(s, setlist, venueId, staff);
+    s.tour = { id: uid(s, 'tour'), name: (name || '').trim().slice(0, 40), venueId, perWeek: pw, reserve: q.reserve, startWeek: s.week, cost: q.cost, gross: 0, fans: 0, sellouts: 0, setlist: setlist.slice(0, 30), staff: staff.slice(), showQuality: sl.score, stops: cityIds.map((cid, i) => ({ cityId: cid, week: s.week + Math.floor(i / pw), done: false })) };
+    logTimeline(s, 'tour', `Announced ${s.tour.name ? `the ${s.tour.name}` : `a ${cityIds.length}-city ${v.name.toLowerCase()} tour`}`, `${q.weeks} weeks · show ${sl.score}/100`);
     pushNews(s, `${s.player.stageName} announces a ${cityIds.length}-city tour`, true, 'Live');
-    return { msg: `Tour booked: ${cityIds.length} stops over ${q.weeks} week${q.weeks > 1 ? 's' : ''}. First shows this week.` };
+    return { msg: `Tour booked: ${cityIds.length} stops over ${q.weeks} week${q.weeks > 1 ? 's' : ''}. Show quality ${sl.score}/100.` };
   });
 }
 export const bookTour = planTour;

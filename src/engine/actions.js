@@ -2,7 +2,7 @@
 import { createRng } from './rng.js';
 import { clone, clamp, uid, fmtMoney, fmtNum } from './util.js';
 import {
-  COWRITERS, PRODUCERS, ROLLOUTS, JOBS, VENUES, STAFF, LABELS, cityById, CITIES, genreName,
+  COWRITERS, PRODUCERS, ROLLOUTS, JOBS, VENUES, STAFF, LABELS, cityById, CITIES, genreName, venueUnlocked, venueLockReason,
 } from './data.js';
 import { projectWriteQuality, projectRecordQuality, lengthFit, gainHype, skillGain } from './model.js';
 import { checkGoals } from './goals.js';
@@ -10,6 +10,7 @@ import { stat } from './weekly.js';
 import { fanComments } from './comments.js';
 import { pushNotif, logTimeline, eraOf } from './journal.js';
 import { VIDEO_DIRECTORS, VIDEO_CONCEPTS } from './data.js';
+import { pitchBonus, signContract, labelTerms, buyoutCost, payolaPackage, labelReach } from './business.js';
 
 export const ENERGY = { write: 30, record: 20, release: 10, video: 25, press: 15, radio: 20, interview: 10, tour: 40, train: 20 };
 // Artist's share of ticket gross after venue, promoter and crew.
@@ -56,11 +57,13 @@ export function writeSong(state, { title, genre, theme, length = 180, cowriter =
     const p = s.player;
     const cw = COWRITERS.find((c) => c.id === cowriter) || COWRITERS[0];
     if (!title?.trim()) return fail('Give your song a title.');
+    if (s.songs.some((x) => x.title.trim().toLowerCase() === title.trim().toLowerCase())) return fail(`You already have a song called “${title.trim()}”. Every title is yours once.`);
     if (!needEnergy(s, ENERGY.write)) return fail('Not enough energy to write. Rest or wait for next week.');
     if (!needCash(s, cw.fee)) return fail(`You need ${fmtMoney(cw.fee)} for that co-writer.`);
     const era = eraOf(s);
     const proj = projectWriteQuality(p, { genre, length, cowriter, eraQuality: era?.vibe === 'dark' ? 2 : 0 });
-    const q = clamp(Math.round(proj.expected + rng.float(-8, 8)), 1, 100);
+    const tired = (p.burnout || 0) >= 60 ? -4 : 0;
+    const q = clamp(Math.round(proj.expected + rng.float(-8, 8) + tired), 1, 100);
     p.energy -= ENERGY.write;
     if (cw.fee) spend(s, 'cowriters', cw.fee, `Co-writer: ${title}`);
     bump(p, 'songwriting', 0.9);
@@ -89,7 +92,9 @@ export function recordSong(state, { songId, producerId }) {
     s.player.energy -= ENERGY.record;
     if (price) spend(s, 'studio', price, `Studio: ${song.title}`);
     stat(s, 'record');
-    song.quality = projectRecordQuality(s.player, song, prod.id);
+    const home = prod.id === 'self' && (s.lifestyle?.owned || []).some((o) => o.id === 'homestudio') ? 6 : 0;
+    const ctrl = s.player.label?.control === 'label' ? -2 : 0;
+    song.quality = clamp(projectRecordQuality(s.player, song, prod.id) + home + ctrl, 1, 100);
     song.producer = prod.id;
     song.status = 'recorded';
     bump(s.player, 'vocals', 0.5);
@@ -109,6 +114,8 @@ export function releaseMusic(state, { type = 'single', title, songIds, rollout =
     if (type === 'single' && songs.length !== 1) return fail('A single is one song.');
     if (type === 'ep' && (songs.length < 3 || songs.length > 6)) return fail('An EP needs 3–6 songs.');
     if (type === 'album' && songs.length < 7) return fail('An album needs at least 7 songs.');
+    const relTitle = (title || songs[0].title).trim();
+    if (type !== 'single' && s.releases.some((r) => r.type !== 'single' && r.title.trim().toLowerCase() === relTitle.toLowerCase())) return fail(`You already have a project called “${relTitle}”.`);
     if (!needEnergy(s, ENERGY.release)) return fail('Not enough energy.');
     if (!needCash(s, ro.cost)) return fail(`${ro.name} costs ${fmtMoney(ro.cost)}.`);
     s.player.energy -= ENERGY.release;
@@ -120,6 +127,7 @@ export function releaseMusic(state, { type = 'single', title, songIds, rollout =
       id: uid(s, 'rel'), type, title: (title || songs[0].title).trim(), songIds: songs.map((x) => x.id),
       cover: relCover, rollout: ro.id, releaseWeek: s.week + clamp(weeksFromNow, 0, 6), status: 'scheduled', announcedWeek: s.week,
       eraId: era?.id || null, leadSingles: preSingles.map((x) => x.id), sequencing: type === 'single' ? null : sequencingScore(songs),
+      preUnits: Math.round(preSingles.reduce((a, x) => a + (x.lifetimeStreams || 0), 0) / 2500), preHype: 0, steps: {},
     };
     for (const song of songs) { if (preSingles.includes(song)) continue; song.status = 'scheduled'; song.releaseId = rel.id; song.cover = rel.cover; }
     s.releases.unshift(rel);
@@ -216,23 +224,33 @@ export function promoteClip(state, { songId }) {
 export function pitchPlaylist(state, { songId }) {
   return run(state, (s, rng) => {
     const song = s.songs.find((x) => x.id === songId);
-    if (!song || song.status !== 'released') return fail('Only released songs can be pitched.');
+    if (!song || !['released', 'scheduled', 'recorded'].includes(song.status)) return fail('Pick a recorded or released song.');
     if (song.pitchedWeek === s.week) return fail('Already pitched this week.');
+    if (song.status !== 'released' && song.prePitch) return fail('Already pitched to editors for release day.');
     if (!needSocial(s, SOCIAL.pitch)) return fail('Out of social energy.');
     if (!needCash(s, 50)) return fail('Pitching costs $50.');
     s.player.socialEnergy -= SOCIAL.pitch;
     spend(s, 'marketing', 50, `Playlist pitch: ${song.title}`);
     song.pitchedWeek = s.week;
     stat(s, 'pitch');
-    const chance = clamp(0.1 + song.quality / 200 + s.player.popularity / 300 + (s.player.label ? 0.1 : 0), 0.05, 0.85);
+    if (song.status !== 'released') {
+      song.prePitch = true;
+      return { msg: `Pitched “${song.title}” to editors ahead of release. You’ll hear back on release week.`, data: { pre: true } };
+    }
+    const chance = clamp(0.1 + song.quality / 200 + s.player.popularity / 300 + pitchBonus(s) - (song.playlists || 0) * 0.04, 0.05, 0.85);
     if (rng.chance(chance)) {
-      song.playlists = (song.playlists || 0) + 1;
-      const name = rng.pick(['New Music Friday', 'Fresh Finds', 'Hot Hits', 'Chill Vibes', 'Global Viral 50', `${genreName(song.genre)} Rising`, 'Late Night Drive', 'Workout Beast', 'Top of the World']);
-      song.playlistNames = [...(song.playlistNames || []), name];
+      const name = placeOnPlaylist(song, rng);
       return { msg: `Added to “${name}”!`, data: { placed: true, name } };
     }
     return { msg: 'Curators passed this time.', data: { placed: false } };
   });
+}
+export const PLAYLIST_NAMES = ['New Music Friday', 'Fresh Finds', 'Hot Hits', 'Chill Vibes', 'Global Viral 50', 'Late Night Drive', 'Workout Beast', 'Top of the World'];
+export function placeOnPlaylist(song, rng) {
+  song.playlists = (song.playlists || 0) + 1;
+  const name = rng.pick([...PLAYLIST_NAMES, `${genreName(song.genre)} Rising`]);
+  song.playlistNames = [...(song.playlistNames || []), name];
+  return name;
 }
 
 export const VIDEO_TIERS = [
@@ -282,7 +300,7 @@ export function doJob(state, { jobId }) {
 export function gigDemand(state, cityId) {
   const p = state.player;
   const heat = p.fanHeat[cityId] || 0;
-  return Math.round(heat * 0.3 + p.fans * 0.015 + p.hype * 2 + p.skills.performance * 1.5);
+  return Math.round(heat * 0.3 + p.fans * 0.006 + p.hype * 2 + p.skills.performance * 1.5);
 }
 
 // Regulars: repeat plays of the same room in the same city lose pull (recovers ~15%/week).
@@ -299,7 +317,7 @@ export function playGig(state, { venueId, cityId }) {
     const city = cityById(cityId);
     if (!v) return fail('Pick a venue.');
     if (s.tour) return fail('You\u2019re on tour — finish or cancel it first.');
-    if (s.player.fans < v.minFans) return fail(`Promoters want ${fmtNum(v.minFans)}+ fans for a ${v.name.toLowerCase()}.`);
+    if (!venueUnlocked(s.player, v)) return fail(`Promoters won’t book you in a ${v.name.toLowerCase()} yet (${venueLockReason(s.player, v).toLowerCase()}).`);
     if (!needEnergy(s, v.energy)) return fail('Not enough energy for this show.');
     const travel = cityId === s.player.city ? 0 : Math.round(150 + v.capacity * 0.6);
     if (!needCash(s, travel)) return fail(`Travel and crew cost ${fmtMoney(travel)}.`);
@@ -391,10 +409,8 @@ export function respondOffer(state, { id, accept }) {
       return { msg: `Played ${o.venue}: ${fmtMoney(o.cash)}, +${fmtNum(o.fans)} fans.` };
     }
     if (m.subtype === 'label') {
-      p.label = { id: o.labelId, name: o.label, royalty: o.royalty, signedWeek: s.week };
-      earn(s, 'advance', o.advance, `Advance: ${o.label}`);
-      logTimeline(s, 'deal', `Signed to ${o.label}`, `${fmtMoney(o.advance)} advance`);
-      pushNews(s, `${p.stageName} signs with ${o.label}`, true, 'Business');
+      if (p.label) { m.status = null; return fail(`You’re already signed to ${p.label.name}.`); }
+      signContract(s, { albums: 1, yearsPerAlbum: 3, control: 'shared', strict: 0.3, ...o });
       return { msg: `Signed to ${o.label}. ${fmtMoney(o.advance)} advance.` };
     }
     return { msg: 'Accepted.' };
@@ -412,25 +428,26 @@ export function setStaff(state, { role, hire }) {
   });
 }
 
+// Direct signing at a label's standard terms (offers in the Inbox can be negotiated instead).
 export function signLabel(state, { labelId }) {
-  return run(state, (s) => {
+  return run(state, (s, rng) => {
     const l = LABELS.find((x) => x.id === labelId);
     if (!l) return fail('Unknown label.');
     if (s.player.label) return fail(`You're signed to ${s.player.label.name}.`);
     if (s.player.popularity < l.minPop) return fail(`${l.name} wants popularity ${l.minPop}+.`);
-    s.player.label = { id: l.id, name: l.name, royalty: l.royalty, signedWeek: s.week };
-    earn(s, 'advance', l.advance, `Advance: ${l.name}`);
-    logTimeline(s, 'deal', `Signed to ${l.name}`, `${fmtMoney(l.advance)} advance`);
-    pushNews(s, `${s.player.stageName} signs with ${l.name}`, true, 'Business');
-    return { msg: `Signed to ${l.name}. ${fmtMoney(l.advance)} advance, ${Math.round(l.royalty * 100)}% royalty.` };
+    const t = labelTerms(s, l, rng);
+    signContract(s, t);
+    return { msg: `Signed to ${l.name}. ${fmtMoney(t.advance)} advance, ${Math.round(t.royalty * 100)}% royalty.` };
   });
 }
 
 export function leaveLabel(state) {
   return run(state, (s) => {
     if (!s.player.label) return fail('Not signed.');
-    const fee = Math.round(Math.max(2000, s.player.cash * 0.1));
+    const fee = buyoutCost(s);
+    if (s.player.cash < fee) return fail(`Buying out ${s.player.label.name} costs ${fmtMoney(fee)}.`);
     spend(s, 'other', fee, `Contract buyout: ${s.player.label.name}`);
+    logTimeline(s, 'deal', `Bought out of ${s.player.label.name}`, fmtMoney(fee));
     s.player.label = null;
     return { msg: `You're independent again (buyout ${fmtMoney(fee)}).` };
   });
@@ -471,7 +488,7 @@ export function doMedia(state, { kind }) {
     if (kind === 'radio') {
       const song = s.songs.find((x) => x.status === 'released');
       if (!song) return fail('Release a song before a radio tour.');
-      song.radioBoost = (song.radioBoost || 0) + 0.6;
+      song.radioBoost = (song.radioBoost || 0) + 0.6 * labelReach(s);
       gainHype(p, 4);
       return { msg: `Radio tour done — “${song.title}” gets more spins.` };
     }
@@ -483,16 +500,9 @@ export function doMedia(state, { kind }) {
   });
 }
 
+// Legacy entry point: amounts map onto the payola packages.
 export function payola(state, { amount }) {
-  return run(state, (s) => {
-    if (!needCash(s, amount)) return fail('Not enough cash.');
-    const song = s.songs.find((x) => x.status === 'released');
-    if (!song) return fail('You need a released song to push.');
-    spend(s, 'other', amount, 'Consulting fee');
-    song.payola = (song.payola || 0) + amount / 2500;
-    s.player.suspicion = clamp(s.player.suspicion + amount / 400 + 4, 0, 100);
-    return { msg: `Spins incoming for “${song.title}”. Suspicion now ${Math.round(s.player.suspicion)}.` };
-  });
+  return payolaPackage(state, { pkg: amount >= 150000 ? 'chart' : amount >= 25000 ? 'playlists' : 'radio' });
 }
 
 export function updatePlayer(state, patch) {

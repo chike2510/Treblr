@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   upNext, goalProgress, rewardText, calendarEvents, nearbyRivals, playerPositions, formatWeekDate, fmtNum,
   genreName, ROLLOUTS, rest, popularityFromListeners, weeklyGoalsView, weeklyRewardText, claimWeeklyGoal, spotlightReact,
-  startEra, eraOf, ERA_COLORS, ERA_VIBES, VENUES, cityById, tierLabel,
+  startEra, eraOf, ERA_COLORS, ERA_VIBES, VENUES, cityById, tierLabel, fameInfo,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, CountUp, Delta, Bar, Cover, SectionHead, AREA, ArtistAvatar } from '../ui/kit.jsx';
 import { MagazineCover, ReportBody } from './Report.jsx';
@@ -42,7 +42,8 @@ export default function Home() {
         <MagazineCover player={p} week={state.week} headline={headline} lines={lines} onRead={() => setIssue(true)} kicker={curEra ? `THE ${curEra.name.toUpperCase()} ERA` : rep ? `WEEK ${rep.week} REPORT` : 'DEBUT ISSUE'} />
       </div>
 
-      <Alerts onCrisis={() => openOverlay('crisis')} onAwards={() => openOverlay('awards')} onWrapped={(y) => openOverlay({ wrapped: y })} latestWrapped={latestWrapped} />
+      <Alerts onCrisis={() => openOverlay('crisis')} onAwards={() => openOverlay('awards')} onSubmissions={() => openOverlay('submissions')} onWrapped={(y) => openOverlay({ wrapped: y })} latestWrapped={latestWrapped} />
+      <FameCard />
 
       <div className="stat-strip">
         <Stat label="Listeners" value={p.monthlyListeners} delta={rep?.mlDelta} />
@@ -62,7 +63,7 @@ export default function Home() {
         <div className="card tight grow" style={{ padding: '8px 12px' }}>
           <div className="row between"><Mono className="sm">Burnout</Mono><span className="num small" style={{ color: p.burnout >= 40 ? '#FFB020' : undefined }}>{Math.round(p.burnout || 0)}</span></div>
           <div className="mt8"><Bar pct={(p.burnout || 0) / 100} color={p.burnout >= 60 ? '#FF4D5E' : '#FFB020'} /></div>
-          <div className="tiny muted mt8">{p.burnout >= 40 ? `Energy cap ${p.maxEnergy}. Rest!` : 'Ending weeks drained raises it.'}</div>
+          <div className="tiny muted mt8">{p.burnout > 20 ? `Energy cap ${p.maxEnergy}. Rest or leave some in the tank.` : 'Energy refills every week. Ending drained raises it.'}</div>
         </div>
       </div>
 
@@ -178,7 +179,7 @@ export default function Home() {
         <div className="quick">
           <button onClick={() => go({ tab: 'studio', section: 'write' })}><Icon name="pen" color={AREA.studio} />Write</button>
           <button onClick={() => go({ tab: 'studio', section: 'release' })}><Icon name="disc" color={AREA.studio} />Release</button>
-          <button onClick={() => go({ tab: 'phone', app: 'chirp' })}><Icon name="send" color={AREA.phone} />Post</button>
+          <button onClick={() => go({ tab: 'phone', app: 'treblrx' })}><Icon name="send" color={AREA.phone} />Post</button>
           <button onClick={() => go({ tab: 'world', section: 'gigs' })}><Icon name="ticket" color={AREA.world} />Gig</button>
           <button onClick={() => act(rest)} disabled={p.rested} style={p.rested ? { opacity: 0.4 } : {}}><Icon name="moon" color="#C6FF3D" />Rest</button>
         </div>
@@ -188,6 +189,30 @@ export default function Home() {
       <Sheet open={issue} onClose={() => setIssue(false)} title={rep ? `Issue №${rep.week}` : 'Treblr Weekly'} sub={rep?.headline}>
         <ReportBody report={rep} state={state} />
       </Sheet>
+    </div>
+  );
+}
+
+function FameCard() {
+  const { state } = useGame();
+  const f = fameInfo(state);
+  const next = f.next;
+  const reqs = next ? [
+    { k: 'Popularity', v: f.pop, t: next.pop },
+    { k: 'Star points', v: Math.round(f.points), t: next.points },
+    { k: 'Career weeks', v: f.weeks, t: next.weeks },
+  ] : [];
+  return (
+    <div className="card tight mt12 fame-card">
+      <div className="row between gap6"><div style={{ minWidth: 0 }}><Mono className="sm">Fame</Mono><div className="head" style={{ fontSize: 20 }}>{f.tier.name}</div></div>{next && <span className="tiny muted" style={{ textAlign: 'right' }}>Next: <b>{next.name}</b></span>}</div>
+      {next ? (
+        <div className="fame-reqs mt8">
+          {reqs.map((r) => (
+            <div key={r.k}><div className="row between tiny"><span className="muted">{r.k}</span><span>{r.v}/{r.t}</span></div><Bar pct={r.t ? r.v / r.t : 1} color={r.v >= r.t ? '#3DDC84' : '#C6FF3D'} /></div>
+          ))}
+        </div>
+      ) : <div className="tiny muted mt8">The top of the mountain. Keep it up — fame fades without new music.</div>}
+      <div className="tiny muted mt8">Popularity is a 26-week rolling average. Star points come from top 10s, #1s, awards, certifications and headline shows.</div>
     </div>
   );
 }
@@ -242,11 +267,13 @@ function EraCard({ era }) {
 }
 
 
-function Alerts({ onCrisis, onAwards, onWrapped, latestWrapped }) {
+function Alerts({ onCrisis, onAwards, onWrapped, latestWrapped, onSubmissions }) {
   const { state } = useGame();
   const a = state.awardEvent;
   const items = [];
   if (state.crisis) items.push({ k: 'crisis', icon: 'skull', color: '#FF4D5E', title: state.crisis.title, body: 'PR crisis — respond before it spreads.', cta: 'Respond', on: onCrisis });
+  const sub = state.awardSubmission;
+  if (sub && sub.status === 'open') items.push({ k: 'sub', icon: 'trophy', color: '#FFB020', title: `${sub.show}: confirm your entries`, body: `${sub.by} ${sub.signed ? 'suggested' : 'recommends'} ${sub.suggested.length} entr${sub.suggested.length === 1 ? 'y' : 'ies'}. Due week ${sub.showWeek}.`, cta: 'Review', on: () => onSubmissions() });
   if (a && a.status === 'pending') items.push({ k: 'aw', icon: 'trophy', color: '#FFB020', title: `Nominated: ${a.category}`, body: `${a.show} is tonight. Walk the carpet.`, cta: 'Attend', on: onAwards });
   if (a && a.status === 'won') items.push({ k: 'aw2', icon: 'trophy', color: '#FFB020', title: 'You won! Speech time', body: a.show, cta: 'Speech', on: onAwards });
   if (latestWrapped && state.week - latestWrapped.week <= 3) items.push({ k: 'wr', icon: 'gift', color: '#3DDC84', title: `Year ${latestWrapped.year} Wrapped is ready`, body: `${fmtNum(latestWrapped.streams)} streams · ${latestWrapped.type.name}`, cta: 'Open', on: () => onWrapped(latestWrapped.year) });

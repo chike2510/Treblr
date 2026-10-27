@@ -1,11 +1,15 @@
 import { useRef, useState } from 'react';
 import {
   respondOffer, markRead, setStaff, saveGame, listSaves, deleteSave, calendarEvents, weekDate, STAFF,
-  fmtNum, fmtMoney, weeklyExpenses, LABELS, exportPhotoPack, importPhotoPack,
+  fmtNum, fmtMoney, weeklyExpenses, LABELS, exportPhotoPack, importPhotoPack, negotiateDeal, dealText, CREATIVE_CONTROL,
+  creditScore, creditBand, loanOffer, takeLoan, repayLoan, weeklyPayment, totalDebt, avgIncome, netWorth,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, Seg, Empty, Bar } from '../ui/kit.jsx';
 import { TreblrX, Treblrgram, TreblrTok, TreblrTube } from './social.jsx';
 import { Treblify, TreblrMusic, Treblrchat } from './media.jsx';
+import { Treblrpedia, TreblrFortune, Treblrfork, TreblrCloud, TreblrHiFi, TreblrTunes, StoreScreen } from './extra.jsx';
+import { RosterEditor } from './roster.jsx';
+import { InstallCard } from '../pwa.jsx';
 
 /* ---------------- Inbox ---------------- */
 function Inbox() {
@@ -44,10 +48,33 @@ function Inbox() {
               </div>
             )}
             {m.type === 'offer' && m.status && <div className="chip">{m.status === 'accepted' ? 'Accepted' : m.status === 'declined' ? 'Declined' : 'Expired'}</div>}
-            {m.subtype === 'label' && !m.status && <div className="tiny muted mt12">Signing means the label keeps {100 - Math.round(m.payload.royalty * 100)}% of streaming income. You can buy out later.</div>}
+            {m.subtype === 'label' && !m.status && <Negotiate m={m} />}
           </>
         )}
       </Sheet>
+    </div>
+  );
+}
+
+function Negotiate({ m }) {
+  const { act } = useGame();
+  const t = m.payload;
+  const [adv, setAdv] = useState(t.advance);
+  const [roy, setRoy] = useState(Math.round(t.royalty * 100));
+  const [albums, setAlbums] = useState(t.albums || 1);
+  const [years, setYears] = useState(t.yearsPerAlbum || 3);
+  const [control, setControl] = useState(t.control || 'shared');
+  return (
+    <div className="card tight mt12">
+      <div className="row between"><Mono className="sm">Negotiate</Mono><span className="tiny muted">{t.patience > 0 ? `${t.patience} round${t.patience > 1 ? 's' : ''} of patience left` : 'Final offer'}</span></div>
+      <div className="small mt8">Recoupment: the label keeps your share of royalties until the advance is earned back. {t.strict >= 0.5 ? 'This is a strict contract: miss the album schedule and they cut marketing and fine you.' : 'Schedule is flexible.'}</div>
+      <label className="col gap6 mt12"><span className="row between tiny"><span>Advance</span><b>{fmtMoney(adv)}</b></span><input type="range" className="slider" min={Math.round(t.advance * 0.6)} max={Math.round(t.advance * 2)} step={500} value={adv} onChange={(e) => setAdv(+e.target.value)} /></label>
+      <label className="col gap6 mt8"><span className="row between tiny"><span>Your royalty</span><b>{roy}%</b></span><input type="range" className="slider" min={10} max={85} value={roy} onChange={(e) => setRoy(+e.target.value)} /></label>
+      <div className="row between mt8 tiny"><span>Albums</span><div className="seg fit">{[1, 2, 3].map((n) => <button key={n} className={albums === n ? 'on' : ''} onClick={() => setAlbums(n)}>{n}</button>)}</div></div>
+      <div className="row between mt8 tiny"><span>Years per album</span><div className="seg fit">{[2, 3].map((n) => <button key={n} className={years === n ? 'on' : ''} onClick={() => setYears(n)}>{n}</button>)}</div></div>
+      <div className="col gap6 mt8">{CREATIVE_CONTROL.map((c) => <button key={c.id} className={`option press ${control === c.id ? 'on' : ''}`} onClick={() => setControl(c.id)}><div className="row between gap6"><b className="small">{c.name}</b><span className="tiny muted" style={{ flexShrink: 0 }}>reach ×{c.reach}</span></div></button>)}</div>
+      <button className="btn block mt12" disabled={t.patience <= 0} onClick={() => act(negotiateDeal, { id: m.id, ask: { advance: adv, royalty: roy / 100, albums, yearsPerAlbum: years, control } })}>Send counter-offer</button>
+      <div className="tiny muted mt8">Current terms: {dealText(t)}</div>
     </div>
   );
 }
@@ -72,6 +99,7 @@ function Bank() {
         <div className="stat"><Mono className="sm">In this week</Mono><div className="v up">+{fmtMoney(inc)}</div></div>
         <div className="stat"><Mono className="sm">Out this week</Mono><div className="v down">-{fmtMoney(exp)}</div></div>
       </div>
+      <Credit />
       {hist.length > 0 && (
         <div className="card mt12"><Mono>Weekly net · last {hist.length}</Mono>
           <div className="row mt12" style={{ alignItems: 'center', height: 90, gap: 4 }}>
@@ -93,6 +121,37 @@ function Bank() {
         <div key={i} className="list-item"><div className="grow"><div className="small ellipsis">{t.label}</div><div className="tiny muted">Week {t.week}</div></div><b className={t.amount >= 0 ? 'up' : 'down'}>{t.amount >= 0 ? '+' : ''}{fmtMoney(t.amount)}</b></div>
       ))}
       {!state.transactions.length && <Empty icon="bank">No transactions yet.</Empty>}
+    </div>
+  );
+}
+
+function Credit() {
+  const { state, act } = useGame();
+  const score = creditScore(state);
+  const offer = loanOffer(state);
+  const [amount, setAmount] = useState(Math.min(offer.max || 0, 5000));
+  const [weeks, setWeeks] = useState(52);
+  const loans = state.bank?.loans || [];
+  const pct = (score - 300) / 550;
+  const amt = Math.min(amount, offer.max || 0);
+  return (
+    <div className="card mt12">
+      <div className="row between"><Mono>Credit score</Mono><span className="tiny muted">Net worth {fmtMoney(netWorth(state))}</span></div>
+      <div className="row between mt8" style={{ alignItems: 'flex-end' }}><span className="num" style={{ fontSize: 34, color: pct > 0.7 ? '#3DDC84' : pct > 0.45 ? '#FFB020' : '#FF4D5E' }}>{score}</span><b className="small">{creditBand(score)}</b></div>
+      <div className="mt8"><Bar pct={pct} color={pct > 0.7 ? '#3DDC84' : pct > 0.45 ? '#FFB020' : '#FF4D5E'} /></div>
+      <div className="tiny muted mt8">Built from payment history, average income ({fmtMoney(avgIncome(state))}/wk), debt ({fmtMoney(totalDebt(state))}) and credit age. Three missed payments is a default: assets seized, no credit for 26 weeks.</div>
+      {loans.map((l) => (
+        <div key={l.id} className="list-item"><div className="grow"><b className="small">{fmtMoney(l.amount)} at {l.apr}%</b><div className="tiny muted">{fmtMoney(Math.round(l.balance))} left · {fmtMoney(l.payment)}/week{l.missed ? ` · ${l.missed} missed` : ''}</div></div><button className="btn sm" disabled={state.player.cash < l.balance} onClick={() => act(repayLoan, { id: l.id })}>Pay off</button></div>
+      ))}
+      {offer.max > 0 ? (
+        <div className="mt12">
+          <div className="row between tiny"><span>Borrow</span><b>{fmtMoney(amt)} · {offer.apr}% APR</b></div>
+          <input type="range" className="slider mt8" style={{ width: '100%' }} min={500} max={Math.max(500, offer.max)} step={500} value={amt} onChange={(e) => setAmount(+e.target.value)} />
+          <div className="row between mt8 tiny"><span>Term</span><div className="seg fit">{[26, 52, 104].map((n) => <button key={n} className={weeks === n ? 'on' : ''} onClick={() => setWeeks(n)}>{n}w</button>)}</div></div>
+          <div className="tiny muted mt8">Weekly repayment {fmtMoney(Math.round(weeklyPayment(amt, offer.apr, weeks)))} · taken automatically each week.</div>
+          <button className="btn block mt12" disabled={amt < 500} onClick={() => act(takeLoan, { amount: amt, weeks })}>Take loan</button>
+        </div>
+      ) : <div className="small muted mt12">{offer.reason}</div>}
     </div>
   );
 }
@@ -179,7 +238,7 @@ function Manager() {
       <div className="col mt12">
         {STAFF.map((s) => (
           <div key={s.id} className="card tight">
-            <div className="row between"><b>{s.name}</b><span className="small">{fmtMoney(s.salary)}/wk</span></div>
+            <div className="row between gap6"><b>{s.name}</b><span className="small" style={{ flexShrink: 0 }}>{fmtMoney(s.salary)}/wk{s.commission ? ` + ${Math.round(s.commission * 100)}%` : ''}</span></div>
             <div className="tiny muted mt8">{s.buff}</div>
             <button className={`btn sm mt12 ${p.staff[s.id] ? 'danger' : 'accent'}`} onClick={() => act(setStaff, { role: s.id, hire: !p.staff[s.id] })}>{p.staff[s.id] ? 'Let go' : 'Hire'}</button>
           </div>
@@ -202,9 +261,16 @@ function Settings() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
+  const [store, setStore] = useState(false);
+  const [roster, setRoster] = useState(false);
   return (
     <div className="col gap16">
       <button className="btn primary block" onClick={() => toast(saveGame(state, slot) ? `Saved to slot ${slot}.` : 'Could not save (storage full?)')}>Save now</button>
+      <InstallCard />
+      <button className="btn block" onClick={() => setStore(true)}><Icon name="gift" size={18} />Store <span className="chip sm" style={{ marginLeft: 6 }}>Coming soon</span></button>
+      <button className="btn block" onClick={() => setRoster(true)}><Icon name="users" size={18} />Roster editor (artist packs)</button>
+      <Sheet open={store} onClose={() => setStore(false)} title="Store" sub="Placeholder — nothing is for sale yet."><StoreScreen /></Sheet>
+      <Sheet open={roster} onClose={() => setRoster(false)} title="Roster editor" sub="Custom artist packs apply to NEW careers."><RosterEditor /></Sheet>
       <div className="card">
         <Mono>Save slots</Mono>
         {saves.map((s) => (
@@ -259,13 +325,19 @@ function PhotoPack() {
 }
 
 export const APPS = [
-  { id: 'treblify', name: 'Treblify', icon: 'play', bg: 'radial-gradient(circle at 30% 30%, #1ED760, #0d7a35)', fg: '#000', Component: Treblify, screenBg: '#121212', accent: '#1DB954', glyph: 'wave' },
-  { id: 'treblrmusic', name: 'Treblr Music', icon: 'star', bg: 'linear-gradient(160deg, #FF5A72, #FA233B)', Component: TreblrMusic, screenBg: '#000', accent: '#FA233B', glyph: 'note' },
-  { id: 'treblrx', name: 'TreblrX', icon: 'chat', bg: '#000', Component: TreblrX, screenBg: '#000', accent: '#1d9bf0', glyph: 'x' },
-  { id: 'treblrgram', name: 'Treblrgram', icon: 'camera', bg: 'linear-gradient(45deg,#f9ce34,#ee2a7b,#6228d7)', Component: Treblrgram, screenBg: '#000', accent: '#ee2a7b', glyph: 'cam' },
+  { nav: true, id: 'treblify', name: 'Treblify', icon: 'play', bg: 'radial-gradient(circle at 30% 30%, #1ED760, #0d7a35)', fg: '#000', Component: Treblify, screenBg: '#121212', accent: '#1DB954', glyph: 'wave' },
+  { nav: true, id: 'treblrmusic', name: 'Treblr Music', icon: 'star', bg: 'linear-gradient(160deg, #FF5A72, #FA233B)', Component: TreblrMusic, screenBg: '#000', accent: '#FA233B', glyph: 'note' },
+  { nav: true, id: 'treblrx', name: 'TreblrX', icon: 'chat', bg: '#000', Component: TreblrX, screenBg: '#000', accent: '#1d9bf0', glyph: 'x' },
+  { nav: true, id: 'treblrgram', name: 'Treblrgram', icon: 'camera', bg: 'linear-gradient(45deg,#f9ce34,#ee2a7b,#6228d7)', Component: Treblrgram, screenBg: '#000', accent: '#ee2a7b', glyph: 'cam' },
   { id: 'treblrtok', name: 'TreblrTok', icon: 'video', bg: '#000', Component: TreblrTok, screenBg: '#000', accent: '#FE2C55', glyph: 'tok', full: true },
-  { id: 'treblrtube', name: 'TreblrTube', icon: 'play', bg: '#FF0033', Component: TreblrTube, screenBg: '#0f0f0f', accent: '#FF0033', glyph: 'tube' },
-  { id: 'treblrchat', name: 'Treblrchat', icon: 'chat', bg: 'linear-gradient(160deg,#5BEA84,#1DAA55)', Component: Treblrchat, screenBg: '#0B141A', accent: '#25D366', glyph: 'bubble' },
+  { nav: true, id: 'treblrtube', name: 'TreblrTube', icon: 'play', bg: '#FF0033', Component: TreblrTube, screenBg: '#0f0f0f', accent: '#FF0033', glyph: 'tube' },
+  { nav: true, id: 'treblrchat', name: 'Treblrchat', icon: 'chat', bg: 'linear-gradient(160deg,#5BEA84,#1DAA55)', Component: Treblrchat, screenBg: '#0B141A', accent: '#25D366', glyph: 'bubble' },
+  { id: 'treblrpedia', name: 'Treblrpedia', icon: 'news', bg: '#f8f9fa', fg: '#202122', Component: Treblrpedia, screenBg: '#fff', accent: '#3366cc', glyph: 'wiki', light: true },
+  { id: 'fortune', name: 'Treblr Fortune', icon: 'cash', bg: 'linear-gradient(160deg,#1a1a1a,#3a2f0b)', Component: TreblrFortune, screenBg: '#fbf8f1', accent: '#b8860b', glyph: 'fortune', light: true },
+  { id: 'treblrfork', name: 'Treblrfork', icon: 'star', bg: '#111', Component: Treblrfork, screenBg: '#fff', accent: '#ef4135', glyph: 'fork', light: true },
+  { nav: true, id: 'treblrcloud', name: 'TreblrCloud', icon: 'radio', bg: 'linear-gradient(160deg,#ff8a00,#ff3d00)', Component: TreblrCloud, screenBg: '#121212', accent: '#ff5500', glyph: 'cloud' },
+  { nav: true, id: 'hifi', name: 'Treblr HiFi', icon: 'disc', bg: '#000', Component: TreblrHiFi, screenBg: '#000', accent: '#33ffee', glyph: 'hifi' },
+  { nav: true, id: 'tunes', name: 'TreblrTunes', icon: 'star', bg: 'linear-gradient(160deg,#fc5c7d,#6a82fb)', Component: TreblrTunes, screenBg: '#0e0e10', accent: '#fc5c7d', glyph: 'tunes' },
   { id: 'inbox', name: 'Inbox', icon: 'mail', bg: '#6C7BFF', Component: Inbox },
   { id: 'bank', name: 'Bank', icon: 'bank', bg: '#3DDC84', fg: '#0B0B0F', Component: Bank, accent: '#3DDC84' },
   { id: 'calendar', name: 'Calendar', icon: 'cal', bg: '#fff', fg: '#FF4D5E', Component: Calendar },

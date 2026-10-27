@@ -65,12 +65,13 @@ export function artistShares(rival) {
 }
 
 // Collab pricing & odds: scale with the popularity gap and the relationship.
-export function collabQuote(player, rival, rel = 0) {
-  const rpop = Math.min(100, Math.round((Math.log10(rival.monthlyListeners + 1) - 2) * 17));
+// Labelmates (same label family) get a much cheaper fee and better odds.
+export function collabQuote(player, rival, rel = 0, labelmate = false) {
+  const rpop = Math.max(0, Math.min(100, Math.round((Math.log10(Math.max(1, rival.monthlyListeners)) - 3) * 20)));
   const gap = rpop - player.popularity;
-  const fee = Math.round(Math.max(300, rival.monthlyListeners * 0.0012 * Math.pow(1.045, Math.max(0, gap))) * (rel >= 70 ? 0.5 : rel >= 40 ? 0.8 : 1));
-  const odds = clamp(0.8 - Math.max(0, gap) * 0.022 + rel * 0.004 + (rival.real ? 0 : 0.1), 0.02, 0.95);
-  return { fee, odds, gap, rpop };
+  const fee = Math.round(Math.max(300, rival.monthlyListeners * 0.0012 * Math.pow(1.04, Math.max(0, gap))) * (rel >= 70 ? 0.5 : rel >= 40 ? 0.8 : 1) * (labelmate ? 0.55 : 1));
+  const odds = clamp(0.8 - Math.max(0, gap) * 0.02 + rel * 0.004 + (rival.real ? 0 : 0.1) + (labelmate ? 0.15 : 0), 0.02, 0.95);
+  return { fee, odds, gap, rpop, labelmate };
 }
 
 export function tierLabel(t) { return TIERS[t]?.label || t; }

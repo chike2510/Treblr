@@ -13,12 +13,18 @@ function Glyph({ a }) {
     case 'cam': return <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="4" y="4" width="20" height="20" rx="6" stroke={w} strokeWidth="2.4" fill="none" /><circle cx="14" cy="14" r="4.5" stroke={w} strokeWidth="2.4" fill="none" /><circle cx="19.5" cy="8.5" r="1.4" fill={w} /></svg>;
     case 'tok': return <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M15 5v13a4 4 0 1 1-4-4" stroke="#25F4EE" strokeWidth="2.6" fill="none" transform="translate(-1 -1)" /><path d="M15 5v13a4 4 0 1 1-4-4" stroke="#FE2C55" strokeWidth="2.6" fill="none" transform="translate(1 1)" /><path d="M15 5v13a4 4 0 1 1-4-4M15 5c1 3 3 4.5 6 5" stroke={w} strokeWidth="2.6" fill="none" /></svg>;
     case 'tube': return <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="3" y="7" width="24" height="16" rx="5" fill={w} /><path d="M13 11v8l6.5-4z" fill="#FF0033" /></svg>;
+    case 'wiki': return <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="10" stroke="#202122" strokeWidth="2" fill="none" /><path d="M8 10l3 9 3-7 3 7 3-9" stroke="#202122" strokeWidth="2" fill="none" strokeLinejoin="round" /></svg>;
+    case 'fortune': return <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><text x="14" y="20" textAnchor="middle" fontFamily="Georgia, serif" fontWeight="700" fontSize="17" fill="#e8c766">F</text><path d="M6 23h16" stroke="#e8c766" strokeWidth="1.6" /></svg>;
+    case 'fork': return <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M9 5v8a5 5 0 0 0 10 0V5M14 5v8M14 18v6" stroke="#ef4135" strokeWidth="2.4" fill="none" strokeLinecap="round" /></svg>;
+    case 'cloud': return <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M9 21h13a5 5 0 0 0 0-10 7 7 0 0 0-13 2 4 4 0 0 0 0 8z" fill={w} />{[4, 6, 8].map((x) => <rect key={x} x={x - 3} y={14} width="1.4" height="7" fill={w} />)}</svg>;
+    case 'hifi': return <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M8 9l3 3-3 3-3-3zM14 9l3 3-3 3-3-3zM20 9l3 3-3 3-3-3zM14 15l3 3-3 3-3-3z" fill={w} /></svg>;
+    case 'tunes': return <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M17 6v11a3 3 0 1 1-2-2.8V8l-6 1.5V19a3 3 0 1 1-2-2.8V8z" fill={w} /><path d="M20 6l2 2 3-4" stroke={w} strokeWidth="1.8" fill="none" /></svg>;
     case 'bubble': return <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 4a10 10 0 0 0-8.7 15L4 24l5.2-1.3A10 10 0 1 0 14 4z" stroke={w} strokeWidth="2.4" fill="none" strokeLinejoin="round" /><path d="M10 12.5c.5 2.5 2.5 4.5 5 5" stroke={w} strokeWidth="2.2" strokeLinecap="round" fill="none" /></svg>;
     default: return <Icon name={a.icon} size={28} color={a.fg || '#fff'} />;
   }
 }
 
-export default function Phone({ initialApp, contact }) {
+export default function Phone({ initialApp, contact, view }) {
   const { state, openOverlay } = useGame();
   const [app, setApp] = useState(APP_ALIASES[initialApp] || initialApp || null);
   const [q, setQ] = useState('');
@@ -91,12 +97,12 @@ export default function Phone({ initialApp, contact }) {
           onTouchStart={(e) => { const x = e.touches[0].clientX - e.currentTarget.getBoundingClientRect().left; touch.current = x < 32 ? e.touches[0].clientX : null; }}
           onTouchEnd={(e) => { if (touch.current != null && e.changedTouches[0].clientX - touch.current > 80) setApp(null); touch.current = null; }}
         >
-          <div className="app-head">
+          <div className={`app-head ${Current.light ? 'light' : ''}`}>
             <button className="icon-btn" onClick={() => setApp(null)} aria-label="Back" style={{ background: 'transparent', border: 0 }}><Icon name="back" /></button>
             <div className="ic" style={{ width: 28, height: 28, borderRadius: 8, background: Current.bg, display: 'grid', placeItems: 'center', overflow: 'hidden' }}><span style={{ transform: 'scale(.6)', display: 'grid' }}><Glyph a={Current} /></span></div>
             <h2 style={{ fontFamily: Current.font }}>{Current.name}</h2>
           </div>
-          <div className={`app-body ${Current.full ? 'full' : ''}`}><Current.Component contact={contact} /></div>
+          <div className={`app-body ${Current.full ? 'full' : ''} ${Current.nav ? 'has-nav' : ''}`}><Current.Component contact={contact} view={view} /></div>
         </div>
       )}
     </>

@@ -114,9 +114,9 @@ export const COVER_GRADIENTS = [
 ];
 
 export const STAFF = [
-  { id: 'manager', name: 'Manager', salary: 600, buff: '+10% on all income, better offers', tips: ['Release singles 3–6 weeks apart to keep streams stacked.', 'Never let cash dip below two weeks of expenses.', 'A label deal is a loan — read the royalty, not the advance.'] },
-  { id: 'publicist', name: 'Publicist', salary: 450, buff: 'Hype decays slower, press bookings cost less energy', tips: ['Post the week of a release — that is when hype converts.', 'Bad press fades faster when you stay visible.'] },
-  { id: 'booking', name: 'Booking agent', salary: 400, buff: '+20% gig pay, more gig offers', tips: ['Play where your fan heat is highest — the map shows it.', 'Selling out a small room beats half-filling an arena.'] },
+  { id: 'manager', name: 'Manager', salary: 1500, commission: 0.1, buff: 'Takes 10% of income on top of salary. +10% on streams, bigger and better offers', tips: ['Release singles 3–6 weeks apart to keep streams stacked.', 'Never let cash dip below two weeks of expenses.', 'A label deal is a loan — read the royalty, not the advance.'] },
+  { id: 'publicist', name: 'Publicist', salary: 1000, buff: 'Hype decays slower, press bookings cost less energy', tips: ['Post the week of a release — that is when hype converts.', 'Bad press fades faster when you stay visible.'] },
+  { id: 'booking', name: 'Booking agent', salary: 700, commission: 0.1, buff: 'Takes 10% of gig income. +20% gig pay, more and better gig offers', tips: ['Play where your fan heat is highest — the map shows it.', 'Selling out a small room beats half-filling an arena.'] },
 ];
 
 export const JOBS = [
@@ -132,17 +132,23 @@ export const VENUES = [
   { id: 'club', name: 'Club', capacity: 400, ticket: 15, minFans: 800, energy: 30 },
   { id: 'theatre', name: 'Theatre', capacity: 2000, ticket: 30, minFans: 8000, energy: 35 },
   { id: 'hall', name: 'Concert hall', capacity: 6000, ticket: 45, minFans: 40000, energy: 40 },
-  { id: 'arena', name: 'Arena', capacity: 18000, ticket: 70, minFans: 200000, energy: 50 },
-  { id: 'stadium', name: 'Stadium', capacity: 55000, ticket: 95, minFans: 1000000, energy: 65 },
+  { id: 'arena', name: 'Arena', capacity: 18000, ticket: 70, minFans: 250000, minFame: 'established', energy: 50 },
+  { id: 'stadium', name: 'Stadium', capacity: 55000, ticket: 95, minFans: 1500000, minFame: 'star', energy: 65 },
 ];
 
-export const LABELS = [
-  { id: 'basement', name: 'Basement Tapes', tier: 'Indie', minPop: 15, advance: 5000, royalty: 0.6 },
-  { id: 'northbound', name: 'Northbound Records', tier: 'Indie', minPop: 25, advance: 15000, royalty: 0.5 },
-  { id: 'polaris', name: 'Polaris Music Group', tier: 'Mid', minPop: 40, advance: 60000, royalty: 0.35 },
-  { id: 'meridian', name: 'Meridian Global', tier: 'Major', minPop: 55, advance: 250000, royalty: 0.25 },
-  { id: 'apex', name: 'Apex Entertainment', tier: 'Major', minPop: 70, advance: 1000000, royalty: 0.2 },
-];
+const FAME_ORDER = ['unknown', 'local', 'buzzing', 'established', 'star', 'superstar', 'icon'];
+// Arenas need an established name; stadiums need a star.
+export function venueUnlocked(p, v, mult = 1) {
+  if (p.fans < v.minFans * mult) return false;
+  if (v.minFame && FAME_ORDER.indexOf(p.fame?.tier || 'unknown') < FAME_ORDER.indexOf(v.minFame)) return false;
+  return true;
+}
+export function venueLockReason(p, v, mult = 1) {
+  if (p.fans < v.minFans * mult) return `Needs ${Math.round(v.minFans * mult).toLocaleString('en-US')} fans`;
+  if (v.minFame && !venueUnlocked(p, v, mult)) return `Needs ${v.minFame} status`;
+  return null;
+}
+export { LABELS } from './data2.js';
 
 export const BRANDS = ['Volt Energy', 'Nimbus Audio', 'Kinetic Sneakers', 'Lumen Mobile', 'Glaze Cosmetics', 'Orbit Rideshare', 'Tidewater Apparel', 'Halo Headphones', 'Sora Watches', 'Pulse Soda', 'Fable Fashion', 'Ridge Outdoor'];
 
@@ -154,11 +160,8 @@ export const CHARTS = [
   ...MARKETS.map((m) => ({ id: m.code, name: `${m.flag} ${m.name}`, short: m.code, size: 40, kind: 'songs', market: m.code })),
 ];
 
-export const CERTS = [
-  { id: 'diamond', name: 'Diamond', streams: 100_000_000 },
-  { id: 'platinum', name: 'Platinum', streams: 25_000_000 },
-  { id: 'gold', name: 'Gold', streams: 10_000_000 },
-];
+// Song certification ladder (Gold 75M ... Diamond 3B). Each entry: { id, name, min }.
+export { SONG_CERTS as CERTS } from './data2.js';
 
 export const AWARD_SHOWS = [
   { week: 8, name: 'Treblr Music Awards' },
@@ -225,11 +228,12 @@ export const SPEECHES = [
   { id: 'short', name: 'Keep it short', hype: 2, fans: 0.005 },
 ];
 export const TRAINING = [
-  { id: 'songwriting', name: 'Songwriting workshop', energy: 20, base: 60 },
-  { id: 'vocals', name: 'Vocal coaching', energy: 20, base: 60 },
-  { id: 'production', name: 'Production course', energy: 20, base: 60 },
-  { id: 'performance', name: 'Stage rehearsal', energy: 20, base: 40 },
-  { id: 'charisma', name: 'Media training', energy: 15, base: 50 },
+  { id: 'songwriting', name: 'Songwriting workshop', energy: 12, base: 60 },
+  { id: 'vocals', name: 'Vocal coaching', energy: 12, base: 60 },
+  { id: 'production', name: 'Production course', energy: 12, base: 60 },
+  { id: 'performance', name: 'Stage rehearsal', energy: 12, base: 40 },
+  { id: 'charisma', name: 'Media training', energy: 9, base: 50 },
+  { id: 'acting', name: 'Acting class', energy: 12, base: 80 },
 ];
 // Fictional people only (dating & friendships). Real artists are never datable.
 export const FICTIONAL_PEOPLE = [

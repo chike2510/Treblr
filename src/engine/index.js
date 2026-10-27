@@ -13,7 +13,7 @@ export * from './weekly.js';
 export * from './journal.js';
 export * from './comments.js';
 export * from './headlines.js';
-export { MESSAGE_TEMPLATES, artistType } from './systems.js';
+export { MESSAGE_TEMPLATES, artistType, awardOptions } from './systems.js';
 export { REAL_ARTISTS_SOURCE, ARTIST_ROSTER } from './realArtists.js';
 import { AWARD_SHOWS } from './data.js';
 
@@ -46,3 +46,6 @@ export function nearbyRivals(s, n = 3) {
     .sort((a, b) => Math.abs(Math.log10(a.monthlyListeners) - Math.log10(ml)) - Math.abs(Math.log10(b.monthlyListeners) - Math.log10(ml)))
     .slice(0, n);
 }
+export * from './career.js';
+export * from './business.js';
+export * from './data2.js';

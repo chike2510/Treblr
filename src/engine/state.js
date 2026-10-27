@@ -5,8 +5,11 @@ import { computeCharts } from './charts.js';
 import { generateWeeklyGoalsFor } from './weekly.js';
 import { createRng as _rng } from './rng.js';
 import { rivalSongPotential } from './model.js';
+import { popularityFromListeners, scheduleRival, npcCover, uniqueRivalTitle } from './career.js';
+import { applyRosterPack } from './business.js';
+import { SONG_CERTS, certFor } from './data2.js';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export function randomTitle(rng) {
   const r = rng || { pick: (a) => a[Math.floor(Math.random() * a.length)], chance: (p) => Math.random() < p };
@@ -25,16 +28,17 @@ function makeRivalSong(state, rng, rival, releasedWeek) {
   return {
     id: `rs${state.nextId}`,
     rivalId: rival.id,
-    title: npcTitle(rng, rival),
+    title: uniqueRivalTitle(state, rng, rival, () => npcTitle(rng, rival)),
     genre: rival.genre,
     quality: q,
     releasedWeek,
     weeklyStreams: 0,
     lifetimeStreams: 0,
     radio: 0,
-    cover: { gradient: rng.int(0, COVER_GRADIENTS.length - 1) },
+    cover: npcCover(rng),
   };
 }
+void COVER_GRADIENTS;
 export { makeRivalSong };
 
 export function createNewGame(setup, seed) {
@@ -98,9 +102,16 @@ export function createNewGame(setup, seed) {
     lastReport: null,
   };
   addV3Fields(state);
+  addV4Fields(state);
   state.player.popularity = popularityFromListeners(state.player.monthlyListeners);
+  state.player.mlHistory = [state.player.monthlyListeners];
 
-  seedRivalWorld(state, rng);
+  const roster = setup.roster ? applyRosterPack(RIVALS, setup.roster) : RIVALS;
+  seedRivalWorld(state, rng, roster);
+  for (const a of setup.roster?.artists || []) {
+    const r = state.rivals.find((x) => x.name.toLowerCase() === String(a.name).toLowerCase());
+    if (r && typeof a.photo === 'string' && a.photo.startsWith('data:image/') && a.photo.length < 400000) state.artistPhotos[r.id] = a.photo;
+  }
   state.inbox.push({
     id: 'welcome', type: 'dm', from: 'Treblr', subject: `Welcome to Treblr, ${state.player.stageName}`,
     body: `Your career starts now in ${city.name}. Write a song in the Studio, keep an eye on your energy, and hit Next Week when you're done. The world is listening.`,
@@ -114,8 +125,8 @@ export function createNewGame(setup, seed) {
 }
 
 // Rivals (real-world roster + a few fictional rising acts) with back-catalogues so charts are full.
-export function seedRivalWorld(state, rng) {
-  state.rivals = RIVALS.map((r) => ({
+export function seedRivalWorld(state, rng, roster = RIVALS) {
+  state.rivals = roster.map((r) => ({
     ...r,
     monthlyListeners: Math.round(r.baseML * rng.float(0.97, 1.03)),
     lastMove: 'Quiet week in the studio',
@@ -131,12 +142,39 @@ export function seedRivalWorld(state, rng) {
       song.weeklyStreams = Math.round(rivalSongPotential(rival, song, age) * rng.float(0.9, 1.1));
       song.lifetimeStreams = song.weeklyStreams * (age + 1) * 1.6;
       state.rivalSongs.push(song);
+      if (song.releasedWeek > -14) rival.eraSingles = [...(rival.eraSingles || []), song.id];
     }
     if (rival.tier !== 'rising' || rng.chance(0.4)) {
       state.nextId += 1;
-      state.rivalAlbums.push({ id: `ra${state.nextId}`, rivalId: rival.id, title: npcTitle(rng, rival), releasedWeek: -rng.int(0, 30), cover: { gradient: rng.int(0, 7) } });
+      const rw = -rng.int(0, 30);
+      const units = Math.round(rival.monthlyListeners * 0.0011 * (3 + Math.max(0, 1 - rw) * 0.3));
+      state.rivalAlbums.push({ id: `ra${state.nextId}`, rivalId: rival.id, type: 'album', tracks: rng.int(10, 16), songIds: [], title: uniqueRivalTitle(state, rng, rival, () => npcTitle(rng, rival)), releasedWeek: rw, cover: npcCover(rng), firstWeek: Math.round(units / 2), totalUnits: units });
     }
+    scheduleRival(rival, rng, 1, true);
   }
+}
+
+// Fields added in save v4 (2026-10-27 systems).
+export function addV4Fields(s) {
+  const p = s.player;
+  p.skills.acting = p.skills.acting ?? 0;
+  p.fame = p.fame || { tier: 'unknown', points: 0 };
+  p.mlHistory = p.mlHistory || [p.monthlyListeners];
+  p.stats = p.stats || { no1: [], top10: [], weeksOnChart: {}, streamMarks: {}, listenerMarks: [], tickets: 0, ticketMarks: [] };
+  p.chartBanUntil = p.chartBanUntil ?? null;
+  s.bank = s.bank || { loans: [], onTime: 0, late: 0, defaults: 0, incomeLog: [], firstLoanWeek: null, banUntil: null };
+  s.lifestyle = s.lifestyle || { owned: [], rental: null };
+  s.acting = s.acting || { credits: [], current: null, lastAudition: null };
+  s.festivals = s.festivals || {};
+  s.distributor = s.distributor || 'tunewire';
+  s.distributorPaidYear = s.distributorPaidYear ?? Math.floor((s.week - 1) / 52);
+  s.statFeed = s.statFeed || [];
+  s.firstWeeks = s.firstWeeks || [];
+  s.offerLog = s.offerLog || {};
+  s.cloud = s.cloud || { followers: Math.round((p.fans || 0) * 0.1), uploads: [] };
+  s.tours = s.tours || [];
+  s.awardSubmission = s.awardSubmission ?? null;
+  return s;
 }
 
 // Fields added in save v3 (new games and migrated saves).
@@ -170,9 +208,7 @@ export function addV3Fields(s) {
   return s;
 }
 
-export function popularityFromListeners(ml) {
-  return Math.max(0, Math.min(100, Math.round((Math.log10(ml + 1) - 2) * 17)));
-}
+export { popularityFromListeners };
 
 // ---------- Save / load ----------
 const KEY = (slot) => `treblr:save:${slot}`;
@@ -200,6 +236,26 @@ const MIGRATIONS = {
     s.charts = computeCharts(s, {});
     s.weekly = generateWeeklyGoalsFor(s, rng);
     s.version = 3;
+    return s;
+  },
+  // v3 -> v4: rolling fame, new certification ladders, contracts, bank, lifestyle, acting, festivals,
+  // NPC release schedules and album units. Everything the player made is kept.
+  3: (s) => {
+    const rng = _rng((s.seed ^ 0x4a4a) >>> 0);
+    addV4Fields(s);
+    const p = s.player;
+    p.mlHistory = [p.monthlyListeners];
+    p.popularity = popularityFromListeners(p.monthlyListeners);
+    p.maxEnergy = Math.max(p.maxEnergy || 100, 80);
+    // old label shape { id, name, royalty, signedWeek } -> open-ended legacy contract
+    if (p.label && p.label.endWeek === undefined) p.label = { ...p.label, advance: 0, recouped: 0, albums: 1, delivered: 0, yearsPerAlbum: 3, endWeek: null, control: 'shared', strict: 0.2, breach: false, nextDue: null };
+    for (const so of s.songs) { so.cert = certFor(so.lifetimeStreams || 0, SONG_CERTS)?.id || null; so.reception = so.reception ?? 1; }
+    for (const r of s.releases) if (r.status === 'out' && r.type !== 'single') r.totalUnits = r.totalUnits ?? Math.round(r.songIds.reduce((a, id) => a + (s.songs.find((x) => x.id === id)?.lifetimeStreams || 0), 0) / 2500);
+    for (const x of s.rivalSongs) if (!x.cover?.style) x.cover = npcCover(rng);
+    for (const a of s.rivalAlbums) { if (!a.cover?.style) a.cover = npcCover(rng); a.type = a.type || 'album'; a.songIds = a.songIds || []; a.tracks = a.tracks || 12; a.totalUnits = a.totalUnits ?? 0; }
+    for (const r of s.rivals) { r.eraSingles = s.rivalSongs.filter((x) => x.rivalId === r.id && s.week - x.releasedWeek < 14).map((x) => x.id); scheduleRival(r, rng, s.week, true); }
+    for (const n of s.notifications || []) n.read = n.read || s.week - n.week > 2;
+    s.version = 4;
     return s;
   },
 };

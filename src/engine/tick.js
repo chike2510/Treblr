@@ -170,8 +170,14 @@ export function advanceWeek(state) {
     const sold = Math.min(s.merch.stock, Math.round((p.fans * 0.004 + p.hype * 2) * rng.float(0.7, 1.3)));
     s.merch.stock -= sold;
     s.merch.sold += sold;
-    if (sold) earn(s, 'merch', sold * s.merch.price, `Merch sales (${sold} units)`);
-    if (s.merch.stock <= 0) { s.merch.active = false; pushNews(s, `${name}'s merch drop sells out`, true, 'Business'); }
+    const revenue = sold * s.merch.price;
+    s.merch.revenue = (s.merch.revenue || 0) + revenue;
+    if (sold) earn(s, 'merch', revenue, `Merch sales (${sold} units)`);
+    if (s.merch.stock <= 0) {
+      s.merch.active = false;
+      s.merch.soldOutWeek = W;
+      pushNews(s, `${name}'s merch drop sells out`, true, 'Business');
+    }
   }
 
   // 3. Tour stops this week.

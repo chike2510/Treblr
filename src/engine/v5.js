@@ -714,6 +714,12 @@ export function addV5Fields(s) {
   s.festivals = s.festivals || {};
   s.tour = s.tour ?? null;
   s.merch = s.merch ?? null;
+  if (s.merch && typeof s.merch === 'object') {
+    s.merch.sold = s.merch.sold || 0;
+    s.merch.revenue = s.merch.revenue || 0;
+    s.merch.active = s.merch.active ?? s.merch.stock > 0;
+    s.merch.stock = s.merch.stock || 0;
+  }
   s.lifestyle = s.lifestyle || { owned: [], rental: null };
   s.lifestyle.owned = s.lifestyle.owned || [];
   s.labelOffers = s.labelOffers || [];

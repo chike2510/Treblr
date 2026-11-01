@@ -468,7 +468,7 @@ export function dropMerch(state, { tier }) {
     if (s.merch?.active) return fail('A merch drop is already selling.');
     if (!needCash(s, t.cost)) return fail(`Production costs ${fmtMoney(t.cost)}.`);
     spend(s, 'merch', t.cost, `Merch production: ${t.name}`);
-    s.merch = { active: true, tier: t.id, stock: t.units, price: t.price, sold: 0 };
+    s.merch = { active: true, tier: t.id, stock: t.units, price: t.price, sold: 0, revenue: 0, launchedWeek: s.week };
     return { msg: `${t.name} is live. Sales land each week.` };
   });
 }

@@ -28,10 +28,18 @@ const SECTIONS = [
   { title: 'Shady', items: [{ id: 'payola', name: 'Payola', icon: 'skull' }] },
 ];
 
+const FEATURE_PAGE_IDS = ['tours', 'labels', 'lifestyle', 'acting', 'merch', 'festivals', 'awards', 'training'];
+const FEATURE_PAGE_COMPONENTS = { tours: Tours, labels: Labels, lifestyle: Lifestyle, acting: Acting, merch: Merch, festivals: Festivals, awards: Awards, training: Training };
+
 export default function World({ initial }) {
   const { state, go } = useGame();
   const [open, setOpen] = useState(initial || null);
   const p = state.player;
+  if (FEATURE_PAGE_IDS.includes(initial)) {
+    const item = SECTIONS.flatMap((section) => section.items).find((x) => x.id === initial);
+    const Page = FEATURE_PAGE_COMPONENTS[initial];
+    return <div className="screen world-feature"><div className="row between"><div><Mono style={{ color: 'var(--teal)' }}>World / {item?.name}</Mono><h1 style={{ fontSize: 30 }}>{item?.name}</h1><div className="small muted">Week {state.week} · {p.stageName} · {fmtMoney(p.cash)} · {p.energy} energy</div></div><button className="icon-btn" onClick={() => go({ tab: 'world' })} aria-label="Back to World"><Icon name="close" size={20} /></button></div><div className="pills mt12" aria-label="Career systems">{FEATURE_PAGE_IDS.map((id) => { const x = SECTIONS.flatMap((section) => section.items).find((entry) => entry.id === id); return x && <button key={id} className={`pill ${id === initial ? 'on' : ''}`} onClick={() => go({ tab: 'world', section: id })}>{x.name}</button>; })}</div><div className="section mt12"><Page /></div></div>;
+  }
   const heat = p.fanHeat;
   const max = Math.max(1, ...Object.values(heat));
   const top = Object.entries(heat).sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -106,7 +114,7 @@ function subtitle(id, s, brands) {
     case 'awards': return `${s.awardHistory?.filter((x) => x.result === 'won').length || 0} wins · next show calendar`;
     case 'festivals': { const f = festivalCalendar(s, 16).find((x) => x.pitchOpen && !x.state.pitched); return f ? `${f.name} taking pitches` : 'Lineups & pitches'; }
     case 'lifestyle': return `${s.lifestyle?.owned?.length || 0} owned · ${fmtMoney(lifestyleUpkeep(JSON.parse(JSON.stringify(s))))}/wk`;
-    case 'merch': return s.merch?.active ? `${s.merch.stock} units left` : 'Drop a collection';
+    case 'merch': return s.merch?.active ? `${s.merch.sold || 0} sold · ${s.merch.stock} units left` : s.merch ? `${s.merch.sold || 0} sold · ${fmtMoney(s.merch.revenue || 0)} revenue` : 'Plan a collection';
     case 'brands': return brands ? `${brands} pending` : 'Sponsorships';
     case 'press': return '+hype, risk of bad reviews';
     case 'radio': return 'More spins on your single';
@@ -446,20 +454,27 @@ function Lifestyle() {
 function Merch() {
   const { state, act } = useGame();
   const m = state.merch;
+  const tier = m && MERCH_TIERS.find((x) => x.id === m.tier);
+  const soldPct = tier ? Math.min(1, (m.sold || 0) / tier.units) : 0;
   return (
     <div className="col">
-      {m?.active && <div className="card tight"><Mono>Live drop</Mono><div className="row between mt8"><span>{MERCH_TIERS.find((t) => t.id === m.tier)?.name}</span><b>{m.sold} sold · {m.stock} left</b></div></div>}
+      <div className="card tight">
+        <div className="row between"><Mono>MERCH OPERATIONS</Mono><span className={`chip sm ${m?.active ? 'up' : ''}`}>{m?.active ? 'SELLING' : m ? 'CLOSED' : 'NO DROP'}</span></div>
+        <div className="grid2 mt12"><div className="stat"><Mono className="sm">Lifetime units</Mono><div className="v">{fmtNum(m?.sold || 0)}</div></div><div className="stat"><Mono className="sm">Drop revenue</Mono><div className="v">{fmtMoney(m?.revenue || 0)}</div></div></div>
+        {m && <><div className="row between small mt12"><b>{tier?.name || 'Legacy drop'}</b><span>{m.sold || 0} sold · {m.stock || 0} remain</span></div><div className="mt8"><Bar pct={soldPct} color="#2DD4BF" /></div><div className="tiny muted mt8">Unit price {fmtMoney(m.price || 0)} · launched week {m.launchedWeek || 'unknown'}{m.soldOutWeek ? ` · sold out week ${m.soldOutWeek}` : ''}</div><div className="tiny muted mt8">Sales resolve in the weekly tick from fanbase and hype. The active drop locks production until it sells out.</div></>}
+      </div>
+      <div className="section-head"><h3>{m?.active ? 'Next drop queue' : 'Production desk'}</h3></div>
       {MERCH_TIERS.map((t) => (
         <div key={t.id} className="card tight">
-          <div className="row between"><b>{t.name}</b><span className="small">{fmtMoney(t.cost)}</span></div>
-          <div className="tiny muted mt8">{t.units} units at ${t.price} · sells weekly based on fans and hype</div>
-          <button className="btn sm accent mt12" disabled={m?.active || state.player.cash < t.cost} onClick={() => act(dropMerch, { tier: t.id })}>Produce</button>
+          <div className="row between"><b>{t.name}</b><span className="small">{fmtMoney(t.cost)} production</span></div>
+          <div className="tiny muted mt8">{fmtNum(t.units)} units at {fmtMoney(t.price)} each · break-even at {Math.ceil(t.cost / t.price)} units sold</div>
+          <div className="tiny muted mt8">Expected weekly sales: about {fmtNum(Math.min(t.units, Math.round(state.player.fans * 0.004 + state.player.hype * 2)))} units at your current fans and hype.</div>
+          <button className="btn sm accent mt12" disabled={m?.active || state.player.cash < t.cost} onClick={() => act(dropMerch, { tier: t.id })}>{m?.active ? 'Current drop must close first' : state.player.cash < t.cost ? 'Insufficient cash' : 'Fund and launch drop'}</button>
         </div>
       ))}
     </div>
   );
 }
-
 function Media({ kind }) {
   const { state, act } = useGame();
   const p = state.player;

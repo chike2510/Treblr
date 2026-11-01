@@ -1,0 +1,239 @@
+/* ===== 2026-10-27: fix-list styles (nav bars, new apps, covers, plaques, festivals, PWA, large-text safety) ===== */
+
+/* No accidental zoom: double-tap zoom off everywhere, pinch still blocked by the viewport. Text still
+   follows the OS font-size setting (rem/px scale with Android's font scaling). */
+html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+input, textarea, select { font-size: 16px; } /* iOS zooms into inputs under 16px */
+
+/* Generative covers */
+.cover .cover-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 8px; }
+.cover-grid > button { justify-self: center; }
+
+/* ---------- Phone app bottom bars ---------- */
+.app-body.has-nav { padding-bottom: 0; }
+.appwrap { min-height: 100%; display: flex; flex-direction: column; }
+.appwrap > .appnav { margin-top: auto; }
+.appnav {
+  position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: space-around; align-items: stretch;
+  margin: 16px -16px 0; padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)); min-height: 56px;
+  background: var(--nav-bg, #000); border-top: 1px solid var(--nav-line, #222); flex-shrink: 0;
+}
+.appnav button { position: relative; flex: 1 1 0; min-width: 0; min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--nav-off, #8a8a8a); font-size: 10.5px; font-weight: 600; line-height: 1.1; padding: 2px; }
+.appnav button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.appnav button.on { color: var(--nav-on, #fff); }
+.appnav .badge { top: 2px; right: calc(50% - 22px); }
+.appnav-av { width: 26px; height: 26px; border-radius: 99px; object-fit: cover; border: 2px solid transparent; }
+.appnav button.on .appnav-av { border-color: currentColor; }
+.sp-nav { --nav-bg: linear-gradient(180deg, rgba(18,18,18,.92), #000); --nav-line: transparent; --nav-off: #a7a7a7; }
+.am-nav { --nav-bg: rgba(22,22,24,.96); --nav-line: #2a2a2d; --nav-on: #FA233B; --nav-off: #8d8d93; }
+.tx-nav { --nav-bg: #000; --nav-line: #2f3336; --nav-off: #71767b; }
+.tg-appnav { --nav-bg: #000; --nav-line: #262626; --nav-off: #b5b5b5; }
+.yt-nav { --nav-bg: #0f0f0f; --nav-line: #272727; --nav-off: #d9d9d9; }
+.yt-nav button:nth-child(3) svg { border: 1.5px solid currentColor; border-radius: 99px; padding: 3px; width: 32px; height: 32px; }
+.wa-nav { --nav-bg: #0B141A; --nav-line: #1f2c33; --nav-on: #25D366; --nav-off: #8696a0; margin-left: -16px; margin-right: -16px; }
+.sc-nav { --nav-bg: #111; --nav-line: #262626; --nav-on: #ff5500; }
+.hf-nav { --nav-bg: #000; --nav-line: #1c1c1c; --nav-on: #33ffee; }
+.it-nav { --nav-bg: #161618; --nav-line: #2a2a2d; --nav-on: #fc5c7d; }
+.wa > .wa-nav { position: sticky; }
+
+/* Treblify extras */
+.sp-artist-name { font-size: clamp(28px, 10vw, 40px); line-height: 1; overflow-wrap: anywhere; }
+.sp-browse { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sp-browse-tile { height: 92px; border-radius: 8px; padding: 10px; display: flex; align-items: flex-start; font-family: var(--font-head); font-size: 17px; overflow: hidden; }
+/* Treblr Music */
+.am-title { font-size: 30px; margin-top: 4px; }
+.am-artist { position: relative; height: 220px; margin: -14px -16px 0; overflow: hidden; }
+.am-artist img { width: 100%; height: 100%; object-fit: cover; }
+.am-artist-shade { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, #000); }
+.am-artist h1 { position: absolute; left: 16px; right: 16px; bottom: 12px; font-size: clamp(26px, 9vw, 36px); line-height: 1.05; overflow-wrap: anywhere; }
+/* TreblrX */
+.tx-profile { display: flex; gap: 14px; align-items: center; padding: 16px 0; border-bottom: 1px solid #2f3336; }
+/* Treblrgram explore */
+.tg-explore { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin: 12px -16px 0; }
+.tg-explore-tile { aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; position: relative; }
+.tg-explore-tile img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+/* Treblrchat composer */
+.wa-compose { position: sticky; bottom: 0; display: flex; gap: 8px; align-items: center; padding: 8px 0 10px; background: #0B141A; z-index: 3; }
+.wa-compose input { border-radius: 24px; background: #202c33; border-color: transparent; min-height: 44px; }
+.wa-send { width: 44px; height: 44px; border-radius: 99px; background: #25D366; color: #0B141A; display: grid; place-items: center; flex-shrink: 0; }
+.wa-send:disabled { opacity: .5; }
+.wa-ring { padding: 2px; border-radius: 99px; border: 2px solid #25D366; display: inline-flex; flex-shrink: 0; }
+
+/* Plaques */
+.cert-badge { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 99px; font-size: 11.5px; font-weight: 700; color: #0B0B0F; background: var(--cc); white-space: nowrap; flex-shrink: 0; }
+.cert-badge i { width: 10px; height: 10px; border-radius: 99px; background: radial-gradient(circle at 35% 35%, #fff, rgba(0,0,0,.3)); }
+.cert-badge.sm { height: 20px; font-size: 10.5px; padding: 0 7px; }
+
+/* Fame card */
+.fame-reqs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.fame-reqs .bar { margin-top: 4px; }
+
+/* Notifications: grouped count, wrapping text */
+.notif-text { display: block; overflow-wrap: anywhere; }
+.notif-count { min-width: 24px; height: 24px; padding: 0 6px; border-radius: 99px; background: var(--surface); border: 1px solid var(--border-strong); display: grid; place-items: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+
+/* Rollout steps */
+.sched + .sched { border-top: 1px solid var(--border); margin-top: 6px; }
+.rollout-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 4px 0 10px; }
+.rstep { text-align: left; padding: 10px; border-radius: 14px; background: var(--raised); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; min-height: 64px; }
+.rstep.done { border-color: rgba(61,220,132,.4); }
+.rstep:disabled:not(.done) { opacity: .5; }
+.rstep .tiny { overflow-wrap: anywhere; }
+
+/* Festival poster */
+.fest-poster { position: absolute; inset: 0; z-index: 90; background: rgba(0,0,0,.7); display: grid; place-items: center; padding: 16px; animation: fade .2s; }
+.fest-inner { position: relative; width: 100%; max-width: 400px; max-height: 100%; overflow-y: auto; border-radius: 20px; padding: 28px 18px 22px; text-align: center;
+  background: radial-gradient(circle at 20% 10%, hsl(var(--fh) 90% 60% / .55), transparent 55%), radial-gradient(circle at 90% 80%, hsl(calc(var(--fh) + 140) 90% 55% / .5), transparent 55%), #10101a; border: 1px solid rgba(255,255,255,.15); }
+.fest-x { position: absolute; top: 10px; right: 10px; }
+.fest-inner { padding-top: 56px; }
+.fest-name { font-family: var(--font-head); font-weight: 700; font-size: clamp(26px, 9vw, 38px); letter-spacing: -.02em; line-height: 1; text-transform: uppercase; overflow-wrap: anywhere; }
+.fest-when { font-family: var(--font-mono); font-size: 12px; margin: 8px 0 18px; opacity: .8; }
+.fest-head, .fest-sub, .fest-under { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; margin-bottom: 14px; }
+.fest-head span { font-family: var(--font-head); font-weight: 700; font-size: clamp(20px, 6.5vw, 28px); line-height: 1.1; text-transform: uppercase; }
+.fest-sub span { font-weight: 700; font-size: 15px; text-transform: uppercase; }
+.fest-under span { font-size: 12px; opacity: .85; text-transform: uppercase; }
+.fest-poster .me { color: var(--lime); text-shadow: 0 0 18px rgba(198,255,61,.5); }
+.fest-art { justify-content: center; margin-top: 8px; }
+
+/* PWA */
+.install-card { border-color: rgba(198,255,61,.3); }
+.update-toast { position: absolute; left: 12px; right: 12px; top: calc(var(--top-h) + 8px); z-index: 95; display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 16px; background: var(--raised); border: 1px solid var(--lime); box-shadow: 0 12px 40px rgba(0,0,0,.5); font-size: 14px; animation: pop .25s ease; }
+.ts-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+/* Store */
+.store-banner { border-radius: 18px; padding: 16px; background: linear-gradient(135deg, rgba(198,255,61,.22), rgba(108,123,255,.2)); border: 1px dashed rgba(255,255,255,.25); }
+.store-banner h2 { margin: 4px 0; }
+.store-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.store-sub { border-radius: 18px; padding: 14px; background: var(--surface); border: 1px solid var(--border); margin-top: 8px; }
+.store-sub ul { margin: 8px 0 12px; padding-left: 18px; color: var(--muted); font-size: 14px; }
+
+/* ---------- Treblrpedia (light encyclopedia) ---------- */
+.app-head.light { background: #fff; color: #202122; border-bottom-color: #c8ccd1; }
+.app-head.light .icon-btn { color: #202122; }
+.wp { color: #202122; font-family: Georgia, 'Linux Libertine', 'Times New Roman', serif; }
+.wp-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid #a2a9b1; padding-bottom: 6px; }
+.wp-logo { font-size: 22px; font-variant: small-caps; } .wp-logo span { font-weight: 700; }
+.wp-search { background: #fff; border: 1px solid #a2a9b1; border-radius: 4px; margin-top: 10px; font-family: var(--font-body); }
+.wp-search input { color: #202122; }
+.wp-results { display: flex; flex-direction: column; border: 1px solid #c8ccd1; border-radius: 4px; margin-top: 4px; font-family: var(--font-body); }
+.wp-results button { text-align: left; padding: 10px; color: #3366cc; border-bottom: 1px solid #eaecf0; min-height: 44px; }
+.wp-h1 { font-family: Georgia, serif; font-weight: 400; font-size: 28px; border-bottom: 1px solid #a2a9b1; margin-top: 14px; padding-bottom: 2px; letter-spacing: 0; overflow-wrap: anywhere; }
+.wp-h2 { font-family: Georgia, serif; font-weight: 400; font-size: 21px; border-bottom: 1px solid #a2a9b1; margin: 18px 0 6px; letter-spacing: 0; }
+.wp-from { font-size: 12px; color: #54595d; margin: 4px 0 10px; font-family: var(--font-body); }
+.wp-article p, .wp-article li { font-size: 15px; line-height: 1.6; }
+.wp-infobox { width: 100%; border: 1px solid #a2a9b1; background: #f8f9fa; border-collapse: collapse; font-size: 13px; margin: 0 0 12px; font-family: var(--font-body); }
+.wp-infobox th, .wp-infobox td { text-align: left; padding: 5px 8px; vertical-align: top; overflow-wrap: anywhere; }
+.wp-infobox th { width: 38%; }
+.wp-ib-title { text-align: center !important; font-size: 16px; background: #eaecf0; }
+.wp-ib-img { text-align: center; } .wp-ib-img img, .wp-ib-img svg { margin: 0 auto; max-width: 180px; max-height: 200px; object-fit: cover; }
+.wp-table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: var(--font-body); }
+.wp-table th, .wp-table td { border: 1px solid #a2a9b1; padding: 5px 6px; text-align: left; overflow-wrap: anywhere; }
+.wp-table th { background: #eaecf0; }
+.wp-link { color: #3366cc; text-align: left; min-height: 32px; }
+.wp-foot { font-size: 11px; color: #54595d; border-top: 1px solid #a2a9b1; margin-top: 20px; padding-top: 8px; font-family: var(--font-body); }
+.wp .muted { color: #54595d; }
+
+/* ---------- Treblr Fortune (business magazine) ---------- */
+.fo { color: #111; }
+.fo-top { display: flex; align-items: baseline; gap: 8px; border-bottom: 3px solid #111; padding-bottom: 6px; }
+.fo-logo { font-family: Georgia, serif; font-weight: 700; font-size: 30px; letter-spacing: .08em; }
+.fo-sub { font-family: var(--font-mono); font-size: 11px; color: #b8860b; }
+.fo-tabs { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.fo-tabs button { min-height: 36px; padding: 0 12px; border: 1px solid #111; border-radius: 2px; font-size: 13px; font-weight: 600; text-align: left; }
+.fo-tabs button.on { background: #111; color: #fbf8f1; }
+.fo-me { display: flex; gap: 10px; align-items: center; margin-top: 12px; padding: 10px; background: #fff; border: 1px solid #e3dccb; }
+.fo-me img { width: 52px; height: 52px; object-fit: cover; flex-shrink: 0; }
+.fo-list { list-style: none; padding: 0; margin: 10px 0 0; }
+.fo-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #e3dccb; font-size: 14px; min-height: 52px; }
+.fo-list li.me { background: #fff4d1; }
+.fo-list b { font-family: var(--font-mono); font-size: 13px; flex-shrink: 0; }
+.fo-rank { width: 26px; font-family: Georgia, serif; font-weight: 700; flex-shrink: 0; text-align: right; }
+.fo .muted { color: #666; }
+
+/* ---------- Treblrfork (reviews) ---------- */
+.pf { color: #111; font-family: var(--font-body); }
+.pf-top { border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+.pf-logo { font-family: var(--font-head); font-weight: 700; font-size: 22px; letter-spacing: .14em; }
+.pf-sec { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; margin: 18px 0 8px; color: #ef4135; }
+.pf-row { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 10px 0; border-bottom: 1px solid #eee; min-height: 76px; }
+.pf-row.me { background: #fff5f4; }
+.pf-score { width: 44px; height: 44px; border-radius: 99px; border: 2px solid #111; display: grid; place-items: center; font-weight: 700; font-size: 15px; flex-shrink: 0; }
+.pf-score.bnm { border-color: #ef4135; color: #ef4135; }
+.pf-score.big { width: 72px; height: 72px; font-size: 24px; }
+.pf-bnm { font-family: var(--font-mono); font-size: 11px; color: #ef4135; margin-top: 6px; text-transform: uppercase; }
+.pf .sp-pl { text-align: left; color: #111; }
+
+/* ---------- TreblrCloud ---------- */
+.sc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sc-logo { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-head); font-weight: 700; font-size: 20px; color: #ff5500; }
+.sc-track { padding: 10px 0; border-bottom: 1px solid #262626; }
+.sc-wave { display: flex; align-items: flex-end; gap: 2px; height: 40px; }
+.sc-wave i { flex: 1; background: linear-gradient(180deg, #ff5500, #ff8a00); border-radius: 1px; }
+.sc-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #1f1f1f; }
+.sc-btn { background: #ff5500; color: #fff; border: 0; }
+
+/* ---------- Treblr HiFi ---------- */
+.hf-hero { border-radius: 4px; padding: 18px 14px; background: linear-gradient(135deg, #0d3b3a, #000 70%); border: 1px solid #1c1c1c; }
+.hf-hero h2 { font-size: 26px; margin: 6px 0; }
+.hf-h { font-size: 18px; margin: 20px 0 6px; }
+.hf-rank { width: 24px; font-family: var(--font-mono); font-size: 12px; color: #8a8a8a; flex-shrink: 0; }
+.hf-tag { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: #33ffee; border: 1px solid #33ffee; border-radius: 3px; padding: 1px 4px; flex-shrink: 0; }
+
+/* ---------- TreblrTunes ---------- */
+.it-top { display: flex; align-items: center; gap: 8px; }
+.it-logo { display: inline-flex; gap: 6px; align-items: center; font-family: var(--font-head); font-weight: 700; font-size: 20px; color: #fc5c7d; }
+.it-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #2a2a2d; padding-bottom: 6px; }
+.it-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #1f1f22; min-height: 64px; }
+.it-row.me { background: rgba(252,92,125,.1); }
+.it-rank { width: 24px; text-align: right; font-weight: 700; color: #8d8d93; flex-shrink: 0; }
+.it-price { min-width: 56px; height: 30px; border-radius: 99px; border: 1px solid #fc5c7d; color: #fc5c7d; font-size: 13px; font-weight: 700; display: grid; place-items: center; flex-shrink: 0; }
+
+/* ---------- Spacing / overlap sweep (360px and ~1.3x text) ---------- */
+/* Long names and numbers wrap instead of colliding */
+.row > .grow { min-width: 0; }
+.list-item > .grow { min-width: 0; }
+.list-item .num, .list-item > b, .list-item .btn { flex-shrink: 0; }
+.option .row.between > b, .card .row.between > b { min-width: 0; overflow-wrap: anywhere; }
+.chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.stat .v { overflow-wrap: anywhere; }
+.app-head h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet h2 { overflow-wrap: anywhere; }
+.toast { overflow-wrap: anywhere; }
+.btn { max-width: 100%; }
+.seg button { min-width: 0; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-shelf > * { flex-shrink: 0; }
+
+@media (max-width: 380px) {
+  .stat-strip { grid-template-columns: repeat(2, 1fr); }
+  .grid3 { grid-template-columns: repeat(2, 1fr); }
+  .fame-reqs { grid-template-columns: 1fr; gap: 6px; }
+  .rollout-steps { grid-template-columns: 1fr; }
+  .quick { flex-wrap: wrap; }
+  .seg button { font-size: 13px; }
+}
+/* Large system text (Android font scaling): when the root font grows, let dense grids breathe. */
+@media (min-resolution: 1dppx) and (max-width: 440px) {
+  .stat .v { font-size: clamp(16px, 5vw, 22px); }
+}
+
+/* Top bar: keep "WEEK n" on one line on narrow phones / large text */
+.topbar .wk b { white-space: nowrap; }
+@media (max-width: 380px) { .topbar .wk b { letter-spacing: 0.04em; } .topbar .wk > span { display: none; } }
+.sp-nav { --nav-bg: #000; }
+/* 5+ segment tabs scroll sideways instead of truncating ("Wr… Re…") */
+.seg.many { overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
+.seg.many::-webkit-scrollbar { display: none; }
+.seg.many button { flex: 1 0 auto; padding: 0 14px; overflow: visible; text-overflow: clip; }
+/* Magazine cover: cover lines + story stack from the bottom so big text never collides */
+.magazine .mag-bottom { position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
+.magazine .mag-bottom .side, .magazine .mag-bottom .story { position: static; max-width: 60%; }
+.magazine .mag-bottom .story { max-width: none; }
+.magazine .story h2 { overflow-wrap: anywhere; margin-top: 4px; }
+.topbar .wk-s { display: none; }
+@media (max-width: 380px) { .topbar .wk-l { display: none; } .topbar .wk-s { display: inline; } .topbar { gap: 5px; } .topbar .wk { flex-shrink: 0; } }
+.seg.fit { width: auto; flex-shrink: 0; }
+.seg.fit button { flex: 0 0 auto; padding: 0 12px; overflow: visible; }
+.row.between:has(> .seg.fit) { flex-wrap: wrap; gap: 6px; }
+.stat-chip.bell { margin-left: 8px; }
+.stat-chip.bell .badge { top: -6px; right: -8px; }

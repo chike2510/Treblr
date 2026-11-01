@@ -22,7 +22,7 @@ export function CertBadge({ id, album = false, small = false }) {
 /* =============================== Treblify =============================== */
 // Your artist page always lives here: the "You" tab, and chart rows for your songs deep-link to it.
 export function Treblify({ view }) {
-  const { state, act, openArtist, openOverlay } = useGame();
+  const { state, act, openArtist, openOverlay, openSong, openProject } = useGame();
   const p = state.player;
   const [tab, setTab] = useState(view === 'artist' ? 'artist' : 'home');
   const [q, setQ] = useState('');
@@ -97,16 +97,16 @@ export function Treblify({ view }) {
             <div className="row"><button className="sp-follow">Following</button><span className="muted small">{fmtNum(p.fans)} followers</span><span className="grow" /><span className="sp-playbig"><Icon name="play" size={20} fill="#000" color="#000" /></span></div>
             <h3 className="sp-sh">Popular</h3>
             {released.length ? released.slice(0, 10).map((s, i) => (
-              <div key={s.id} className="list-item">
+              <div key={s.id} className="list-item" style={{ cursor: 'pointer' }} onClick={() => openSong?.(s.id)}>
                 <span className="muted" style={{ width: 16, flexShrink: 0 }}>{i + 1}</span>
                 <Cover cover={s.cover} size={44} />
                 <div className="grow" style={{ minWidth: 0 }}><div className="ellipsis" style={{ fontWeight: 600 }}>{s.title}{s.featName ? <span className="muted"> (feat. {s.featName})</span> : ''}</div><div className="tiny muted ellipsis">{fmtNum(s.lifetimeStreams)} plays{s.cert ? ` · ${certName(s.cert)}` : ''}</div></div>
-                <button className="btn sm" disabled={s.pitchedWeek === state.week || p.socialEnergy < SOCIAL.pitch} onClick={() => act(pitchPlaylist, { songId: s.id })}>{s.pitchedWeek === state.week ? 'Pitched' : 'Pitch'}</button>
+                <button className="btn sm" disabled={s.pitchedWeek === state.week || p.socialEnergy < SOCIAL.pitch} onClick={(e) => { e.stopPropagation(); act(pitchPlaylist, { songId: s.id }); }}>{s.pitchedWeek === state.week ? 'Pitched' : 'Pitch'}</button>
               </div>
             )) : <Empty icon="play">Release a song to light up your artist page.</Empty>}
             <div className="tiny muted mt8">Pitching costs $50 + {SOCIAL.pitch} social energy. Acceptance depends on quality, popularity and label or distributor backing.</div>
             <h3 className="sp-sh">Discography</h3>
-            <div className="sp-shelf">{outs.length ? outs.map((r) => <div key={r.id} className="sp-pl"><Cover cover={r.cover} title={r.title} size={120} /><div className="tiny ellipsis mt8"><b>{r.title}</b></div><div className="tiny muted">{r.type === 'single' ? 'Single' : r.type.toUpperCase()} · {formatWeekDate(r.releaseWeek, { year: 'numeric' })}</div></div>) : <div className="muted small">No releases yet.</div>}</div>
+            <div className="sp-shelf">{outs.length ? outs.map((r) => <div key={r.id} className="sp-pl" style={{ cursor: 'pointer' }} onClick={() => openProject?.(r.id)}><Cover cover={r.cover} title={r.title} size={120} /><div className="tiny ellipsis mt8"><b>{r.title}</b></div><div className="tiny muted">{r.type === 'single' ? 'Single' : r.type.toUpperCase()} · {formatWeekDate(r.releaseWeek, { year: 'numeric' })}</div></div>) : <div className="muted small">No releases yet.</div>}</div>
             <h3 className="sp-sh">Playlist placements</h3>
             {placements.length ? <div className="grid2 mt12">{placements.map(({ n, s }, i) => <div key={i} className="card tight" style={{ background: `linear-gradient(135deg, ${COVER_GRADIENTS[i % 8][0]}55, #181818)` }}><div className="head" style={{ fontSize: 15 }}>{n}</div><div className="tiny muted mt8">feat. {s.title}</div></div>)}</div> : <div className="muted small mt8">No placements yet.</div>}
             <h3 className="sp-sh">Fans also like</h3>

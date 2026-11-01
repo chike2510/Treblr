@@ -45,7 +45,7 @@ export default function Charts() {
           const mv = movement(e);
           const rival = it.rivalId ? state.rivals.find((r) => r.id === it.rivalId) : chart.kind === 'albums' && !e.pl ? state.rivals.find((r) => r.name === it.artist) : it.featId ? state.rivals.find((r) => r.id === it.featId) : null;
           return (
-            <div key={e.id} className={`chart-row ${e.pl || e.fp ? 'me' : ''}`} onClick={(e.pl || e.fp) && chart.kind !== 'albums' && openSong ? () => openSong(e.id) : e.pl ? () => go({ tab: 'phone', app: 'treblify', view: 'artist' }) : rival ? () => openArtist(rival.id) : undefined} role={rival || e.pl || e.fp ? 'button' : undefined} style={rival || e.pl || e.fp ? { cursor: 'pointer' } : undefined}>
+            <div key={e.id} className={`chart-row ${e.pl || e.fp ? 'me' : ''}`} onClick={e.pl && chart.kind === 'albums' ? () => openProject?.(e.id) : (e.pl || e.fp) && openSong ? () => openSong(e.id) : rival ? () => openArtist(rival.id) : undefined} role={rival || e.pl || e.fp ? 'button' : undefined} style={rival || e.pl || e.fp ? { cursor: 'pointer' } : undefined}>
               <div className="rk" style={{ color: e.r <= 3 ? '#FFB020' : undefined }}>{e.r}</div>
               <div className={`mv ${mv.kind}`}>{mv.label}</div>
               <Cover cover={it.cover} size={44} />

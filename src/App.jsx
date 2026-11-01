@@ -16,6 +16,7 @@ import { AwardShow, CrisisSheet, WrappedCard, NotificationsPanel, AwardSubmissio
 import { InstallButton, UpdateToast } from './pwa.jsx';
 import { StoreScreen } from './phone/extra.jsx';
 import { Sheet } from './ui/kit.jsx';
+import SongProjectDetail from './screens/SongProjectDetail.jsx';
 
 const TABS = [
   { id: 'home', label: 'Home', icon: 'home' },
@@ -167,9 +168,12 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
     if (to.crisis) { setOverlay('crisis'); return; }
     if (to.wrapped) { setOverlay({ wrapped: to.wrapped }); return; }
     if (to.artist) { setArtist(to.artist); return; }
-    setNav((n) => ({ tab: to.tab || n.tab, section: to.section, app: to.app, contact: to.contact, rival: to.rival, view: to.view, n: n.n + 1 }));
+    if (to.closeDetail) { setNav((n) => ({ ...n, detail: null, n: n.n + 1 })); scrollRef.current?.scrollTo({ top: 0 }); return; }
+    setNav((n) => ({ tab: to.tab || n.tab, section: to.section, app: to.app, contact: to.contact, rival: to.rival, view: to.view, detail: to.detail || null, n: n.n + 1 }));
     scrollRef.current?.scrollTo({ top: 0 });
   }, [act, nextWeek]);
+  const openSong = useCallback((id) => { setNav((n) => ({ ...n, detail: { kind: 'song', id }, n: n.n + 1 })); scrollRef.current?.scrollTo({ top: 0 }); }, []);
+  const openProject = useCallback((id) => { setNav((n) => ({ ...n, detail: { kind: 'project', id }, n: n.n + 1 })); scrollRef.current?.scrollTo({ top: 0 }); }, []);
 
   // Horizontal rows (tabs, chips) fade at the right edge until scrolled to the end.
   useEffect(() => {
@@ -181,7 +185,7 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
     document.addEventListener('scroll', onScroll, true);
     return () => document.removeEventListener('scroll', onScroll, true);
   }, []);
-  const ctx = useMemo(() => ({ state, act, go, nav, nextWeek, toast: showToast, slot, onSwitch, onNew, onTitle, openProfile: () => setProfile(true), setState, openArtist: setArtist, openOverlay: setOverlay }), [state, act, go, nav, nextWeek, showToast, slot, onSwitch, onNew, onTitle, setState]);
+  const ctx = useMemo(() => ({ state, act, go, nav, nextWeek, toast: showToast, slot, onSwitch, onNew, onTitle, openProfile: () => setProfile(true), setState, openArtist: setArtist, openSong, openProject, openOverlay: setOverlay }), [state, act, go, nav, nextWeek, showToast, slot, onSwitch, onNew, onTitle, setState, openSong, openProject]);
   const p = state.player;
   const unread = unreadCount(state);
   const notifs = unreadNotifs(state);
@@ -204,11 +208,13 @@ function Game({ state, setState, slot, onSwitch, onNew, onTitle }) {
         </header>
 
         <main className="scroll" ref={scrollRef}>
-          {nav.tab === 'home' && <Home key={`h${nav.n}`} />}
-          {nav.tab === 'studio' && <Studio key={`s${nav.n}`} initial={nav.section} rival={nav.rival} />}
-          {nav.tab === 'phone' && <Phone key={`p${nav.n}`} initialApp={nav.app} contact={nav.contact} view={nav.view} />}
-          {nav.tab === 'charts' && <Charts key={`c${nav.n}`} />}
-          {nav.tab === 'world' && <World key={`w${nav.n}`} initial={nav.section} />}
+          {nav.detail ? <SongProjectDetail key={`${nav.detail.kind}-${nav.detail.id}`} kind={nav.detail.kind} id={nav.detail.id} onBack={() => go({ closeDetail: true })} /> : <>
+            {nav.tab === 'home' && <Home key={`h${nav.n}`} />}
+            {nav.tab === 'studio' && <Studio key={`s${nav.n}`} initial={nav.section} rival={nav.rival} />}
+            {nav.tab === 'phone' && <Phone key={`p${nav.n}`} initialApp={nav.app} contact={nav.contact} view={nav.view} />}
+            {nav.tab === 'charts' && <Charts key={`c${nav.n}`} />}
+            {nav.tab === 'world' && <World key={`w${nav.n}`} initial={nav.section} />}
+          </>}
         </main>
 
         <nav className="bottomnav" ref={navRef}>

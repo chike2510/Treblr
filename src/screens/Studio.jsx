@@ -277,7 +277,7 @@ function ScheduledList({ list }) {
 }
 
 function Catalog() {
-  const { state } = useGame();
+  const { state, openSong, openProject } = useGame();
   const [open, setOpen] = useState(null);
   const songs = useMemo(() => [...state.songs].sort((a, b) => (b.lifetimeStreams || 0) - (a.lifetimeStreams || 0)), [state.songs]);
   if (!songs.length) return <div className="card mt16"><Empty icon="disc">Your catalogue is empty.</Empty></div>;
@@ -292,7 +292,7 @@ function Catalog() {
       </div>
       <div className="card">
         {songs.map((x) => (
-          <button key={x.id} className="list-item press" style={{ width: '100%', textAlign: 'left' }} onClick={() => setOpen(x.id)}>
+          <button key={x.id} className="list-item press" style={{ width: '100%', textAlign: 'left' }} onClick={() => (x.status === 'released' && openSong ? openSong(x.id) : setOpen(x.id))}>
             <Cover cover={x.cover} title={x.title} size={48} />
             <div className="grow">
               <div className="row gap6" style={{ minWidth: 0 }}><b className="ellipsis">{x.title}</b>{x.cert && <CertBadge id={x.cert} small />}</div>
@@ -368,7 +368,7 @@ function SongDetail({ s, onDeleted }) {
 }
 
 function AlbumsCard() {
-  const { state } = useGame();
+  const { state, openProject } = useGame();
   const list = state.releases.filter((r) => r.status === 'out' && r.type !== 'single');
   if (!list.length) return null;
   return (
@@ -377,7 +377,7 @@ function AlbumsCard() {
       {list.map((r) => {
         const next = nextCert(r.totalUnits || 0, ALBUM_CERTS);
         return (
-          <div key={r.id} className="list-item">
+          <div key={r.id} className="list-item press" style={{ cursor: 'pointer' }} onClick={() => openProject?.(r.id)}>
             <Cover cover={r.cover} title={r.title} size={48} />
             <div className="grow" style={{ minWidth: 0 }}>
               <div className="row gap6" style={{ minWidth: 0 }}><b className="ellipsis">{r.title}</b>{r.cert && <CertBadge id={r.cert} album small />}</div>

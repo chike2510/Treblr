@@ -5,6 +5,9 @@ import { signContract } from './business.js';
 import { dropMerch, MERCH_TIERS } from './actions.js';
 import { advanceWeek } from './tick.js';
 import { LABEL_STARTUP, createOwnLabel, scoutTalent, signProspect } from './v5.js';
+import { updateOwnLabelBrand, updateActingBio, actingTitle, actingTick, audition, ACTING_ROLES } from './business.js';
+import { saveGame, loadGame } from './state.js';
+import { createRng } from './rng.js';
 
 describe('career feature page systems', () => {
   it('fills safe defaults for old or partial feature saves without losing existing data', () => {
@@ -15,6 +18,8 @@ describe('career feature page systems', () => {
     expect(upgraded.lifestyle).toEqual({ owned: [], rental: null });
     expect(upgraded.acting.credits).toHaveLength(1);
     expect(upgraded.acting.auditions).toEqual([]);
+    expect(upgraded.acting.boxOffice).toEqual([]);
+    expect(upgraded.acting.bio).toContain('screen career');
     expect(upgraded.awardHistory).toHaveLength(1);
     expect(upgraded.labelOffers).toEqual([]);
     expect(upgraded.distributor).toBe('independent');
@@ -52,6 +57,56 @@ describe('career feature page systems', () => {
     game = signProspect(game, { id: prospect.id }).state;
     expect(game.ownLabel.artists[0]).toMatchObject({ name: prospect.name, signedWeek: game.week });
     expect(game.player.label).toBeNull();
+  });
+
+  it('saves actor bio and imprint branding through the save/load round trip', () => {
+    let game = createNewGame({ stageName: 'Save Star', genre: 'pop', city: 'nyc' }, 91);
+    game.player.cash = LABEL_STARTUP; game.player.popularity = 50;
+    game = createOwnLabel(game, { name: 'Old Name' }).state;
+    game = updateOwnLabelBrand(game, { name: 'Afterglow Audio', tagline: 'Sound without borders', symbol: 'wave', hue: 217, shape: 2 }).state;
+    game = updateActingBio(game, { bio: 'A fictional performer with a growing screen career.' }).state;
+    game.acting.boxOffice = [{ id: 'saved-film', title: 'Afterglow', week: game.week, openingGross: 750000, gross: 750000, weekly: 0, cumulative: 750000, lastAccruedWeek: game.week, score: 74, verdict: 'solid', role: 'Lead', medium: 'film' }];
+    game.acting.boxOfficeIds = ['saved-film'];
+    const storage = { values: new Map(), setItem(k,v) { this.values.set(k,v); }, getItem(k) { return this.values.get(k) ?? null; } };
+    expect(saveGame(game, 1, storage)).toBe(true);
+    const loaded = loadGame(1, storage);
+    expect(loaded.ownLabel.logo).toMatchObject({ name: 'Afterglow Audio', tagline: 'Sound without borders', symbol: 'wave', hue: 217, shape: 2 });
+    expect(loaded.acting.bio).toBe('A fictional performer with a growing screen career.');
+    expect(loaded.acting.boxOffice).toMatchObject([{ id: 'saved-film', cumulative: 750000 }]);
+    expect(loaded.acting.boxOfficeIds).toContain('saved-film');
+  });
+
+  it('adds one simulated box-office installment per title per week and exposes title detail', () => {
+    const game = createNewGame({ stageName: 'Screen Star', genre: 'pop', city: 'nyc' }, 92);
+    const title = { id: 'film-1', title: 'Midnight Signal', week: game.week - 1, openingGross: 1_000_000, gross: 1_000_000, cumulative: 1_000_000, weekly: 0, lastAccruedWeek: game.week - 1, score: 78, verdict: 'solid', role: 'Lead', medium: 'film' };
+    game.acting = { credits: [{ ...title, reach: 1200, fans: 20 }], current: null, boxOffice: [title], boxOfficeIds: ['film-1'] };
+    const twice = JSON.parse(JSON.stringify(game));
+    actingTick(twice, createRng(1));
+    const weekly = Math.round(1_000_000 * 0.28);
+    expect(twice.acting.boxOffice[0]).toMatchObject({ weekly, cumulative: 1_000_000 + weekly, lastAccruedWeek: twice.week });
+    actingTick(twice, createRng(2));
+    expect(twice.acting.boxOffice[0].cumulative).toBe(1_000_000 + weekly);
+    expect(actingTitle(twice, 'film-1')).toMatchObject({ title: 'Midnight Signal', score: 78, openingGross: 1_000_000, cumulative: 1_000_000 + weekly });
+    expect(actingTitle(twice, 'missing')).toBeNull();
+  });
+
+  it('renders the profile, credits and imprint logo controls in the feature pages', async () => {
+    const { renderToString } = await import('react-dom/server');
+    const React = await import('react');
+    const { GameCtx } = await import('../ui/kit.jsx');
+    const World = (await import('../screens/World.jsx')).default;
+    let game = createNewGame({ stageName: 'Screen Star', genre: 'pop', city: 'nyc' }, 93);
+    game.player.cash = LABEL_STARTUP; game.player.popularity = 50;
+    game = createOwnLabel(game, { name: 'Bright Noise' }).state;
+    game.acting = { credits: [{ id: 'film-2', title: 'City Lights', week: 3, score: 80, verdict: 'a hit', role: 'Lead', medium: 'film', gross: 100000 }], current: null, auditions: [], boxOffice: [{ id: 'film-2', title: 'City Lights', week: 3, openingGross: 100000, cumulative: 120000, weekly: 20000, score: 80, verdict: 'a hit', role: 'Lead', medium: 'film' }], boxOfficeIds: ['film-2'], bio: 'A screen performer.' };
+    const ctx = { state: game, act: () => ({ ok: true }), go: () => {}, nav: { tab: 'world' }, nextWeek: () => {}, toast: () => {}, slot: 1, onSwitch: () => {}, onNew: () => {}, onTitle: () => {}, openProfile: () => {}, setState: () => {}, openArtist: () => {}, openOverlay: () => {} };
+    const render = page => renderToString(React.createElement(GameCtx.Provider, { value: ctx }, React.createElement(World, { initial: page })));
+    const actor = render('acting');
+    expect(actor).toContain('SCREEN PROFILE');
+    expect(actor).toContain('not a real IMDb profile');
+    expect(actor).toContain('City Lights');
+    expect(render('acting-credits')).toContain('cumulative');
+    expect(render('label-imprint')).toContain('Logo shape');
   });
 
   it('records a label deal lifecycle and settles the active record once in the weekly tick', async () => {

@@ -716,6 +716,10 @@ export function addV5Fields(s) {
   }
   s.acting = s.acting || { credits: [], current: null, lastAudition: null };
   s.acting.auditions = s.acting.auditions || [];
+  s.acting.bio = typeof s.acting.bio === 'string' ? s.acting.bio : `${s.player?.stageName || 'This artist'} is building a screen career in the Treblr world.`;
+  s.acting.boxOffice = Array.isArray(s.acting.boxOffice) ? s.acting.boxOffice : [];
+  s.acting.boxOfficeIds = Array.isArray(s.acting.boxOfficeIds) ? s.acting.boxOfficeIds : s.acting.boxOffice.map((x) => x.id).filter(Boolean);
+  if (s.ownLabel) { s.ownLabel.logo = s.ownLabel.logo || { shape: 0, hue: 160, seed: s.week }; s.ownLabel.logo.name = s.ownLabel.logo.name || s.ownLabel.name; s.ownLabel.logo.tagline = s.ownLabel.logo.tagline || ''; s.ownLabel.logo.symbol = s.ownLabel.logo.symbol || 'star'; }
   s.festivals = s.festivals || {};
   s.tour = s.tour ?? null;
   s.merch = s.merch ?? null;

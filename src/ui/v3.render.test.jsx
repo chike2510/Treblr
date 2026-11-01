@@ -150,7 +150,7 @@ describe('game-wide screens', () => {
     for (const route of routes) expect(html(<World initial={route} />).length).toBeGreaterThan(300);
     const tr = html(<World initial="training" />);
     expect(tr).toContain('Songwriting workshop');
-    for (const [section, text] of [['labels', 'Label'], ['lifestyle', 'Assets'], ['acting', 'Film and TV roles'], ['merch', 'Merch'], ['festivals', 'Pitch yourself'], ['awards', 'Season calendar']]) {
+    for (const [section, text] of [['labels', 'Label'], ['lifestyle', 'Assets'], ['acting', 'SCREEN PROFILE'], ['merch', 'Merch'], ['festivals', 'Pitch yourself'], ['awards', 'Season calendar']]) {
       expect(html(<World initial={section} />)).toContain(text);
     }
   });

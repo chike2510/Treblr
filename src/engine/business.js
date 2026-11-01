@@ -416,10 +416,43 @@ export function netWorth(s) {
 // =====================================================================================
 // Acting
 // =====================================================================================
+export function updateOwnLabelBrand(state, { name, tagline = '', symbol = 'star', hue = 160, shape = 0 }) {
+  return run(state, (s) => {
+    const L = s.ownLabel;
+    if (!L) return fail('Start your imprint first.');
+    const clean = String(name || L.logo?.name || L.name).trim().slice(0, 32);
+    const line = String(tagline).trim().slice(0, 48);
+    const mark = ['star', 'wave', 'bolt', 'crown', 'disc'].includes(symbol) ? symbol : 'star';
+    const color = Math.max(0, Math.min(359, Math.round(Number(hue) || 0)));
+    const silhouette = Math.max(0, Math.min(2, Math.round(Number(shape) || 0)));
+    if (!clean) return fail('Name your imprint.');
+    L.name = clean;
+    L.logo = { ...(L.logo || {}), name: clean, tagline: line, symbol: mark, hue: color, shape: silhouette, seed: L.logo?.seed ?? s.week };
+    return { msg: 'Imprint identity saved.' };
+  });
+}
+
 export function actingOf(s) {
   s.acting = s.acting || { credits: [], current: null, lastAudition: null };
   return s.acting;
 }
+export function updateActingBio(state, { bio }) {
+  return run(state, (s) => {
+    const a = actingOf(s);
+    const clean = String(bio ?? '').trim().slice(0, 320);
+    if (!clean) return fail('Add a short bio first.');
+    a.bio = clean;
+    return { msg: 'Actor profile saved.' };
+  });
+}
+export function actingTitle(state, id) {
+  const a = state.acting || {};
+  const credit = (a.credits || []).find((x) => x.id === id);
+  const ledger = (a.boxOffice || []).find((x) => x.id === id);
+  if (!credit && !ledger) return null;
+  return { ...(credit || {}), ...(ledger || {}), id, bio: a.bio || '' };
+}
+
 export function auditionOdds(s, role) {
   const p = s.player;
   const act = p.skills.acting || 0;
@@ -437,8 +470,13 @@ export function audition(state, { roleId }) {
     if (p.energy < 10) return fail('Auditions need 10 energy.');
     p.energy -= 10;
     a.lastAudition = s.week;
+    a.auditions = a.auditions || [];
     bump(p, 'acting', 0.6);
-    if (!rng.chance(auditionOdds(s, role))) return { msg: 'Casting went another way. Acting class helps.', data: { booked: false } };
+    const score = Math.round(auditionOdds(s, role) * 100);
+    const won = rng.chance(auditionOdds(s, role));
+    a.auditions.unshift({ week: s.week, roleId: role.id, role: role.name, booked: won, odds: score });
+    a.auditions = a.auditions.slice(0, 50);
+    if (!won) return { msg: 'Casting went another way. Acting class helps.', data: { booked: false } };
     const title = `${rng.pick(FILM_WORDS.a)} ${rng.pick(FILM_WORDS.b)}`;
     a.current = { id: uid(s, 'film'), roleId: role.id, title, startWeek: s.week + 1, shootWeeks: role.shoot, releaseWeek: s.week + 1 + role.shoot + rng.int(6, 14), shot: 0, reserve: 20 };
     earn(s, 'acting', Math.round(role.pay * 0.5), `Acting fee (first half): ${title}`);
@@ -450,6 +488,18 @@ export function audition(state, { roleId }) {
 // Weekly: shooting reserves energy; release resolves box office / viewers.
 export function actingTick(s, rng, ev) {
   const a = actingOf(s);
+  a.boxOffice = a.boxOffice || [];
+  a.boxOfficeIds = a.boxOfficeIds || a.boxOffice.map((x) => x.id).filter(Boolean);
+  // Each title gets at most one ledger update per simulation week. The premiere
+  // value is recorded below; subsequent weeks add a decaying theatrical run.
+  for (const title of a.boxOffice) {
+    if (s.week <= title.week || title.lastAccruedWeek === s.week) continue;
+    const age = s.week - title.week;
+    title.weekly = Math.max(0, Math.round(title.openingGross * 0.28 * Math.exp(-(age - 1) / 5)));
+    title.cumulative = (title.cumulative || title.gross || 0) + title.weekly;
+    title.gross = title.cumulative;
+    title.lastAccruedWeek = s.week;
+  }
   const c = a.current;
   if (!c) return null;
   const role = ACTING_ROLES.find((r) => r.id === c.roleId);
@@ -469,7 +519,9 @@ export function actingTick(s, rng, ev) {
     earn(s, 'acting', Math.round(role.pay * 0.5 * (score >= 70 ? 1.3 : 1)), `Acting fee + backend: ${c.title}`);
     addStarPoints(s, role.fame * (score >= 70 ? 4 : 1.5));
     const verdict = score >= 80 ? 'a hit' : score >= 60 ? 'solid' : score >= 40 ? 'mixed' : 'a flop';
-    a.credits.unshift({ ...c, score, reach, fans, verdict, role: role.name });
+    const gross = Math.round((role.budget * 1_500_000 + reach * 0.18) * (score / 65) * rng.float(0.75, 1.25));
+      if (!a.boxOfficeIds.includes(c.id)) { a.boxOffice.unshift({ id: c.id, title: c.title, week: s.week, openingGross: gross, gross, weekly: 0, cumulative: gross, lastAccruedWeek: s.week, score, verdict, role: role.name, medium: role.medium || 'film' }); a.boxOfficeIds.push(c.id); }
+      a.credits.unshift({ ...c, score, reach, fans, verdict, role: role.name, gross });
     a.current = null;
     pushNews(s, `“${c.title}” starring ${p.stageName} is ${verdict} (${score}/100)`, true, 'Film');
     logTimeline(s, 'acting', `“${c.title}” released`, `${role.name} · ${verdict}`);

@@ -85,7 +85,7 @@ describe('feature-page visual art', () => {
     expect(page('lifestyle-property')).toContain('aria-label="home artwork');
     expect(page('acting')).toContain('SCREEN PROFILE');
     expect(page('acting-auditions')).toContain('casting odds');
-    expect(page('acting-credits')).toContain('Actor profile');
+    expect(page('acting-credits')).toContain('SCREEN CREDITS');
   });
   it('renders awards artwork in the calendar, results and submissions views', () => {
     s.awardHistory = [{ id: 'award-test', show: 'Treblr Awards', year: 1, result: 'won', entries: ['Album'], week: s.week }];

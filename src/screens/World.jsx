@@ -9,7 +9,7 @@ import {
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, Bar, Empty, AREA, ArtistAvatar, facePhoto } from '../ui/kit.jsx';
 import FeatureArt from '../ui/FeatureArt.jsx';
-import { LABEL_STARTUP, createOwnLabel, scoutTalent, signProspect, releaseLabelSingle, LABEL_STAFF, LABEL_BUDGETS, setLabelStaff, dropLabelArtist } from '../engine/index.js';
+import { LABEL_STARTUP, createOwnLabel, updateOwnLabelBrand, scoutTalent, signProspect, releaseLabelSingle, LABEL_STAFF, LABEL_BUDGETS, setLabelStaff, dropLabelArtist } from '../engine/index.js';
 import FeatureSubnav, { FEATURE_ROUTE_ROOT, FEATURE_SUBPAGES, featurePageTitle } from './FeatureSubnav.jsx';
 
 const LAND = [
@@ -301,8 +301,12 @@ function Labels({ page = 'labels' }) {
   const { state, act, go } = useGame();
   const p = state.player;
   const tab = ({ labels: 'independent', 'label-independent': 'independent', 'label-distribution': 'distribution', 'label-deals': 'labels', 'label-imprint': 'imprint' })[page] || (p.label ? 'contract' : 'independent');
-  const [ownName, setOwnName] = useState(`${p.stageName} Records`);
+  const [ownName, setOwnName] = useState(state.ownLabel?.logo?.name || state.ownLabel?.name || `${p.stageName} Records`);
   const [releaseBudget, setReleaseBudget] = useState('lean');
+  const [brandTagline, setBrandTagline] = useState(state.ownLabel?.logo?.tagline || '');
+  const [brandSymbol, setBrandSymbol] = useState(state.ownLabel?.logo?.symbol || 'star');
+  const [brandHue, setBrandHue] = useState(state.ownLabel?.logo?.hue ?? 160);
+  const [brandShape, setBrandShape] = useState(state.ownLabel?.logo?.shape ?? 0);
   const c = p.label;
   const lbl = c && labelById(c.id);
   const pending = state.inbox.filter((m) => m.subtype === 'label' && !m.status);
@@ -343,6 +347,7 @@ function Labels({ page = 'labels' }) {
               <div className="label-identity card tight"><FeatureArt kind="label" name={state.ownLabel.name} id={state.ownLabel.logo?.hue || 'identity'} className="feature-art-wide" /><div className="label-identity-copy"><Mono>FOUNDER · WEEK {state.ownLabel.founded}</Mono><div className="head mt8" style={{ fontSize: 23 }}>{state.ownLabel.name}</div>
                 <div className="tiny muted mt8">{state.ownLabel.artists.length}/6 signed artists · latest weekly net {fmtMoney(state.ownLabel.lastIncome || 0)}</div>
                 <div className="grid2 mt12"><div className="stat"><Mono className="sm">Lifetime</Mono><div className="v">{fmtMoney(state.ownLabel.lifetime || 0)}</div></div><div className="stat"><Mono className="sm">Latest release income</Mono><div className="v">{fmtMoney(state.ownLabel.lastGross || 0)}</div></div></div></div></div>
+              <div className="card tight"><Mono>IMPRINT IDENTITY</Mono><div className="row gap6 mt8 wrap"><input aria-label="Imprint name" value={ownName || state.ownLabel.logo?.name || state.ownLabel.name} maxLength={32} onChange={(e)=>setOwnName(e.target.value)} /><input aria-label="Imprint tagline" value={brandTagline} maxLength={48} placeholder="Tagline" onChange={(e)=>setBrandTagline(e.target.value)} /><select aria-label="Logo symbol" value={brandSymbol} onChange={(e)=>setBrandSymbol(e.target.value)}>{['star','wave','bolt','crown','disc'].map(x=><option key={x}>{x}</option>)}</select><label className="tiny muted">Shape <select aria-label="Logo shape" value={brandShape} onChange={e=>setBrandShape(Number(e.target.value))}>{['Roundel','Shield','Seal'].map((x,i)=><option key={x} value={i}>{x}</option>)}</select></label><label className="tiny muted">Color <input aria-label="Logo color" type="range" min="0" max="359" value={brandHue} onChange={(e)=>setBrandHue(Number(e.target.value))} /></label></div><div className="mt12" style={{ display:'flex',alignItems:'center',gap:12,padding:14,border:`1px solid hsl(${brandHue} 70% 46%)`,borderRadius:brandShape===0?'50%':brandShape===1?'8px':'24px 24px 8px 8px',background:`linear-gradient(145deg,hsl(${brandHue} 60% 19%),#11141a)`,minHeight:76 }}><div aria-label={`${brandSymbol} logo mark`} style={{color:`hsl(${brandHue} 80% 65%)`,fontSize:30,fontWeight:800}}>{({star:'✦',wave:'〰',bolt:'ϟ',crown:'♛',disc:'◉'})[brandSymbol]}</div><div><b style={{color:`hsl(${brandHue} 75% 70%)`}}>{ownName || state.ownLabel.logo?.name || state.ownLabel.name}</b><div className="tiny muted">{brandTagline || 'Imprint tagline'}</div></div></div><button className="btn sm accent mt8" onClick={()=>act(updateOwnLabelBrand,{name:ownName||state.ownLabel.name,tagline:brandTagline,symbol:brandSymbol,hue:brandHue,shape:brandShape})}>Save identity</button></div>
               <div className="row between"><Mono>Roster</Mono><button className="btn sm accent" disabled={state.ownLabel.lastScout === state.week || p.energy < 10 || p.cash < 5000} onClick={() => act(scoutTalent)}>Scout artists · $5K · 10 energy</button></div>
               {state.ownLabel.artists.length ? state.ownLabel.artists.map((artist) => <div className="card tight" key={artist.id}>
                 <div className="row between gap6"><b>{artist.name}</b><span className="chip sm">{genreName(artist.genre)}</span></div><div className="tiny muted mt8">{cityById(artist.city).name} · talent {artist.talent} · {fmtNum(artist.ml)} monthly listeners · {artist.releases} releases · mood {artist.mood}</div>
@@ -404,32 +409,20 @@ function Labels({ page = 'labels' }) {
 function Acting({ page = 'acting' }) {
   const { state, act } = useGame();
   const p = state.player;
-  const a = state.acting || { credits: [], current: null };
-  if (page === 'acting-auditions') return (
-    <div className="col">
-      <div className="feature-profile card tight"><FeatureArt kind="film" name={p.stageName} id="profile" className="feature-art-wide" /><div className="film-profile-copy"><Mono>CASTING CALLS · PROFILE {Math.round(p.skills.acting||0)}</Mono><div className="head mt8">Audition slate</div><div className="tiny muted mt8">Choices use current fame and acting skill. A won role locks filming to the regular weekly tick.</div></div></div>{ACTING_ROLES.map(r=>{const odds=auditionOdds(state,r),locked=p.popularity<r.minPop;return <div className="card tight audition-card" key={r.id}><FeatureArt kind="film" name={r.name} id={r.id} className="feature-art-wide"/><div className="audition-copy"><div className="row between"><b>{r.name}</b><span className="up">{fmtMoney(r.pay)}</span></div><div className="tiny muted mt8">{r.shoot} filming weeks · {locked?`requires popularity ${r.minPop}`:`${Math.round(odds*100)}% casting odds`}</div><button className="btn sm accent mt12" disabled={locked||!!a.current||p.energy<10||a.lastAudition===state.week} onClick={()=>act(audition,{roleId:r.id})}>Audition · 10 energy</button></div></div>})}
-  </div>
-  );
-  if (page === 'acting-credits') return <div className="col"><div className="feature-profile card tight"><FeatureArt kind="film" name={p.stageName} id="profile" className="feature-art-wide" /><div className="film-profile-copy"><Mono>SCREEN CREDITS · {p.stageName}</Mono><div className="head mt8">Actor profile</div><div className="tiny muted mt8">{a.credits.length} credits · Acting skill {Math.round(p.skills.acting||0)} · Popularity {p.popularity}</div></div></div>{a.credits.length?a.credits.map(x=><div className="card tight credit-card" key={x.id}><FeatureArt kind="film" name={x.title} id={x.id} className="feature-art-credit" /><div><div className="row between"><b>“{x.title}”</b><span className="chip sm">{x.verdict}</span></div><div className="tiny muted mt8">{x.role} · score {x.score}/100 · {fmtNum(x.fans)} new fans · {fmtMoney(x.pay||0)}</div><div className="tiny muted mt8">Premiere result recorded from your career simulation.</div></div></div>):<div className="card tight tiny muted">No screen credits yet. Audition to build the profile.</div>}</div>;
-  return (
-    <div className="col">
-      <div className="feature-profile card tight"><FeatureArt kind="film" name={p.stageName} id="profile" className="feature-art-wide" /><div className="film-profile-copy"><Mono>SCREEN PROFILE · {p.stageName.toUpperCase()}</Mono><div className="head mt8">Actor profile</div><div className="tiny muted mt8">{a.credits.length} credits · acting {Math.round(p.skills.acting||0)} · popularity {p.popularity}</div></div></div>
-      <div className="small muted">Film and TV roles: audition (10 energy), then filming reserves 20 energy a week. Premieres bring fans, hype and pay. Train “Acting class” to land bigger parts. Acting skill: <b>{Math.round(p.skills.acting || 0)}</b>.</div>
-      {a.current && <div className="card tight" style={{ borderColor: 'rgba(45,212,191,.5)' }}><Mono>Current project</Mono><div className="head mt8">“{a.current.title}”</div><div className="tiny muted">{ACTING_ROLES.find((r) => r.id === a.current.roleId)?.name} · filmed {a.current.shot}/{a.current.shootWeeks} weeks · premieres week {a.current.releaseWeek}</div></div>}
-      {ACTING_ROLES.map((r) => {
-        const odds = auditionOdds(state, r);
-        const locked = p.popularity < r.minPop;
-        return (
-          <div key={r.id} className="card tight audition-card" style={{ opacity: locked ? 0.55 : 1 }}><FeatureArt kind="film" name={r.name} id={r.id} className="feature-art-wide" /><div className="audition-copy">
-            <div className="row between gap6"><b>{r.name}</b><span className="small up" style={{ flexShrink: 0 }}>{fmtMoney(r.pay)}</span></div>
-            <div className="tiny muted mt8">{r.shoot} week{r.shoot > 1 ? 's' : ''} filming · {locked ? `needs popularity ${r.minPop}` : `${Math.round(odds * 100)}% audition odds`}</div>
-            <button className="btn sm accent mt12" disabled={locked || !!a.current || p.energy < 10 || a.lastAudition === state.week} onClick={() => act(audition, { roleId: r.id })}>Audition</button>
-          </div></div>
-        );
-      })}
-      {a.credits?.length > 0 && <div className="card tight"><Mono>Credits</Mono>{a.credits.map((x) => <div key={x.id} className="list-item"><div className="grow" style={{ minWidth: 0 }}><b className="small ellipsis" style={{ display: 'block' }}>“{x.title}”</b><div className="tiny muted">{x.role} · {x.verdict} ({x.score}/100) · +{fmtNum(x.fans)} fans</div></div></div>)}</div>}
-    </div>
-  );
+  const a = state.acting || { credits: [], current: null, auditions: [], boxOffice: [] };
+  const [bioDraft, setBioDraft] = useState(a.bio || `${p.stageName} is building a screen career in the Treblr world.`);
+  const [selectedTitleId, setSelectedTitleId] = useState(null);
+  const credits = a.credits || [];
+  const ledger = a.boxOffice || [];
+  const selected = selectedTitleId ? credits.find(x => x.id === selectedTitleId) : null;
+  const selectedLedger = selectedTitleId ? ledger.find(x => x.id === selectedTitleId) : null;
+  const title = selected || selectedLedger;
+  const profile = <div className="feature-profile card tight"><FeatureArt kind="film" name={p.stageName} id="profile" className="feature-art-wide" /><div className="film-profile-copy"><Mono>SCREEN PROFILE · FICTIONAL IN-GAME</Mono><div className="head mt8">{p.stageName}</div><div className="tiny muted mt8">{credits.length} credits · acting {Math.round(p.skills.acting || 0)} · popularity {p.popularity}</div><label className="tiny muted mt8" htmlFor="actor-bio">Biography · max 320 characters</label><textarea id="actor-bio" aria-label="Actor biography" rows="3" maxLength={320} value={bioDraft} onChange={e => setBioDraft(e.target.value)} /><button className="btn sm accent mt8" onClick={() => act(updateActingBio, { bio: bioDraft })}>Save biography</button><div className="tiny muted mt8">This is Treblr game data, not a real IMDb profile or external credits.</div></div></div>;
+  const auditions = <div className="col"><div className="card tight"><Mono>CASTING CALLS</Mono><div className="tiny muted mt8">Audition outcomes are fictional game results. A booked role films through the regular weekly simulation.</div></div>{(a.auditions || []).slice(0, 8).map((x, i) => <div className="list-item" key={`${x.week}-${x.roleId}-${i}`}><span className="num">W{x.week}</span><div className="grow"><b className="small">{x.role}</b><div className="tiny muted">{x.odds}% in-game odds · {x.booked ? 'booked' : 'not selected'}</div></div></div>)}{ACTING_ROLES.map(r => { const odds = auditionOdds(state, r), locked = p.popularity < r.minPop; return <div className="card tight audition-card" key={r.id}><FeatureArt kind="film" name={r.name} id={r.id} className="feature-art-wide"/><div className="audition-copy"><div className="row between"><b>{r.name}</b><span className="up">{fmtMoney(r.pay)}</span></div><div className="tiny muted mt8">{r.shoot} filming weeks · {locked ? `requires popularity ${r.minPop}` : `${Math.round(odds * 100)}% casting odds`}</div><button className="btn sm accent mt12" disabled={locked || !!a.current || p.energy < 10 || a.lastAudition === state.week} onClick={() => act(audition, { roleId: r.id })}>Audition · 10 energy</button></div></div>; })}</div>;
+  const creditsView = <div className="col"><div className="card tight"><Mono>IN-GAME BOX OFFICE · SIMULATED</Mono>{ledger.length ? ledger.map(x => <button type="button" onClick={() => setSelectedTitleId(x.id)} key={x.id} className="list-item" style={{ width: '100%', textAlign: 'left' }}><b>{x.title}</b><span className="tiny muted">{fmtMoney(x.cumulative || x.gross)} cumulative · {fmtMoney(x.weekly || 0)} this week · {x.verdict}</span></button>) : <div className="tiny muted mt8">Ledger appears after your first premiere.</div>}</div><div className="card tight"><Mono>SCREEN CREDITS</Mono>{credits.length ? credits.map(x => <button type="button" key={x.id} className="list-item" style={{ width: '100%', textAlign: 'left' }} onClick={() => setSelectedTitleId(x.id)}><b>“{x.title}”</b><span className="tiny muted">{x.role} · {x.verdict} · {x.score}/100</span></button>) : <div className="tiny muted mt8">Completed titles and their detail pages appear here.</div>}</div>{title && <div className="card tight" role="region" aria-label={`${title.title} title detail`}><Mono>TITLE DETAIL · FICTIONAL GAME RESULT</Mono><div className="head mt8">“{title.title}”</div><div className="tiny muted mt8">{title.medium || 'film'} · {title.role || 'screen role'} · week {title.week || title.releaseWeek} · score {title.score}/100 · {title.verdict}</div><div className="grid2 mt12"><div className="stat"><Mono className="sm">Opening</Mono><div className="v">{fmtMoney(selectedLedger?.openingGross || selectedLedger?.gross || title.gross || 0)}</div></div><div className="stat"><Mono className="sm">Cumulative</Mono><div className="v">{fmtMoney(selectedLedger?.cumulative || selectedLedger?.gross || title.gross || 0)}</div></div></div><div className="tiny muted mt8">Weekly run: {fmtMoney(selectedLedger?.weekly || 0)}. Simulated only, not real-world box-office or IMDb data.</div></div>}</div>;
+  if (page === 'acting-auditions') return auditions;
+  if (page === 'acting-credits') return creditsView;
+  return <div className="col">{profile}{a.current && <div className="card tight"><Mono>CURRENT PROJECT</Mono><div className="head mt8">“{a.current.title}”</div><div className="tiny muted">{ACTING_ROLES.find(r => r.id === a.current.roleId)?.name} · filmed {a.current.shot}/{a.current.shootWeeks} weeks · premiere week {a.current.releaseWeek}</div></div>}{creditsView}</div>;
 }
 
 function Festivals({ page = 'festivals' }) {

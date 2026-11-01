@@ -247,6 +247,8 @@ export function negotiateDeal(state, { id, ask }) {
 export function signContract(s, t) {
   const p = s.player;
   const term = t.albums * t.yearsPerAlbum * 52;
+  s.labelHistory = s.labelHistory || [];
+  s.labelHistory.unshift({ labelId: t.labelId, name: t.label, signedWeek: s.week, endedWeek: null, advance: t.advance, recouped: 0, albums: t.albums, delivered: 0, result: 'active' });
   p.label = { id: t.labelId, name: t.label, royalty: t.royalty, signedWeek: s.week, advance: t.advance, recouped: 0, albums: t.albums, delivered: 0, yearsPerAlbum: t.yearsPerAlbum, endWeek: s.week + term, control: t.control || 'shared', strict: t.strict ?? 0.3, breach: false, nextDue: s.week + t.yearsPerAlbum * 52 };
   earn(s, 'advance', t.advance, `Advance: ${t.label}`);
   logTimeline(s, 'deal', `Signed to ${t.label}`, `${t.albums}-album deal · ${fmtMoney(t.advance)} advance`);
@@ -273,7 +275,10 @@ export function labelRoyalty(s, gross) {
 export function contractTick(s) {
   const c = s.player.label;
   if (!c || c.endWeek == null) return;
+  const history = (s.labelHistory || []).find((x) => x.result === 'active' && x.labelId === c.id && x.signedWeek === c.signedWeek);
+  if (history) { history.recouped = c.recouped || 0; history.delivered = c.delivered || 0; }
   if (s.week >= c.endWeek || c.delivered >= c.albums) {
+    if (history) { history.result = c.delivered >= c.albums ? 'fulfilled' : 'expired'; history.endedWeek = s.week; }
     pushNews(s, `${s.player.stageName}’s deal with ${c.name} comes to an end`, true, 'Business');
     logTimeline(s, 'deal', `Contract with ${c.name} ended`, `${c.delivered}/${c.albums} albums delivered`);
     pushNotif(s, 'label', `Your ${c.name} contract has ended. You’re a free agent.`, { tab: 'world', section: 'labels' });
@@ -292,6 +297,8 @@ export function deliverAlbum(s) {
   const c = s.player.label;
   if (!c || c.endWeek == null) return;
   c.delivered += 1;
+  const history = (s.labelHistory || []).find((x) => x.result === 'active' && x.labelId === c.id && x.signedWeek === c.signedWeek);
+  if (history) history.delivered = c.delivered;
   c.breach = false;
   c.nextDue = s.week + c.yearsPerAlbum * 52;
 }

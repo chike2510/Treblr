@@ -709,6 +709,11 @@ export function addV5Fields(s) {
   s.investments = s.investments ?? null;
   s.ownLabel = s.ownLabel ?? null;
   s.awardHistory = s.awardHistory || [];
+  s.labelHistory = s.labelHistory || [];
+  if (s.player?.label && !s.labelHistory.some((x) => x.labelId === s.player.label.id && x.signedWeek === s.player.label.signedWeek)) {
+    const c = s.player.label;
+    s.labelHistory.unshift({ labelId: c.id, name: c.name, signedWeek: c.signedWeek ?? s.week, endedWeek: null, advance: c.advance || 0, recouped: c.recouped || 0, albums: c.albums || 1, delivered: c.delivered || 0, result: 'active' });
+  }
   s.acting = s.acting || { credits: [], current: null, lastAudition: null };
   s.acting.auditions = s.acting.auditions || [];
   s.festivals = s.festivals || {};

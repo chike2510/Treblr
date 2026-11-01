@@ -146,6 +146,8 @@ describe('game-wide screens', () => {
   });
   it('World tours shows the active route; full career pages expose their real systems', () => {
     expect(html(<World initial="tours" />)).toContain('Cancel remaining shows');
+    const routes = ['tours','tour-routes','tour-crew','tour-shows','labels','label-independent','label-distribution','label-deals','label-imprint','lifestyle','lifestyle-property','lifestyle-vehicles','acting','acting-auditions','acting-credits','merch','merch-products','merch-sales','festivals','festival-pitches','festival-lineups','awards','award-submissions','award-results'];
+    for (const route of routes) expect(html(<World initial={route} />).length).toBeGreaterThan(300);
     const tr = html(<World initial="training" />);
     expect(tr).toContain('Songwriting workshop');
     for (const [section, text] of [['labels', 'Label'], ['lifestyle', 'Assets'], ['acting', 'Film and TV roles'], ['merch', 'Merch'], ['festivals', 'Pitch yourself'], ['awards', 'Season calendar']]) {

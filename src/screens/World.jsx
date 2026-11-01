@@ -9,6 +9,7 @@ import {
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, Bar, Empty, AREA, ArtistAvatar, facePhoto } from '../ui/kit.jsx';
 import { LABEL_STARTUP, createOwnLabel, scoutTalent, signProspect, releaseLabelSingle, LABEL_STAFF, LABEL_BUDGETS, setLabelStaff, dropLabelArtist } from '../engine/index.js';
+import FeatureSubnav, { FEATURE_ROUTE_ROOT, FEATURE_SUBPAGES, featurePageTitle } from './FeatureSubnav.jsx';
 
 const LAND = [
   [[-168, 65], [-140, 70], [-95, 72], [-75, 62], [-55, 50], [-80, 25], [-97, 18], [-83, 9], [-105, 22], [-118, 33], [-125, 48], [-150, 58]],
@@ -29,17 +30,20 @@ const SECTIONS = [
   { title: 'Shady', items: [{ id: 'payola', name: 'Payola', icon: 'skull' }] },
 ];
 
-const FEATURE_PAGE_IDS = ['tours', 'labels', 'lifestyle', 'acting', 'merch', 'festivals', 'awards', 'training'];
+const FEATURE_PAGE_IDS = ['tours', 'labels', 'lifestyle', 'acting', 'merch', 'festivals', 'awards'];
 const FEATURE_PAGE_COMPONENTS = { tours: Tours, labels: Labels, lifestyle: Lifestyle, acting: Acting, merch: Merch, festivals: Festivals, awards: Awards, training: Training };
 
 export default function World({ initial }) {
   const { state, go } = useGame();
   const [open, setOpen] = useState(initial || null);
   const p = state.player;
-  if (FEATURE_PAGE_IDS.includes(initial)) {
-    const item = SECTIONS.flatMap((section) => section.items).find((x) => x.id === initial);
-    const Page = FEATURE_PAGE_COMPONENTS[initial];
-    return <div className="screen world-feature"><div className="row between"><div><Mono style={{ color: 'var(--teal)' }}>World / {item?.name}</Mono><h1 style={{ fontSize: 30 }}>{item?.name}</h1><div className="small muted">Week {state.week} · {p.stageName} · {fmtMoney(p.cash)} · {p.energy} energy</div></div><button className="icon-btn" onClick={() => go({ tab: 'world' })} aria-label="Back to World"><Icon name="close" size={20} /></button></div><div className="pills mt12" aria-label="Career systems">{FEATURE_PAGE_IDS.map((id) => { const x = SECTIONS.flatMap((section) => section.items).find((entry) => entry.id === id); return x && <button key={id} className={`pill ${id === initial ? 'on' : ''}`} onClick={() => go({ tab: 'world', section: id })}>{x.name}</button>; })}</div><div className="section mt12"><Page /></div></div>;
+  const featureRoot = FEATURE_ROUTE_ROOT[initial];
+  const fullPages = FEATURE_PAGE_IDS;
+  if (featureRoot || initial === 'training') {
+    const item = SECTIONS.flatMap((section) => section.items).find((x) => x.id === (featureRoot || initial));
+    const Page = FEATURE_PAGE_COMPONENTS[featureRoot || initial];
+    const title = featurePageTitle(initial) || item?.name;
+    return <div className="screen world-feature"><div className="row between"><div><Mono style={{ color: 'var(--teal)' }}>World / {item?.name} / {title}</Mono><h1 style={{ fontSize: 30 }}>{title}</h1><div className="small muted">Week {state.week} · {p.stageName} · {fmtMoney(p.cash)} · {p.energy} energy</div></div><button className="icon-btn" onClick={() => go({ tab: 'world' })} aria-label="Back to World"><Icon name="close" size={20} /></button></div>{featureRoot && <FeatureSubnav system={featureRoot} page={initial} />}<div className="section mt12"><Page page={initial} /></div></div>;
   }
   const heat = p.fanHeat;
   const max = Math.max(1, ...Object.values(heat));
@@ -47,12 +51,6 @@ export default function World({ initial }) {
   const pendingBrands = state.inbox.filter((m) => m.subtype === 'brand' && !m.status).length;
   const all = SECTIONS.flatMap((s) => s.items);
   const cur = all.find((x) => x.id === open);
-  const fullPages = ['tours', 'labels', 'lifestyle', 'acting', 'merch', 'festivals', 'awards', 'training'];
-  if (fullPages.includes(open)) {
-    const pageItems = fullPages.map((id) => all.find((x) => x.id === id)).filter(Boolean);
-    const Page = { tours: Tours, labels: Labels, lifestyle: Lifestyle, acting: Acting, merch: Merch, festivals: Festivals, awards: Awards, training: Training }[open];
-    return <div className="screen world-feature"><div className="row between"><div><Mono style={{ color: 'var(--teal)' }}>World / {cur?.name}</Mono><h1 style={{ fontSize: 30 }}>{cur?.name}</h1><div className="small muted">Week {state.week} · {p.stageName} · {fmtMoney(p.cash)} · {p.energy} energy</div></div><button className="icon-btn" onClick={() => setOpen(null)} aria-label="Back to World"><Icon name="close" size={20} /></button></div><div className="pills mt12" aria-label="Career systems">{pageItems.map((item) => <button key={item.id} className={`pill ${open === item.id ? 'on' : ''}`} onClick={() => setOpen(item.id)}>{item.name}</button>)}</div><div className="section mt12"><Page /></div></div>;
-  }
   return (
     <div className="screen">
       <div className="row between">
@@ -82,7 +80,7 @@ export default function World({ initial }) {
           <div className="section-head"><h3>{s.title}</h3>{s.title === 'Shady' && <Mono className="sm" style={{ color: 'var(--red)' }}>Suspicion {Math.round(p.suspicion)}</Mono>}</div>
           <div className="grid2">
             {s.items.map((it) => (
-              <button key={it.id} className="card tight press" style={{ textAlign: 'left', minHeight: 92, borderColor: s.title === 'Shady' ? 'rgba(255,77,94,.25)' : undefined }} onClick={() => setOpen(it.id)}>
+              <button key={it.id} className="card tight press" style={{ textAlign: 'left', minHeight: 92, borderColor: s.title === 'Shady' ? 'rgba(255,77,94,.25)' : undefined }} onClick={() => FEATURE_ROUTE_ROOT[it.id] ? go({ tab: 'world', section: it.id }) : setOpen(it.id)}>
                 <Icon name={it.icon} color={s.title === 'Shady' ? '#FF4D5E' : AREA.world} />
                 <div className="head mt8" style={{ fontSize: 16 }}>{it.name}</div>
                 <div className="tiny muted">{subtitle(it.id, state, pendingBrands)}</div>
@@ -92,7 +90,7 @@ export default function World({ initial }) {
         </div>
       ))}
 
-      <Sheet open={!!cur && !fullPages.includes(open)} onClose={() => setOpen(null)} title={cur?.name}>
+      <Sheet open={!!cur} onClose={() => setOpen(null)} title={cur?.name}>
         {open === 'jobs' && <Jobs />}
         {open === 'gigs' && <Gigs />}
         {open === 'brands' && <div><p className="muted" style={{ marginTop: 0 }}>Brands reach out through your Inbox once you pass 1.5K fans. Bigger fan bases and a manager mean bigger cheques.</p><div className="card tight row between"><span>Pending brand offers</span><b>{pendingBrands}</b></div><button className="btn accent block mt16" onClick={() => { setOpen(null); go({ tab: 'phone', app: 'inbox' }); }}>Open Inbox</button></div>}
@@ -175,7 +173,7 @@ function Gigs() {
   );
 }
 
-function Tours() {
+function Tours({ page = 'tours' }) {
   const { state, act } = useGame();
   const p = state.player;
   const venues = VENUES.filter((v) => venueUnlocked(p, v, 1.2));
@@ -187,6 +185,8 @@ function Tours() {
   const [sel, setSel] = useState([]);
   const [perWeek, setPerWeek] = useState(2);
   const t = state.tour;
+  const pageCopy = { 'tour-routes': ['ROUTE BOOK', 'City routing and demand', 'Choose cities and book the itinerary in the overview. Each stop resolves on the existing weekly schedule.'], 'tour-crew': ['ROAD CREW', 'Support the show on the road', 'Crew improves show quality and affects weekly operating costs. Choose crew in the tour planner before booking.'], 'tour-shows': ['SHOW LEDGER', 'Tour settlement history', 'Completed stops, ticket sales and gross are recorded in your tour ledger as the single weekly tick advances.'] }[page];
+  if (pageCopy) return <div className="col"><div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,.18), rgba(14,17,22,.96) 60%), radial-gradient(circle at 85% 20%, rgba(235,112,74,.28), transparent 35%)' }}><Mono>{pageCopy[0]}</Mono><div className="head mt8">{pageCopy[1]}</div><div className="tiny muted mt8">{pageCopy[2]}</div></div>{t ? <div className="card tight"><div className="row between"><Mono>{t.name || 'ACTIVE TOUR'}</Mono><span className="chip sm">{t.stops.filter((x) => x.done).length}/{t.stops.length} played</span></div>{t.stops.map((x,i) => <div className="list-item" key={`${x.cityId}-${i}`}><span className="num">{i+1}</span><div className="grow small">{cityById(x.cityId).flag} {cityById(x.cityId).name}<div className="tiny muted">Week {x.week} · {x.done ? `${fmtNum(x.sold)} tickets · ${fmtMoney(x.gross)}` : 'upcoming'}</div></div></div>)}</div> : <div className="card tight"><div className="tiny muted">No active run. Book a route in the tour overview to start a persistent multi-week campaign.</div></div>}</div>;
   if (t) {
     const v = VENUES.find((x) => x.id === t.venueId);
     return (
@@ -296,10 +296,10 @@ function Training() {
   );
 }
 
-function Labels() {
+function Labels({ page = 'labels' }) {
   const { state, act, go } = useGame();
   const p = state.player;
-  const [tab, setTab] = useState(p.label ? 'contract' : 'independent');
+  const tab = ({ labels: 'independent', 'label-independent': 'independent', 'label-distribution': 'distribution', 'label-deals': 'labels', 'label-imprint': 'imprint' })[page] || (p.label ? 'contract' : 'independent');
   const [ownName, setOwnName] = useState(`${p.stageName} Records`);
   const [releaseBudget, setReleaseBudget] = useState('lean');
   const c = p.label;
@@ -307,7 +307,7 @@ function Labels() {
   const pending = state.inbox.filter((m) => m.subtype === 'label' && !m.status);
   return (
     <div className="col">
-      <div className="seg">{[['contract', 'Contract'], ['independent', 'Indie'], ['distribution', 'Distribution'], ['labels', 'Labels'], ['imprint', 'Your label']].map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
+      <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,.18), rgba(14,17,22,.96) 56%), radial-gradient(circle at 86% 15%, rgba(199,144,87,.42), transparent 35%)', minHeight: 96 }}><Mono>CAREER PATHS · MASTERS FIRST</Mono><div className="head mt8">Choose your leverage, keep your options open</div><div className="tiny muted mt8">Independent is the starting point. Distribution, label deals and your own imprint are separate paths, not a forced choice.</div></div>
       {tab === 'contract' && (c ? (
         <div className="card tight">
           <Mono>Signed to</Mono><div className="head mt8" style={{ fontSize: 20 }}>{c.name}</div>
@@ -323,6 +323,9 @@ function Labels() {
       ) : <Empty icon="disc">You’re independent. Distribution gets your music out; labels bring advances, radio and playlist reach.</Empty>)}
       {tab === 'independent' && (
         <div className="col">
+          <div className="grid2">
+            {[['OWN YOUR MASTERS','Independent','No contract. Full master ownership.'],['DISTRIBUTION','Reach without signing','Optional service, fees and cuts vary.'],['LABEL DEAL','Advance and infrastructure','Meetings and negotiated terms in the inbox.'],['FOUNDER','Build an imprint','Scout, sign and develop your own roster.']].map(([eyebrow,title,desc],i) => <div className="card tight" key={title} style={{ minHeight: 108, background: `linear-gradient(145deg, hsla(${[174,210,34,285][i]},72%,48%,.24), rgba(14,17,22,.96) 64%), radial-gradient(circle at 90% 0%, hsla(${[174,210,34,285][i]},88%,70%,.4), transparent 42%)` }}><Mono>{eyebrow}</Mono><div className="head mt8">{title}</div><div className="tiny muted mt8">{desc}</div></div>)}
+          </div>
           <div className="card tight" style={{ borderColor: 'rgba(45,212,191,.45)', background: 'linear-gradient(145deg, rgba(45,212,191,.12), rgba(20,20,27,.96) 58%)' }}>
             <Mono style={{ color: 'var(--teal)' }}>OWN YOUR MASTERS</Mono>
             <div className="head mt8" style={{ fontSize: 21 }}>Independent by default</div>
@@ -399,10 +402,12 @@ function Labels() {
   );
 }
 
-function Acting() {
+function Acting({ page = 'acting' }) {
   const { state, act } = useGame();
   const p = state.player;
   const a = state.acting || { credits: [], current: null };
+  if (page === 'acting-auditions') return <div className="col"><div className="card tight" style={{ background: 'linear-gradient(145deg, rgba(183,90,63,.33), rgba(18,18,24,.96) 68%), radial-gradient(circle at 90% 5%, rgba(245,191,110,.32), transparent 38%)' }}><Mono>CASTING CALLS · PROFILE {Math.round(p.skills.acting||0)}</Mono><div className="head mt8">Audition slate</div><div className="tiny muted mt8">Choices use current fame and acting skill. A won role locks filming to the regular weekly tick.</div></div>{ACTING_ROLES.map(r=>{const odds=auditionOdds(state,r),locked=p.popularity<r.minPop;return <div className="card tight" key={r.id}><div className="row between"><b>{r.name}</b><span className="up">{fmtMoney(r.pay)}</span></div><div className="tiny muted mt8">{r.shoot} filming weeks · {locked?`requires popularity ${r.minPop}`:`${Math.round(odds*100)}% casting odds`}</div><button className="btn sm accent mt12" disabled={locked||!!a.current||p.energy<10||a.lastAudition===state.week} onClick={()=>act(audition,{roleId:r.id})}>Audition · 10 energy</button></div>})}</div>;
+  if (page === 'acting-credits') return <div className="col"><div className="card tight" style={{ background: 'linear-gradient(120deg, rgba(20,20,28,.95), rgba(89,52,45,.48))' }}><Mono>SCREEN CREDITS · {p.stageName}</Mono><div className="head mt8">Actor profile</div><div className="tiny muted mt8">{a.credits.length} credits · Acting skill {Math.round(p.skills.acting||0)} · Popularity {p.popularity}</div></div>{a.credits.length?a.credits.map(x=><div className="card tight" key={x.id}><div className="row between"><b>“{x.title}”</b><span className="chip sm">{x.verdict}</span></div><div className="tiny muted mt8">{x.role} · score {x.score}/100 · {fmtNum(x.fans)} new fans · {fmtMoney(x.pay||0)}</div><div className="tiny muted mt8">Box office / premiere outcome recorded from the career simulation.</div></div>):<div className="card tight tiny muted">No screen credits yet. Audition to build the profile.</div>}</div>;
   return (
     <div className="col">
       <div className="small muted">Film and TV roles: audition (10 energy), then filming reserves 20 energy a week. Premieres bring fans, hype and pay. Train “Acting class” to land bigger parts. Acting skill: <b>{Math.round(p.skills.acting || 0)}</b>.</div>
@@ -423,16 +428,17 @@ function Acting() {
   );
 }
 
-function Festivals() {
+function Festivals({ page = 'festivals' }) {
   const { state, act, openArtist } = useGame();
   const p = state.player;
   const list = festivalCalendar(state, 30);
   const [poster, setPoster] = useState(null);
   const f = poster && list.find((x) => x.key === poster);
+  const selectedList = page === 'festival-pitches' ? list.filter(x => x.pitchOpen || x.state?.pitched) : page === 'festival-lineups' ? list.filter(x => state.week >= x.lineupWeek) : list;
   return (
     <div className="col">
       <div className="small muted">Pitch yourself 7–16 weeks before a festival. Lineups drop 6 weeks out, that’s when you find out. Your likely slot today: <b>{festSlotFor(state) || 'not yet (popularity 28+)'}</b>.</div>
-      {list.map((x) => {
+      {selectedList.map((x) => {
         const st = x.state || {};
         const announced = state.week >= x.lineupWeek;
         return (
@@ -472,17 +478,18 @@ function FestivalPoster({ f, onClose, onArtist }) {
   );
 }
 
-function Lifestyle() {
+function Lifestyle({ page = 'lifestyle' }) {
   const { state, act } = useGame();
   const p = state.player;
   const ls = state.lifestyle || { owned: [], rental: null };
   const kinds = [['rental', 'Rent a place'], ['home', 'Buy a home'], ['car', 'Cars'], ['jewelry', 'Jewellery'], ['art', 'Art'], ['studio', 'Home studio'], ['jet', 'Private jet']];
+  const filtered = page === 'lifestyle-property' ? ['rental','home','art','studio'] : page === 'lifestyle-vehicles' ? ['car','jet'] : null;
   return (
     <div className="col">
       <div className="card tight"><div className="row between small"><span>Assets</span><b>{fmtMoney(assetsValue(state))}</b></div><div className="row between small mt8"><span className="muted">Weekly upkeep & rent extras</span><span>{fmtMoney(lifestyleUpkeep(JSON.parse(JSON.stringify(state))))}</span></div><div className="tiny muted mt8">Big purchases lift your image (and hype); flexing too early can annoy fans. Homes and art can gain value; cars lose it. Sell anytime.</div></div>
       {ls.owned.length > 0 && <div className="card tight"><Mono>Owned</Mono>{ls.owned.map((o) => { const it = lifestyleById(o.id); return <div key={o.uid} className="list-item"><div className="grow" style={{ minWidth: 0 }}><b className="small ellipsis" style={{ display: 'block' }}>{it?.name}</b><div className="tiny muted">Worth {fmtMoney(o.value)} · bought for {fmtMoney(o.price)}</div></div><button className="btn sm" onClick={() => act(sellLifestyle, { uid: o.uid })}>Sell</button></div>; })}</div>}
       {ls.rental && <div className="card tight row between"><span className="small">Living in: <b>{lifestyleById(ls.rental)?.name}</b></span><button className="btn sm" onClick={() => act(moveOutRental)}>Move out</button></div>}
-      {kinds.map(([k, label]) => (
+      {kinds.filter(([k]) => !filtered || filtered.includes(k)).map(([k, label]) => (
         <div key={k}>
           <Mono className="sm">{label}</Mono>
           {LIFESTYLE.filter((x) => x.kind === k).map((it) => (
@@ -498,11 +505,13 @@ function Lifestyle() {
   );
 }
 
-function Merch() {
+function Merch({ page = 'merch' }) {
   const { state, act } = useGame();
   const m = state.merch;
   const tier = m && MERCH_TIERS.find((x) => x.id === m.tier);
   const soldPct = tier ? Math.min(1, (m.sold || 0) / tier.units) : 0;
+  if (page === 'merch-products') return <div className="col"><div className="card tight" style={{ background: 'linear-gradient(145deg, rgba(199,144,87,.32), rgba(18,18,24,.95) 68%), radial-gradient(circle at 90% 10%, rgba(45,212,191,.34), transparent 38%)' }}><Mono>MERCH STUDIO</Mono><div className="head mt8">Design the next drop</div><div className="tiny muted mt8">Choose a production tier. Funding launches it immediately, then inventory and sales settle in the weekly tick.</div></div>{MERCH_TIERS.map(t => <div className="card tight" key={t.id}><div className="row between"><b>{t.name}</b><b>{fmtMoney(t.cost)}</b></div><div className="tiny muted mt8">{fmtNum(t.units)} units · {fmtMoney(t.price)} each · break-even {Math.ceil(t.cost/t.price)} units</div><button className="btn sm accent mt12" disabled={m?.active || state.player.cash < t.cost} onClick={() => act(dropMerch,{tier:t.id})}>{m?.active?'Current drop must close first':'Fund this collection'}</button></div>)}</div>;
+  if (page === 'merch-sales') return <div className="col"><div className="card tight"><Mono>SELL-THROUGH REPORT</Mono><div className="grid2 mt12"><div className="stat"><Mono className="sm">Units sold</Mono><div className="v">{fmtNum(m?.sold||0)}</div></div><div className="stat"><Mono className="sm">Revenue</Mono><div className="v">{fmtMoney(m?.revenue||0)}</div></div></div>{m&&<><div className="mt12"><Bar pct={soldPct} color="#2DD4BF"/></div><div className="tiny muted mt8">{fmtNum(m.stock||0)} units left · {m.active?'active drop':'drop closed'}</div></>}</div><div className="card tight"><Mono>WEEKLY SETTLEMENT</Mono><div className="tiny muted mt8">Sales are automatically computed in the existing weekly tick. No separate timer or duplicate settlement was added.</div></div></div>;
   return (
     <div className="col">
       <div className="card tight">
@@ -540,12 +549,14 @@ function Media({ kind }) {
   );
 }
 
-function Awards() {
+function Awards({ page = 'awards' }) {
   const { state, go } = useGame();
   const calendar = awardCalendar(state, AWARD_SHOWS, 104);
   const history = state.awardHistory || [];
   const current = state.awardEvent;
   const sub = state.awardSubmission;
+  if (page === 'award-submissions') return <div className="col"><div className="card tight" style={{ background: 'linear-gradient(145deg, rgba(202,153,63,.3), rgba(18,18,24,.97) 65%), radial-gradient(circle at 88% 10%, rgba(247,210,137,.42), transparent 36%)' }}><Mono>AWARD ENTRY ROOM</Mono><div className="head mt8">Submissions</div><div className="tiny muted mt8">Choose eligible releases through the existing submission flow. Entries and ceremony results remain in your save.</div></div>{sub?<div className="card tight"><b>{sub.show}</b><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length||sub.suggested?.length||0} entries · {sub.status}</div><button className="btn sm accent mt12" onClick={()=>go({submissions:true})}>{sub.status==='confirmed'?'Review entries':'Choose entries'}</button></div>:<div className="card tight tiny muted">No submission window is open right now. Check the season calendar for upcoming eligibility.</div>}{calendar.map(x=><div className="list-item" key={`${x.name}-${x.showWeek}`}><div className="grow"><b className="small">{x.name}</b><div className="tiny muted">Week {x.showWeek} · {x.open?'submissions open':x.showWeek<state.week?'passed':`opens ${x.opens}`}</div></div></div>)}</div>;
+  if (page === 'award-results') return <div className="col"><div className="card tight" style={{ background: 'linear-gradient(145deg, rgba(202,153,63,.34), rgba(18,18,24,.97) 66%), radial-gradient(circle at 85% 8%, rgba(255,228,165,.4), transparent 35%)' }}><Mono>THE ARCHIVE</Mono><div className="head mt8">Season results</div><div className="tiny muted mt8">Wins and nominations persist across seasons.</div></div>{history.length?history.map((a,i)=><div className="card tight" key={a.id||`${a.show}-${a.week}-${i}`}><div className="row between"><b>{a.show} · {a.year}</b><span className={`chip sm ${a.result==='won'?'up':''}`}>{a.result}</span></div><div className="tiny muted mt8">{(a.entries||[]).join(', ')||'No submitted entries'} · week {a.week}</div></div>):<div className="card tight tiny muted">No results recorded yet. Results appear after the scheduled ceremony.</div>}</div>;
   return <div className="col">
     {current && <button className="card tight press" style={{ textAlign: 'left', borderColor: 'rgba(255,176,32,.55)' }} onClick={() => go({ awards: true })}><Mono>Live ceremony</Mono><div className="head mt8">{current.show}</div><div className="tiny muted mt8">{current.status === 'pending' ? 'Your result is ready to reveal.' : current.status === 'won' ? 'You have an award to claim.' : 'Ceremony complete.'}</div><span className="btn sm primary mt12">Open ceremony</span></button>}
     {sub && <button className="card tight press" style={{ textAlign: 'left' }} onClick={() => go({ submissions: true })}><Mono>Submissions {sub.status === 'confirmed' ? 'submitted' : 'need your review'}</Mono><div className="head mt8">{sub.show}</div><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length || sub.suggested?.length || 0} selected</div><span className="btn sm accent mt12">{sub.status === 'confirmed' ? 'Review entries' : 'Choose entries'}</span></button>}

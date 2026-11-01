@@ -144,10 +144,13 @@ describe('game-wide screens', () => {
   it('Studio release shows track ordering for albums', () => {
     expect(html(<Studio initial="release" />).length).toBeGreaterThan(500);
   });
-  it('World tours shows the active route with cancel; training lists skills', () => {
+  it('World tours shows the active route; full career pages expose their real systems', () => {
     expect(html(<World initial="tours" />)).toContain('Cancel remaining shows');
     const tr = html(<World initial="training" />);
     expect(tr).toContain('Songwriting workshop');
+    for (const [section, text] of [['labels', 'Label'], ['lifestyle', 'Assets'], ['acting', 'Film and TV roles'], ['merch', 'Merch'], ['festivals', 'Pitch yourself'], ['awards', 'Season calendar']]) {
+      expect(html(<World initial={section} />)).toContain(text);
+    }
   });
   it('Profile shows relationship status', () => {
     expect(html(<Profile onClose={() => {}} />)).toMatch(/Single|Dating/);

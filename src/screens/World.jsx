@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { AwardSubmissions } from './Overlays.jsx';
 import {
   CITIES, VENUES, JOBS, LABELS, MERCH_TIERS, ENERGY, cityById, gigDemand, gigFatigue, playGig, planTour, cancelTour, tourQuote, doJob, signLabel, leaveLabel,
   dropMerch, doMedia, fmtMoney, fmtNum, TRAINING, trainSkill, trainingCost, trainingFocus, ARTIST_CUT, venueUnlocked, venueLockReason,
   labelById, labelTerms, requestLabelMeeting, buyoutCost, DISTRIBUTORS, distributorById, setDistributor, CREATIVE_CONTROL, genreName,
   LIFESTYLE, lifestyleById, buyLifestyle, sellLifestyle, moveOutRental, lifestyleUpkeep, assetsValue, ACTING_ROLES, audition, auditionOdds,
-  festivalCalendar, pitchFestival, festivalLineup, festSlotFor, TOUR_STAFF, setlistScore, tourStaffCost, PAYOLA, payolaPackage, formatWeekDate,
+  festivalCalendar, pitchFestival, festivalLineup, festSlotFor, TOUR_STAFF, setlistScore, tourStaffCost, PAYOLA, payolaPackage, formatWeekDate, AWARD_SHOWS, awardCalendar,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, Bar, Empty, AREA, ArtistAvatar, facePhoto } from '../ui/kit.jsx';
 
@@ -20,7 +21,7 @@ const LAND = [
 const proj = (lng, lat) => [((lng + 180) / 360) * 360, ((80 - lat) / 138) * 180];
 
 const SECTIONS = [
-  { title: 'Career', items: [{ id: 'jobs', name: 'Jobs', icon: 'briefcase', live: true }, { id: 'training', name: 'Training', icon: 'sparkle' }, { id: 'labels', name: 'Labels & Distribution', icon: 'disc' }, { id: 'merch', name: 'Merch', icon: 'shirt' }, { id: 'brands', name: 'Brand Deals', icon: 'star' }, { id: 'acting', name: 'Acting', icon: 'video' }] },
+  { title: 'Career', items: [{ id: 'jobs', name: 'Jobs', icon: 'briefcase', live: true }, { id: 'training', name: 'Training', icon: 'sparkle' }, { id: 'labels', name: 'Labels & Distribution', icon: 'disc' }, { id: 'merch', name: 'Merch', icon: 'shirt' }, { id: 'brands', name: 'Brand Deals', icon: 'star' }, { id: 'acting', name: 'Acting', icon: 'video' }, { id: 'awards', name: 'Awards', icon: 'trophy' }] },
   { title: 'Live', items: [{ id: 'gigs', name: 'Gigs', icon: 'ticket', live: true }, { id: 'tours', name: 'Tours', icon: 'globe' }, { id: 'festivals', name: 'Festivals', icon: 'users' }] },
   { title: 'Life', items: [{ id: 'lifestyle', name: 'Lifestyle', icon: 'home' }] },
   { title: 'Media', items: [{ id: 'press', name: 'Press', icon: 'news' }, { id: 'radio', name: 'Radio', icon: 'radio' }, { id: 'interview', name: 'Interviews', icon: 'mic' }] },
@@ -37,6 +38,12 @@ export default function World({ initial }) {
   const pendingBrands = state.inbox.filter((m) => m.subtype === 'brand' && !m.status).length;
   const all = SECTIONS.flatMap((s) => s.items);
   const cur = all.find((x) => x.id === open);
+  const fullPages = ['tours', 'labels', 'lifestyle', 'acting', 'merch', 'festivals', 'awards', 'training'];
+  if (fullPages.includes(open)) {
+    const pageItems = fullPages.map((id) => all.find((x) => x.id === id)).filter(Boolean);
+    const Page = { tours: Tours, labels: Labels, lifestyle: Lifestyle, acting: Acting, merch: Merch, festivals: Festivals, awards: Awards, training: Training }[open];
+    return <div className="screen world-feature"><div className="row between"><div><Mono style={{ color: 'var(--teal)' }}>World / {cur?.name}</Mono><h1 style={{ fontSize: 30 }}>{cur?.name}</h1><div className="small muted">Week {state.week} · {p.stageName} · {fmtMoney(p.cash)} · {p.energy} energy</div></div><button className="icon-btn" onClick={() => setOpen(null)} aria-label="Back to World"><Icon name="close" size={20} /></button></div><div className="pills mt12" aria-label="Career systems">{pageItems.map((item) => <button key={item.id} className={`pill ${open === item.id ? 'on' : ''}`} onClick={() => setOpen(item.id)}>{item.name}</button>)}</div><div className="section mt12"><Page /></div></div>;
+  }
   return (
     <div className="screen">
       <div className="row between">
@@ -76,19 +83,12 @@ export default function World({ initial }) {
         </div>
       ))}
 
-      <Sheet open={!!cur} onClose={() => setOpen(null)} title={cur?.name}>
+      <Sheet open={!!cur && !fullPages.includes(open)} onClose={() => setOpen(null)} title={cur?.name}>
         {open === 'jobs' && <Jobs />}
         {open === 'gigs' && <Gigs />}
-        {open === 'tours' && <Tours />}
-        {open === 'training' && <Training />}
-        {open === 'labels' && <Labels />}
-        {open === 'merch' && <Merch />}
         {open === 'brands' && <div><p className="muted" style={{ marginTop: 0 }}>Brands reach out through your Inbox once you pass 1.5K fans. Bigger fan bases and a manager mean bigger cheques.</p><div className="card tight row between"><span>Pending brand offers</span><b>{pendingBrands}</b></div><button className="btn accent block mt16" onClick={() => { setOpen(null); go({ tab: 'phone', app: 'inbox' }); }}>Open Inbox</button></div>}
         {['press', 'radio', 'interview'].includes(open) && <Media kind={open} />}
         {open === 'payola' && <Payola />}
-        {open === 'acting' && <Acting />}
-        {open === 'festivals' && <Festivals />}
-        {open === 'lifestyle' && <Lifestyle />}
       </Sheet>
     </div>
   );
@@ -103,6 +103,7 @@ function subtitle(id, s, brands) {
     case 'training': return 'Grow your skills';
     case 'labels': return p.label ? p.label.name : `Indie · ${distributorById(s.distributor).name}`;
     case 'acting': return s.acting?.current ? `Filming “${s.acting.current.title}”` : `${s.acting?.credits?.length || 0} credits`;
+    case 'awards': return `${s.awardHistory?.filter((x) => x.result === 'won').length || 0} wins · next show calendar`;
     case 'festivals': { const f = festivalCalendar(s, 16).find((x) => x.pitchOpen && !x.state.pitched); return f ? `${f.name} taking pitches` : 'Lineups & pitches'; }
     case 'lifestyle': return `${s.lifestyle?.owned?.length || 0} owned · ${fmtMoney(lifestyleUpkeep(JSON.parse(JSON.stringify(s))))}/wk`;
     case 'merch': return s.merch?.active ? `${s.merch.stock} units left` : 'Drop a collection';
@@ -475,6 +476,20 @@ function Media({ kind }) {
       <button className="btn accent block" disabled={p.energy < e} onClick={() => act(doMedia, { kind })}>{kind === 'press' ? 'Run press campaign' : kind === 'radio' ? 'Do a radio tour' : 'Book interview'}</button>
     </div>
   );
+}
+
+function Awards() {
+  const { state, go } = useGame();
+  const calendar = awardCalendar(state, AWARD_SHOWS, 104);
+  const history = state.awardHistory || [];
+  const current = state.awardEvent;
+  const sub = state.awardSubmission;
+  return <div className="col">
+    {current && <button className="card tight press" style={{ textAlign: 'left', borderColor: 'rgba(255,176,32,.55)' }} onClick={() => go({ awards: true })}><Mono>Live ceremony</Mono><div className="head mt8">{current.show}</div><div className="tiny muted mt8">{current.status === 'pending' ? 'Your result is ready to reveal.' : current.status === 'won' ? 'You have an award to claim.' : 'Ceremony complete.'}</div><span className="btn sm primary mt12">Open ceremony</span></button>}
+    {sub && <button className="card tight press" style={{ textAlign: 'left' }} onClick={() => go({ submissions: true })}><Mono>Submissions {sub.status === 'confirmed' ? 'submitted' : 'need your review'}</Mono><div className="head mt8">{sub.show}</div><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length || sub.suggested?.length || 0} selected</div><span className="btn sm accent mt12">{sub.status === 'confirmed' ? 'Review entries' : 'Choose entries'}</span></button>}
+    <div className="card tight"><Mono>Season calendar</Mono>{calendar.map((x) => <div key={`${x.name}-${x.showWeek}`} className="list-item"><div className="grow"><b className="small">{x.name}</b><div className="tiny muted">Week {x.showWeek} · {x.open ? 'submissions open' : x.sub?.status === 'confirmed' ? 'entries submitted' : x.showWeek < state.week ? 'ceremony passed' : `submission window weeks ${x.opens} to ${x.closes}`}</div></div>{x.sub?.status === 'confirmed' && <span className="chip sm">Entered</span>}</div>)}</div>
+    <div className="card tight"><Mono>Career record</Mono>{history.length ? history.map((a, i) => <div className="list-item" key={a.id || `${a.show}-${a.week}-${i}`}><div className="grow"><b className="small">{a.show} · {a.year}</b><div className="tiny muted">{a.entries?.length ? a.entries.join(', ') : 'No entries'}</div></div><span className={`chip sm ${a.result === 'won' ? 'up' : ''}`}>{a.result}</span></div>) : <div className="small muted mt8">No award results yet. Submissions and ceremony outcomes appear here as your career moves through the calendar.</div>}</div>
+  </div>;
 }
 
 function Payola() {

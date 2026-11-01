@@ -712,6 +712,12 @@ export function addV5Fields(s) {
   s.acting = s.acting || { credits: [], current: null, lastAudition: null };
   s.acting.auditions = s.acting.auditions || [];
   s.festivals = s.festivals || {};
+  s.tour = s.tour ?? null;
+  s.merch = s.merch ?? null;
+  s.lifestyle = s.lifestyle || { owned: [], rental: null };
+  s.lifestyle.owned = s.lifestyle.owned || [];
+  s.labelOffers = s.labelOffers || [];
+  s.distributor = s.distributor || 'independent';
   return s;
 }
 // Rebuild missing featured credits for saves made before featured songs existed.

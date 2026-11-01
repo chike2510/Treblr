@@ -611,3 +611,33 @@ button:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
 .wa-choices { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
 .wa-choice { min-height: 44px; border-radius: 22px; border: 1px solid #25D366; color: #25D366; padding: 0 14px; font-weight: 600; text-align: left; }
 .wa-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
+/* Feature page illustration system */
+.feature-art { display:block; width:100%; height:150px; border-radius:12px; overflow:hidden; background:#11121a; }
+.feature-art-wide { height:142px; border-radius:10px 10px 0 0; }
+.lifestyle-card,.festival-card,.label-identity,.feature-profile,.award-hero { overflow:hidden; padding:0 !important; }
+.lifestyle-card-copy,.festival-card-copy,.label-identity-copy,.film-profile-copy,.award-copy { padding:12px; }
+.festival-card { border-color:rgba(244,163,79,.22); background:linear-gradient(135deg,rgba(244,163,79,.08),rgba(20,20,27,.98) 65%); }
+.festival-lineup-strip { display:flex; gap:8px; align-items:center; overflow-x:auto; padding:10px 12px 0; scrollbar-width:none; }
+.festival-hero-art { margin:-16px -16px 12px; height:160px; overflow:hidden; border-radius:14px 14px 0 0; }
+.feature-art-poster { height:160px; border-radius:0; }
+.fest-inner { overflow:hidden; }
+.feature-profile { background:linear-gradient(135deg,rgba(183,90,63,.18),rgba(18,18,24,.97)); }
+.award-history { display:grid; grid-template-columns:88px minmax(0,1fr); gap:12px; align-items:center; }
+.award-art { width:88px; height:80px; border-radius:9px; }
+.award-live { display:grid; grid-template-columns:minmax(100px, .8fr) minmax(0,1.2fr); gap:12px; align-items:center; overflow:hidden; }
+.award-live-art { width:100%; height:130px; border-radius:10px; }
+.feature-profile { display:grid; grid-template-columns:minmax(110px,.8fr) minmax(0,1.2fr); align-items:stretch; }
+.feature-profile .feature-art-wide { height:100%; min-height:130px; border-radius:10px 0 0 10px; }
+.film-profile-copy { padding:14px; align-self:center; }
+.audition-card { overflow:hidden; padding:0 !important; }
+.audition-card .feature-art-wide { height:120px; }
+.audition-copy { padding:12px; }
+.credit-card { display:grid; grid-template-columns:92px minmax(0,1fr); align-items:center; gap:12px; }
+.feature-art-credit { width:92px; height:84px; border-radius:9px; }
+@media(max-width:380px){.award-live{grid-template-columns:1fr}.feature-profile{grid-template-columns:1fr}.feature-profile .feature-art-wide{height:130px;border-radius:10px 10px 0 0}}
+.award-hero { display:flex; align-items:center; min-height:116px; background:linear-gradient(145deg,rgba(202,153,63,.25),rgba(18,18,24,.97)); }
+.award-art { width:115px; height:116px; flex:0 0 115px; border-radius:0; }
+.award-copy { flex:1; }
+.award-card { display:grid; grid-template-columns:92px 1fr; column-gap:10px; align-items:center; min-height:92px; background:linear-gradient(145deg,rgba(202,153,63,.12),rgba(18,18,24,.97)); }
+.award-card .award-art { width:92px; height:100%; min-height:92px; grid-row:1 / span 2; }
+@media (max-width:420px) { .feature-art-wide { height:126px; } .festival-hero-art { height:140px; } .feature-art-poster { height:140px; } }

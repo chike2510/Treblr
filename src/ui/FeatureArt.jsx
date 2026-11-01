@@ -1,0 +1,20 @@
+import { useId } from 'react';
+
+const hash = (value) => [...String(value)].reduce((n, c) => n + c.charCodeAt(0), 0) % 360;
+
+export default function FeatureArt({ kind, name = '', id = '', className = '' }) {
+  const hue = hash(`${name}${id}`);
+  const uid = useId().replace(/:/g, '');
+  const label = `${kind} artwork for ${name || id || 'career'}`;
+  return <svg className={`feature-art ${className}`} viewBox="0 0 360 150" role="img" aria-label={label} preserveAspectRatio="xMidYMid slice" style={{ '--art-hue': hue }}>
+    <defs><linearGradient id={`sky-${uid}`} x2="1" y2="1"><stop stopColor={`hsl(${hue} 72% 42%)`} /><stop offset="1" stopColor="#11121a" /></linearGradient></defs>
+    <rect width="360" height="150" fill={`url(#sky-${uid})`} />
+    {kind === 'car' && <g><circle cx="282" cy="36" r="35" fill="#fff" opacity=".12"/><path d="M26 102h25l22-29q6-9 17-11l115-12q18-2 31 11l24 25 39 8q10 2 13 12l2 12H30z" fill="#d9e4e9" stroke="#fff" strokeOpacity=".45" strokeWidth="2"/><path d="m91 69 119-12q12-1 22 10l16 18H73z" fill={`hsl(${(hue+190)%360} 38% 22%)`} stroke="#fff" strokeOpacity=".35"/><path d="M28 109h316" stroke="#fff" strokeOpacity=".45"/><circle cx="99" cy="116" r="18" fill="#111318" stroke="#adb5bd" strokeWidth="5"/><circle cx="270" cy="116" r="18" fill="#111318" stroke="#adb5bd" strokeWidth="5"/><path d="M34 97h28m251 0h18" stroke="#f8e19a" strokeWidth="5" strokeLinecap="round"/></g>}
+    {kind === 'home' && <g><circle cx="297" cy="35" r="24" fill="#ffd88a" opacity=".85"/><path d="M0 117 82 75l68 36 66-56 78 40 66-33v88H0z" fill="#161b25" opacity=".6"/><path d="m72 92 108-74 111 74v58H72z" fill="#e9dfce"/><path d="m55 94 125-87 129 87-12 15-117-78L67 108z" fill="#473b3a"/><path d="M99 107h35v43H99zm78-5h37v30h-37zm63 0h28v25h-28z" fill="#223345"/><path d="M103 111h27m-27 9h27m-27 9h27" stroke="#c7ecf4" strokeOpacity=".8"/><path d="M68 148h239" stroke="#e9dfce" strokeWidth="4"/></g>}
+    {kind === 'festival' && <g><circle cx="282" cy="30" r="25" fill="#ffcc70" opacity=".8"/><path d="M0 94 69 52l58 40 63-53 64 44 59-37 47 29v75H0z" fill="#111522" opacity=".75"/><path d="M78 104 180 24l102 80v46H78z" fill="#191a24"/><path d="m65 104 115-91 116 91" fill="none" stroke="#ffdc9a" strokeWidth="4"/><path d="M108 147V78h144v69" fill={`hsl(${(hue+120)%360} 80% 45%)`} opacity=".82"/><path d="M127 147V93h106v54" fill="#11121a"/><path d="M180 13v54m-30-25h60" stroke="#fff" strokeWidth="2" opacity=".7"/><path d="M13 150v-19m22 19v-30m22 30v-20m243 20v-27m22 27v-35m20 35v-20" stroke="#ffe0ab" strokeWidth="5" strokeLinecap="round"/><path d="M0 127h360" stroke="#f4a34f" strokeWidth="2"/></g>}
+    {kind === 'film' && <g><path d="M42 18h177v116H42z" fill="#11121a" stroke="#f1d19a" strokeWidth="2"/><path d="M54 30h153v92H54z" fill={`hsl(${hue} 48% 27%)`}/><circle cx="134" cy="67" r="21" fill="#dfa777"/><path d="M92 121q8-38 42-38t42 38" fill="#181820"/><path d="m219 50 98-28v106l-98-26z" fill="#090a0e" stroke="#f3c675" strokeWidth="2"/><path d="M241 58h45m-45 14h45m-45 14h30" stroke="#fff" strokeOpacity=".5" strokeWidth="3"/><path d="M26 18v116m207-116v116" stroke="#f5d18a" strokeWidth="5" strokeDasharray="7 8"/></g>}
+    {kind === 'award' && <g><path d="M180 22c-28 0-45 19-45 43 0 18 11 34 28 40l-13 25h60l-13-25c17-6 28-22 28-40 0-24-17-43-45-43z" fill="#ffd16d" stroke="#fff0bd" strokeWidth="3"/><path d="M143 39h-28v12c0 19 11 30 29 31m73-43h28v12c0 19-11 30-29 31M151 136h58" fill="none" stroke="#f0b34f" strokeWidth="8" strokeLinecap="round"/><path d="m180 38 7 16 17 2-12 11 4 17-16-9-16 9 4-17-12-11 17-2z" fill="#fff2c4"/></g>}
+    {kind === 'label' && <g><path d="M180 22 292 76l-112 55L68 76z" fill={`hsl(${hue} 78% 58%)`} stroke="#fff" strokeOpacity=".7" strokeWidth="2"/><path d="M68 76v27l112 47V131z" fill="#14151d"/><path d="M292 76v27l-112 47V131z" fill="#292b37"/><circle cx="180" cy="78" r="26" fill="#101117" stroke="#fff" strokeOpacity=".8" strokeWidth="2"/><circle cx="180" cy="78" r="6" fill="#f6d580"/><path d="M102 78h34m88 0h34" stroke="#fff" strokeOpacity=".65" strokeWidth="3"/></g>}
+    <path d="M0 145h360" stroke="#fff" strokeOpacity=".18" />
+  </svg>;
+}

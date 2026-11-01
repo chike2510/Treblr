@@ -8,6 +8,7 @@ import {
   festivalCalendar, pitchFestival, festivalLineup, festSlotFor, TOUR_STAFF, setlistScore, tourStaffCost, PAYOLA, payolaPackage, formatWeekDate, AWARD_SHOWS, awardCalendar,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, Bar, Empty, AREA, ArtistAvatar, facePhoto } from '../ui/kit.jsx';
+import FeatureArt from '../ui/FeatureArt.jsx';
 import { LABEL_STARTUP, createOwnLabel, scoutTalent, signProspect, releaseLabelSingle, LABEL_STAFF, LABEL_BUDGETS, setLabelStaff, dropLabelArtist } from '../engine/index.js';
 import FeatureSubnav, { FEATURE_ROUTE_ROOT, FEATURE_SUBPAGES, featurePageTitle } from './FeatureSubnav.jsx';
 
@@ -339,11 +340,9 @@ function Labels({ page = 'labels' }) {
         <div className="col">
           {state.ownLabel ? (
             <>
-              <div className="card tight" style={{ background: `linear-gradient(145deg, hsla(${state.ownLabel.logo?.hue || 160},72%,48%,.2), rgba(20,20,27,.98) 65%)`, borderColor: 'rgba(45,212,191,.35)' }}>
-                <Mono>FOUNDER · WEEK {state.ownLabel.founded}</Mono><div className="head mt8" style={{ fontSize: 23 }}>{state.ownLabel.name}</div>
-                <div className="tiny muted mt8">Reputation {Math.round(state.ownLabel.rep)} · {state.ownLabel.artists.length}/6 signed artists · latest weekly net {fmtMoney(state.ownLabel.lastIncome || 0)}</div>
-                <div className="grid2 mt12"><div className="stat"><Mono className="sm">Lifetime</Mono><div className="v">{fmtMoney(state.ownLabel.lifetime || 0)}</div></div><div className="stat"><Mono className="sm">Latest release income</Mono><div className="v">{fmtMoney(state.ownLabel.lastGross || 0)}</div></div></div>
-              </div>
+              <div className="label-identity card tight"><FeatureArt kind="label" name={state.ownLabel.name} id={state.ownLabel.logo?.hue || 'identity'} className="feature-art-wide" /><div className="label-identity-copy"><Mono>FOUNDER · WEEK {state.ownLabel.founded}</Mono><div className="head mt8" style={{ fontSize: 23 }}>{state.ownLabel.name}</div>
+                <div className="tiny muted mt8">{state.ownLabel.artists.length}/6 signed artists · latest weekly net {fmtMoney(state.ownLabel.lastIncome || 0)}</div>
+                <div className="grid2 mt12"><div className="stat"><Mono className="sm">Lifetime</Mono><div className="v">{fmtMoney(state.ownLabel.lifetime || 0)}</div></div><div className="stat"><Mono className="sm">Latest release income</Mono><div className="v">{fmtMoney(state.ownLabel.lastGross || 0)}</div></div></div></div></div>
               <div className="row between"><Mono>Roster</Mono><button className="btn sm accent" disabled={state.ownLabel.lastScout === state.week || p.energy < 10 || p.cash < 5000} onClick={() => act(scoutTalent)}>Scout artists · $5K · 10 energy</button></div>
               {state.ownLabel.artists.length ? state.ownLabel.artists.map((artist) => <div className="card tight" key={artist.id}>
                 <div className="row between gap6"><b>{artist.name}</b><span className="chip sm">{genreName(artist.genre)}</span></div><div className="tiny muted mt8">{cityById(artist.city).name} · talent {artist.talent} · {fmtNum(artist.ml)} monthly listeners · {artist.releases} releases · mood {artist.mood}</div>
@@ -406,21 +405,26 @@ function Acting({ page = 'acting' }) {
   const { state, act } = useGame();
   const p = state.player;
   const a = state.acting || { credits: [], current: null };
-  if (page === 'acting-auditions') return <div className="col"><div className="card tight" style={{ background: 'linear-gradient(145deg, rgba(183,90,63,.33), rgba(18,18,24,.96) 68%), radial-gradient(circle at 90% 5%, rgba(245,191,110,.32), transparent 38%)' }}><Mono>CASTING CALLS · PROFILE {Math.round(p.skills.acting||0)}</Mono><div className="head mt8">Audition slate</div><div className="tiny muted mt8">Choices use current fame and acting skill. A won role locks filming to the regular weekly tick.</div></div>{ACTING_ROLES.map(r=>{const odds=auditionOdds(state,r),locked=p.popularity<r.minPop;return <div className="card tight" key={r.id}><div className="row between"><b>{r.name}</b><span className="up">{fmtMoney(r.pay)}</span></div><div className="tiny muted mt8">{r.shoot} filming weeks · {locked?`requires popularity ${r.minPop}`:`${Math.round(odds*100)}% casting odds`}</div><button className="btn sm accent mt12" disabled={locked||!!a.current||p.energy<10||a.lastAudition===state.week} onClick={()=>act(audition,{roleId:r.id})}>Audition · 10 energy</button></div>})}</div>;
-  if (page === 'acting-credits') return <div className="col"><div className="card tight" style={{ background: 'linear-gradient(120deg, rgba(20,20,28,.95), rgba(89,52,45,.48))' }}><Mono>SCREEN CREDITS · {p.stageName}</Mono><div className="head mt8">Actor profile</div><div className="tiny muted mt8">{a.credits.length} credits · Acting skill {Math.round(p.skills.acting||0)} · Popularity {p.popularity}</div></div>{a.credits.length?a.credits.map(x=><div className="card tight" key={x.id}><div className="row between"><b>“{x.title}”</b><span className="chip sm">{x.verdict}</span></div><div className="tiny muted mt8">{x.role} · score {x.score}/100 · {fmtNum(x.fans)} new fans · {fmtMoney(x.pay||0)}</div><div className="tiny muted mt8">Box office / premiere outcome recorded from the career simulation.</div></div>):<div className="card tight tiny muted">No screen credits yet. Audition to build the profile.</div>}</div>;
+  if (page === 'acting-auditions') return (
+    <div className="col">
+      <div className="feature-profile card tight"><FeatureArt kind="film" name={p.stageName} id="profile" className="feature-art-wide" /><div className="film-profile-copy"><Mono>CASTING CALLS · PROFILE {Math.round(p.skills.acting||0)}</Mono><div className="head mt8">Audition slate</div><div className="tiny muted mt8">Choices use current fame and acting skill. A won role locks filming to the regular weekly tick.</div></div></div>{ACTING_ROLES.map(r=>{const odds=auditionOdds(state,r),locked=p.popularity<r.minPop;return <div className="card tight audition-card" key={r.id}><FeatureArt kind="film" name={r.name} id={r.id} className="feature-art-wide"/><div className="audition-copy"><div className="row between"><b>{r.name}</b><span className="up">{fmtMoney(r.pay)}</span></div><div className="tiny muted mt8">{r.shoot} filming weeks · {locked?`requires popularity ${r.minPop}`:`${Math.round(odds*100)}% casting odds`}</div><button className="btn sm accent mt12" disabled={locked||!!a.current||p.energy<10||a.lastAudition===state.week} onClick={()=>act(audition,{roleId:r.id})}>Audition · 10 energy</button></div></div>})}
+  </div>
+  );
+  if (page === 'acting-credits') return <div className="col"><div className="feature-profile card tight"><FeatureArt kind="film" name={p.stageName} id="profile" className="feature-art-wide" /><div className="film-profile-copy"><Mono>SCREEN CREDITS · {p.stageName}</Mono><div className="head mt8">Actor profile</div><div className="tiny muted mt8">{a.credits.length} credits · Acting skill {Math.round(p.skills.acting||0)} · Popularity {p.popularity}</div></div></div>{a.credits.length?a.credits.map(x=><div className="card tight credit-card" key={x.id}><FeatureArt kind="film" name={x.title} id={x.id} className="feature-art-credit" /><div><div className="row between"><b>“{x.title}”</b><span className="chip sm">{x.verdict}</span></div><div className="tiny muted mt8">{x.role} · score {x.score}/100 · {fmtNum(x.fans)} new fans · {fmtMoney(x.pay||0)}</div><div className="tiny muted mt8">Premiere result recorded from your career simulation.</div></div></div>):<div className="card tight tiny muted">No screen credits yet. Audition to build the profile.</div>}</div>;
   return (
     <div className="col">
+      <div className="feature-profile card tight"><FeatureArt kind="film" name={p.stageName} id="profile" className="feature-art-wide" /><div className="film-profile-copy"><Mono>SCREEN PROFILE · {p.stageName.toUpperCase()}</Mono><div className="head mt8">Actor profile</div><div className="tiny muted mt8">{a.credits.length} credits · acting {Math.round(p.skills.acting||0)} · popularity {p.popularity}</div></div></div>
       <div className="small muted">Film and TV roles: audition (10 energy), then filming reserves 20 energy a week. Premieres bring fans, hype and pay. Train “Acting class” to land bigger parts. Acting skill: <b>{Math.round(p.skills.acting || 0)}</b>.</div>
       {a.current && <div className="card tight" style={{ borderColor: 'rgba(45,212,191,.5)' }}><Mono>Current project</Mono><div className="head mt8">“{a.current.title}”</div><div className="tiny muted">{ACTING_ROLES.find((r) => r.id === a.current.roleId)?.name} · filmed {a.current.shot}/{a.current.shootWeeks} weeks · premieres week {a.current.releaseWeek}</div></div>}
       {ACTING_ROLES.map((r) => {
         const odds = auditionOdds(state, r);
         const locked = p.popularity < r.minPop;
         return (
-          <div key={r.id} className="card tight" style={{ opacity: locked ? 0.55 : 1 }}>
+          <div key={r.id} className="card tight audition-card" style={{ opacity: locked ? 0.55 : 1 }}><FeatureArt kind="film" name={r.name} id={r.id} className="feature-art-wide" /><div className="audition-copy">
             <div className="row between gap6"><b>{r.name}</b><span className="small up" style={{ flexShrink: 0 }}>{fmtMoney(r.pay)}</span></div>
             <div className="tiny muted mt8">{r.shoot} week{r.shoot > 1 ? 's' : ''} filming · {locked ? `needs popularity ${r.minPop}` : `${Math.round(odds * 100)}% audition odds`}</div>
             <button className="btn sm accent mt12" disabled={locked || !!a.current || p.energy < 10 || a.lastAudition === state.week} onClick={() => act(audition, { roleId: r.id })}>Audition</button>
-          </div>
+          </div></div>
         );
       })}
       {a.credits?.length > 0 && <div className="card tight"><Mono>Credits</Mono>{a.credits.map((x) => <div key={x.id} className="list-item"><div className="grow" style={{ minWidth: 0 }}><b className="small ellipsis" style={{ display: 'block' }}>“{x.title}”</b><div className="tiny muted">{x.role} · {x.verdict} ({x.score}/100) · +{fmtNum(x.fans)} fans</div></div></div>)}</div>}
@@ -442,7 +446,10 @@ function Festivals({ page = 'festivals' }) {
         const st = x.state || {};
         const announced = state.week >= x.lineupWeek;
         return (
-          <div key={x.key} className="card tight">
+          <div key={x.key} className="card tight festival-card">
+            <FeatureArt kind="festival" name={x.name} id={x.id} className="feature-art-wide" />
+            {announced && <div className="festival-lineup-strip" aria-label={`${x.name} lineup artists`}>{(() => { const lineup = festivalLineup(state, x, x.key); return [...lineup.headliner,...lineup.sub,...lineup.undercard].slice(0,6).map((id) => { const rival=state.rivals.find(r=>r.id===id); return rival ? <ArtistAvatar key={id} rival={rival} size={38} onClick={() => openArtist(id)} /> : null; }); })()}</div>}
+            <div className="festival-card-copy">
             <div className="row between gap6"><b className="ellipsis">{x.name}</b><span className="chip sm" style={{ flexShrink: 0 }}>{x.size === 'mega' ? 'Mega' : 'Major'}</span></div>
             <div className="tiny muted mt8">{cityById(x.city).flag} {cityById(x.city).name} · week {x.festWeek} ({formatWeekDate(x.festWeek, { month: 'short', day: 'numeric' })}) · {x.genres.length ? x.genres.map(genreName).join(', ') : 'all genres'}</div>
             <div className="tiny mt8">{st.played ? `Played: ${fmtNum(st.played.crowd)} crowd · ${fmtMoney(st.played.fee)}` : announced ? (st.accepted ? `✅ You’re on the lineup (${st.slot})` : st.pitched ? '❌ Not this year' : 'Lineup announced') : st.pitched ? `Pitched · lineup drops week ${x.lineupWeek}` : x.pitchOpen ? 'Taking pitches now' : `Pitches open week ${x.festWeek - 16}`}</div>
@@ -450,6 +457,7 @@ function Festivals({ page = 'festivals' }) {
               {!st.pitched && x.pitchOpen && <button className="btn sm accent" disabled={p.socialEnergy < 5} onClick={() => act(pitchFestival, { key: x.key })}>Pitch · 5 social</button>}
               {announced && <button className="btn sm" onClick={() => setPoster(x.key)}>Lineup poster</button>}
             </div>
+          </div>
           </div>
         );
       })}
@@ -467,12 +475,13 @@ function FestivalPoster({ f, onClose, onArtist }) {
     <div className="fest-poster" role="dialog" aria-label={`${f.name} lineup`} onClick={onClose}>
       <div className="fest-inner" onClick={(e) => e.stopPropagation()} style={{ '--fh': `${(f.name.length * 37) % 360}` }}>
         <button className="icon-btn fest-x" onClick={onClose} aria-label="Close"><Icon name="close" size={18} /></button>
+        <div className="festival-hero-art"><FeatureArt kind="festival" name={f.name} id={f.id} className="feature-art-poster" /></div>
         <div className="fest-name">{f.name}</div>
         <div className="fest-when">{cityById(f.city).name} · {formatWeekDate(f.festWeek, { month: 'long', day: 'numeric', year: 'numeric' })}</div>
         <div className="fest-head">{tier(lu.headliner, 'headliner').map((n) => <span key={n} className={n === me ? 'me' : ''}>{n}</span>)}</div>
         <div className="fest-sub">{tier(lu.sub, 'sub').map((n) => <span key={n} className={n === me ? 'me' : ''}>{n}</span>)}</div>
         <div className="fest-under">{tier(lu.undercard, 'undercard').map((n) => <span key={n} className={n === me ? 'me' : ''}>{n}</span>)}</div>
-        <div className="fest-art row gap6">{lu.headliner.slice(0, 3).map((id) => { const r = state.rivals.find((x) => x.id === id); return r ? <ArtistAvatar key={id} rival={r} size={44} onClick={() => onArtist(id)} /> : null; })}</div>
+        <div className="fest-art row gap6">{[...lu.headliner,...lu.sub,...lu.undercard].slice(0, 8).map((id) => { const r = state.rivals.find((x) => x.id === id); return r ? <ArtistAvatar key={id} rival={r} size={44} onClick={() => onArtist(id)} /> : null; })}</div>
       </div>
     </div>
   );
@@ -493,10 +502,13 @@ function Lifestyle({ page = 'lifestyle' }) {
         <div key={k}>
           <Mono className="sm">{label}</Mono>
           {LIFESTYLE.filter((x) => x.kind === k).map((it) => (
-            <div key={it.id} className="card tight mt8">
-              <div className="row between gap6"><b className="small">{it.name}</b><span className="small" style={{ flexShrink: 0 }}>{it.price ? fmtMoney(it.price) : `${fmtMoney(it.weekly)}/wk`}</span></div>
-              <div className="tiny muted mt8">{it.desc}{it.price && it.weekly ? ` · upkeep ${fmtMoney(it.weekly)}/wk` : ''}</div>
-              <button className="btn sm accent mt8" disabled={it.price ? p.cash < it.price : ls.rental === it.id || p.cash < it.weekly * 4} onClick={() => act(buyLifestyle, { id: it.id })}>{it.kind === 'rental' ? (ls.rental === it.id ? 'Living here' : 'Move in') : 'Buy'}</button>
+            <div key={it.id} className={`card tight mt8 lifestyle-card ${it.kind}`}>
+              <FeatureArt kind={it.kind === 'car' ? 'car' : 'home'} name={it.name} id={it.id} className="feature-art-wide" />
+              <div className="lifestyle-card-copy">
+                <div className="row between gap6"><b className="small">{it.name}</b><span className="small" style={{ flexShrink: 0 }}>{it.price ? fmtMoney(it.price) : `${fmtMoney(it.weekly)}/wk`}</span></div>
+                <div className="tiny muted mt8">{it.desc}{it.price && it.weekly ? ` · upkeep ${fmtMoney(it.weekly)}/wk` : ''}</div>
+                <button className="btn sm accent mt8" disabled={it.price ? p.cash < it.price : ls.rental === it.id || p.cash < it.weekly * 4} onClick={() => act(buyLifestyle, { id: it.id })}>{it.kind === 'rental' ? (ls.rental === it.id ? 'Living here' : 'Move in') : 'Buy'}</button>
+              </div>
             </div>
           ))}
         </div>
@@ -555,10 +567,10 @@ function Awards({ page = 'awards' }) {
   const history = state.awardHistory || [];
   const current = state.awardEvent;
   const sub = state.awardSubmission;
-  if (page === 'award-submissions') return <div className="col"><div className="card tight" style={{ background: 'linear-gradient(145deg, rgba(202,153,63,.3), rgba(18,18,24,.97) 65%), radial-gradient(circle at 88% 10%, rgba(247,210,137,.42), transparent 36%)' }}><Mono>AWARD ENTRY ROOM</Mono><div className="head mt8">Submissions</div><div className="tiny muted mt8">Choose eligible releases through the existing submission flow. Entries and ceremony results remain in your save.</div></div>{sub?<div className="card tight"><b>{sub.show}</b><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length||sub.suggested?.length||0} entries · {sub.status}</div><button className="btn sm accent mt12" onClick={()=>go({submissions:true})}>{sub.status==='confirmed'?'Review entries':'Choose entries'}</button></div>:<div className="card tight tiny muted">No submission window is open right now. Check the season calendar for upcoming eligibility.</div>}{calendar.map(x=><div className="list-item" key={`${x.name}-${x.showWeek}`}><div className="grow"><b className="small">{x.name}</b><div className="tiny muted">Week {x.showWeek} · {x.open?'submissions open':x.showWeek<state.week?'passed':`opens ${x.opens}`}</div></div></div>)}</div>;
-  if (page === 'award-results') return <div className="col"><div className="card tight" style={{ background: 'linear-gradient(145deg, rgba(202,153,63,.34), rgba(18,18,24,.97) 66%), radial-gradient(circle at 85% 8%, rgba(255,228,165,.4), transparent 35%)' }}><Mono>THE ARCHIVE</Mono><div className="head mt8">Season results</div><div className="tiny muted mt8">Wins and nominations persist across seasons.</div></div>{history.length?history.map((a,i)=><div className="card tight" key={a.id||`${a.show}-${a.week}-${i}`}><div className="row between"><b>{a.show} · {a.year}</b><span className={`chip sm ${a.result==='won'?'up':''}`}>{a.result}</span></div><div className="tiny muted mt8">{(a.entries||[]).join(', ')||'No submitted entries'} · week {a.week}</div></div>):<div className="card tight tiny muted">No results recorded yet. Results appear after the scheduled ceremony.</div>}</div>;
+  if (page === 'award-submissions') return <div className="col"><div className="award-hero card tight"><FeatureArt kind="award" name="Awards" id="submissions" className="award-art" /><div className="award-copy"><Mono>AWARD ENTRY ROOM</Mono><div className="head mt8">Submissions</div><div className="tiny muted mt8">Choose eligible releases through the existing submission flow. Entries and ceremony results remain in your save.</div></div></div>{sub?<div className="card tight"><b>{sub.show}</b><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length||sub.suggested?.length||0} entries · {sub.status}</div><button className="btn sm accent mt12" onClick={()=>go({submissions:true})}>{sub.status==='confirmed'?'Review entries':'Choose entries'}</button></div>:<div className="card tight tiny muted">No submission window is open right now. Check the season calendar for upcoming eligibility.</div>}{calendar.map(x=><div className="list-item" key={`${x.name}-${x.showWeek}`}><div className="grow"><b className="small">{x.name}</b><div className="tiny muted">Week {x.showWeek} · {x.open?'submissions open':x.showWeek<state.week?'passed':`opens ${x.opens}`}</div></div></div>)}</div>;
+  if (page === 'award-results') return <div className="col"><div className="award-hero card tight"><FeatureArt kind="award" name="Season results" id="archive" className="award-art" /><div className="award-copy"><Mono>THE ARCHIVE</Mono><div className="head mt8">Season results</div><div className="tiny muted mt8">Wins and nominations persist across seasons.</div></div></div>{history.length?history.map((a,i)=><div className="card tight award-history" key={a.id||`${a.show}-${a.week}-${i}`}><FeatureArt kind="award" name={a.show} id={a.id||i} className="award-art" /><div><div className="row between"><b>{a.show} · {a.year}</b><span className={`chip sm ${a.result==='won'?'up':''}`}>{a.result}</span></div><div className="tiny muted mt8">{(a.entries||[]).join(', ')||'No submitted entries'} · week {a.week}</div></div></div>):<div className="card tight tiny muted">No results recorded yet. Results appear after the scheduled ceremony.</div>}</div>;
   return <div className="col">
-    {current && <button className="card tight press" style={{ textAlign: 'left', borderColor: 'rgba(255,176,32,.55)' }} onClick={() => go({ awards: true })}><Mono>Live ceremony</Mono><div className="head mt8">{current.show}</div><div className="tiny muted mt8">{current.status === 'pending' ? 'Your result is ready to reveal.' : current.status === 'won' ? 'You have an award to claim.' : 'Ceremony complete.'}</div><span className="btn sm primary mt12">Open ceremony</span></button>}
+    {current && <button className="card tight press award-live" style={{ textAlign: 'left', borderColor: 'rgba(255,176,32,.55)' }} onClick={() => go({ awards: true })}><FeatureArt kind="award" name={current.show} id={current.id} className="award-live-art" /><div><Mono>Live ceremony</Mono><div className="head mt8">{current.show}</div><div className="tiny muted mt8">{current.status === 'pending' ? 'Your result is ready to reveal.' : current.status === 'won' ? 'You have an award to claim.' : 'Ceremony complete.'}</div><span className="btn sm primary mt12">Open ceremony</span></div></button>}
     {sub && <button className="card tight press" style={{ textAlign: 'left' }} onClick={() => go({ submissions: true })}><Mono>Submissions {sub.status === 'confirmed' ? 'submitted' : 'need your review'}</Mono><div className="head mt8">{sub.show}</div><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length || sub.suggested?.length || 0} selected</div><span className="btn sm accent mt12">{sub.status === 'confirmed' ? 'Review entries' : 'Choose entries'}</span></button>}
     <div className="card tight"><Mono>Season calendar</Mono>{calendar.map((x) => <div key={`${x.name}-${x.showWeek}`} className="list-item"><div className="grow"><b className="small">{x.name}</b><div className="tiny muted">Week {x.showWeek} · {x.open ? 'submissions open' : x.sub?.status === 'confirmed' ? 'entries submitted' : x.showWeek < state.week ? 'ceremony passed' : `submission window weeks ${x.opens} to ${x.closes}`}</div></div>{x.sub?.status === 'confirmed' && <span className="chip sm">Entered</span>}</div>)}</div>
     <div className="card tight"><Mono>Career record</Mono>{history.length ? history.map((a, i) => <div className="list-item" key={a.id || `${a.show}-${a.week}-${i}`}><div className="grow"><b className="small">{a.show} · {a.year}</b><div className="tiny muted">{a.entries?.length ? a.entries.join(', ') : 'No entries'}</div></div><span className={`chip sm ${a.result === 'won' ? 'up' : ''}`}>{a.result}</span></div>) : <div className="small muted mt8">No award results yet. Submissions and ceremony outcomes appear here as your career moves through the calendar.</div>}</div>

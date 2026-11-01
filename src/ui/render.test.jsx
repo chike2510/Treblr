@@ -77,6 +77,37 @@ describe.each(Object.keys(states))('renders (%s save)', (k) => {
   });
 });
 
+describe('feature-page visual art', () => {
+  const s = states.rich;
+  const page = (id) => wrap(s, <World initial={id} />);
+  it('renders local SVG art for cars, property, acting profiles and auditions', () => {
+    expect(page('lifestyle-vehicles')).toContain('aria-label="car artwork');
+    expect(page('lifestyle-property')).toContain('aria-label="home artwork');
+    expect(page('acting')).toContain('SCREEN PROFILE');
+    expect(page('acting-auditions')).toContain('casting odds');
+    expect(page('acting-credits')).toContain('Actor profile');
+  });
+  it('renders awards artwork in the calendar, results and submissions views', () => {
+    s.awardHistory = [{ id: 'award-test', show: 'Treblr Awards', year: 1, result: 'won', entries: ['Album'], week: s.week }];
+    s.awardEvent = { id: 'award-event', show: 'Treblr Music Awards', week: s.week, category: 'Best Album', status: 'pending', nominees: [] };
+    expect(page('awards')).toContain('aria-label="award artwork');
+    const results = page('award-results');
+    expect(results).toContain('Treblr Awards');
+    expect(results).toContain('award artwork for Treblr Awards');
+    expect(page('award-submissions')).toContain('AWARD ENTRY ROOM');
+  });
+  it('renders festival stage art and announced real lineup artists', () => {
+    const all = page('festival-lineups');
+    expect(all).toContain('festival artwork');
+    expect(page('festivals')).toContain('festival artwork');
+  });
+  it('renders own-label identity and artist operations views', () => {
+    s.ownLabel = { name: 'Night Studio', rep: 12, artists: [], lastIncome: 0, lifetime: 0, lastGross: 0 };
+    expect(page('label-imprint')).toContain('Night Studio');
+  });
+});
+
+
 describe('Cover Story onboarding', () => {
   const prompts = ['What do we print on the cover?', 'who were you before the spotlight?', 'datelined?', 'your sound?', 'Pick your origin story.', 'Cover shoot.'];
   it('renders each editor prompt with the live cover and no step wizard chrome', () => {

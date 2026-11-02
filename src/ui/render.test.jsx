@@ -17,6 +17,8 @@ import Onboarding, { coverCompleteness, stepValid, DebutCover, STRAPLINES } from
 import { APPS } from '../phone/apps.jsx';
 import App, { Title } from '../App.jsx';
 import { saveGame } from '../engine/index.js';
+import { LIFESTYLE } from '../engine/data2.js';
+import FeatureArt from './FeatureArt.jsx';
 
 function midCareer() {
   let s = createNewGame({ stageName: 'Mira', city: 'sel', genre: 'kpop', path: 'viral' }, 42);
@@ -80,9 +82,14 @@ describe.each(Object.keys(states))('renders (%s save)', (k) => {
 describe('feature-page visual art', () => {
   const s = states.rich;
   const page = (id) => wrap(s, <World initial={id} />);
-  it('renders local SVG art for cars, property, acting profiles and auditions', () => {
-    expect(page('lifestyle-vehicles')).toContain('aria-label="car artwork');
-    expect(page('lifestyle-property')).toContain('aria-label="home artwork');
+  it('renders distinct local images for every home and car listing', () => {
+    const listings = LIFESTYLE.filter((item) => ['home', 'rental', 'car'].includes(item.kind));
+    const cards = renderToString(<div>{listings.map((item) => <FeatureArt key={item.id} kind={item.kind === 'car' ? 'car' : 'home'} name={item.name} id={item.id} />)}</div>);
+    const sources = [...cards.matchAll(/src="([^"]+)"/g)].map(([, src]) => src);
+    expect(sources).toHaveLength(9);
+    expect(new Set(sources).size).toBe(9);
+    expect(sources.every((src) => src.startsWith('/assets/lifestyle/'))).toBe(true);
+    expect(cards).not.toContain('/assets/treblr-home-penthouse.jpg');
     expect(page('acting')).toContain('SCREEN PROFILE');
     expect(page('acting-auditions')).toContain('casting odds');
     expect(page('acting-credits')).toContain('SCREEN CREDITS');

@@ -21,3 +21,14 @@ Source: https://commons.wikimedia.org/wiki/File:F1_Drivers%27_World_Championship
 License: CC BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0
 
 No modifications made to the photographs. The car and trophy images are licensed CC BY-SA 4.0. If these are shared in adapted form, preserve the license and provide attribution.
+
+Additional local lifestyle photography downloaded on 2026-11-02:
+- lifestyle/city-loft.jpg | https://unsplash.com/photos/modern-house-with-large-windows-and-lush-garden-eWOgoFHlE8g | Unsplash License
+- lifestyle/penthouse.jpg | https://unsplash.com/photos/a-view-of-a-city-from-a-balcony-p0H89UzL2EI | Dillon Kydd, Unsplash License
+- lifestyle/house.jpg | https://unsplash.com/photos/modern-luxury-home-with-large-windows-at-dusk-G48h926L2qo | Unsplash License
+- lifestyle/villa.jpg | https://unsplash.com/photos/luxurious-villa-with-a-beautiful-pool-and-patio-WRGAZWGl7yE | Unsplash License
+- lifestyle/mansion.jpg | https://unsplash.com/photos/large-tan-house-with-gated-entrance-and-lush-greenery-RX_i1KjMKw8 | Unsplash License
+- lifestyle/hatch.jpg | https://unsplash.com/photos/white-5-door-hatchback-dZr-Q9ZQ1dk | Unsplash License
+- lifestyle/ev.jpg | https://unsplash.com/photos/an-electric-car-plugged-in-to-a-charging-station-3yXhiWexjEE | Unsplash License
+- lifestyle/sports.jpg | https://unsplash.com/photos/white-mclaren-p1-racing-on-a-wet-track-J6Mx8_A_dFo | Unsplash License
+- lifestyle/hyper.jpg | https://unsplash.com/photos/a-red-mclaren-p1-is-displayed-in-front-GwdPcWX3Alg | Unsplash License

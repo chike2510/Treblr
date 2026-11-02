@@ -7,7 +7,7 @@ import { clamp, uid, fmtMoney, fmtNum } from './util.js';
 import { gainHype } from './model.js';
 import { cityById, genreName, VENUES } from './data.js';
 import {
-  LABELS, labelById, CREATIVE_CONTROL, DISTRIBUTORS, distributorById, LIFESTYLE, lifestyleById, ACTING_ROLES, FILM_WORDS,
+  LABELS, labelById, CREATIVE_CONTROL, DISTRIBUTORS, distributorById, LIFESTYLE, lifestyleById, ACTING_ROLES, FILM_WORDS, FILM_PROJECTS,
   FESTIVALS, FEST_SIZE, TOUR_STAFF, DANCE_GENRES, PROMO_IDEAS, ROLLOUT_STEPS, PAYOLA, AD_TIERS,
 } from './data2.js';
 import { logTimeline, pushNotif } from './journal.js';
@@ -477,8 +477,10 @@ export function audition(state, { roleId }) {
     a.auditions.unshift({ week: s.week, roleId: role.id, role: role.name, booked: won, odds: score });
     a.auditions = a.auditions.slice(0, 50);
     if (!won) return { msg: 'Casting went another way. Acting class helps.', data: { booked: false } };
-    const title = `${rng.pick(FILM_WORDS.a)} ${rng.pick(FILM_WORDS.b)}`;
-    a.current = { id: uid(s, 'film'), roleId: role.id, title, startWeek: s.week + 1, shootWeeks: role.shoot, releaseWeek: s.week + 1 + role.shoot + rng.int(6, 14), shot: 0, reserve: 20 };
+    const projects = FILM_PROJECTS.filter((candidate) => candidate.genre === role.genre);
+    const project = rng.pick(projects.length ? projects : FILM_PROJECTS);
+    const title = project?.title || `${rng.pick(FILM_WORDS.a)} ${rng.pick(FILM_WORDS.b)}`;
+    a.current = { id: uid(s, 'film'), roleId: role.id, title, genre: project?.genre || role.genre, startWeek: s.week + 1, shootWeeks: role.shoot, releaseWeek: s.week + 1 + role.shoot + rng.int(6, 14), shot: 0, reserve: 20 };
     earn(s, 'acting', Math.round(role.pay * 0.5), `Acting fee (first half): ${title}`);
     pushNews(s, `${p.stageName} cast in “${title}”`, true, 'Film');
     logTimeline(s, 'acting', `Cast in “${title}”`, role.name);

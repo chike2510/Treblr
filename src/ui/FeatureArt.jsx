@@ -45,7 +45,11 @@ const hash = (value) => [...String(value)].reduce((n, c) => n + c.charCodeAt(0),
 export default function FeatureArt({ kind, name = '', id = '', className = '' }) {
   const hue = hash(`${name}${id}`);
   const lifestylePhoto = lifestylePhotos[id];
-  const photo = lifestylePhoto || photos[kind] || photos[(kind === 'house' || kind === 'rental') ? 'home' : kind];
+  const ceremonial = kind === 'award' || kind === 'festival';
+  const photo = lifestylePhoto || (!ceremonial ? photos[kind] || photos[(kind === 'house' || kind === 'rental') ? 'home' : kind] : null);
+  if (ceremonial) {
+    return <div className={`feature-art feature-art-original ${className}`} role="img" aria-label={`${kind} artwork for ${name || id || 'career'}`} style={{ '--art-hue': hue }}><span className="feature-art-mark">{kind === 'award' ? '✦' : '◈'}</span><span className="feature-art-label">{name || id}</span></div>;
+  }
   if (photo) {
     const label = `${photo.kind || kind} artwork for ${name || id || 'career'}`;
     return <img className={`feature-art ${className}`} src={photo.src} alt={photo.description} aria-label={label} loading="lazy" decoding="async" />;

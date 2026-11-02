@@ -5,7 +5,7 @@ import {
   dropMerch, doMedia, fmtMoney, fmtNum, TRAINING, trainSkill, trainingCost, trainingFocus, ARTIST_CUT, venueUnlocked, venueLockReason,
   labelById, labelTerms, requestLabelMeeting, buyoutCost, DISTRIBUTORS, distributorById, setDistributor, CREATIVE_CONTROL, genreName,
   LIFESTYLE, lifestyleById, buyLifestyle, sellLifestyle, moveOutRental, lifestyleUpkeep, assetsValue, ACTING_ROLES, audition, auditionOdds,
-  festivalCalendar, pitchFestival, festivalLineup, festSlotFor, TOUR_STAFF, setlistScore, tourStaffCost, PAYOLA, payolaPackage, formatWeekDate, AWARD_SHOWS, awardCalendar,
+  festivalCalendar, pitchFestival, festivalLineup, festSlotFor, TOUR_STAFF, setlistScore, tourStaffCost, PAYOLA, payolaPackage, formatWeekDate, AWARD_SHOWS, ACTING_AWARD_SHOWS, FILM_PROJECTS, awardCalendar,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, Bar, Empty, AREA, ArtistAvatar, facePhoto } from '../ui/kit.jsx';
 import FeatureArt from '../ui/FeatureArt.jsx';
@@ -556,8 +556,9 @@ function Media({ kind }) {
 
 function Awards({ page = 'awards' }) {
   const { state, go } = useGame();
-  const calendar = awardCalendar(state, AWARD_SHOWS, 104);
-  const history = state.awardHistory || [];
+  const shows = [...AWARD_SHOWS, ...ACTING_AWARD_SHOWS];
+  const calendar = awardCalendar(state, shows, 104);
+  const history = [...(state.awardHistory || []), ...(state.acting?.awardHistory || [])].sort((a, b) => (b.week || 0) - (a.week || 0));
   const current = state.awardEvent;
   const sub = state.awardSubmission;
   if (page === 'award-submissions') return <div className="col"><div className="award-hero card tight"><FeatureArt kind="award" name="Awards" id="submissions" className="award-art" /><div className="award-copy"><Mono>AWARD ENTRY ROOM</Mono><div className="head mt8">Submissions</div><div className="tiny muted mt8">Choose eligible releases through the existing submission flow. Entries and ceremony results remain in your save.</div></div></div>{sub?<div className="card tight"><b>{sub.show}</b><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length||sub.suggested?.length||0} entries · {sub.status}</div><button className="btn sm accent mt12" onClick={()=>go({submissions:true})}>{sub.status==='confirmed'?'Review entries':'Choose entries'}</button></div>:<div className="card tight tiny muted">No submission window is open right now. Check the season calendar for upcoming eligibility.</div>}{calendar.map(x=><div className="list-item" key={`${x.name}-${x.showWeek}`}><div className="grow"><b className="small">{x.name}</b><div className="tiny muted">Week {x.showWeek} · {x.open?'submissions open':x.showWeek<state.week?'passed':`opens ${x.opens}`}</div></div></div>)}</div>;

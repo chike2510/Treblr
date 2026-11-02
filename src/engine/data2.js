@@ -136,33 +136,49 @@ export const lifestyleById = (id) => LIFESTYLE.find((x) => x.id === id) || null;
 
 // ---------- Acting ----------
 export const ACTING_ROLES = [
-  { id: 'cameo', name: 'Cameo in a music documentary', minPop: 18, needAct: 0, pay: 5000, shoot: 1, budget: 1, fame: 0.5 },
-  { id: 'tvguest', name: 'TV guest role', minPop: 28, needAct: 8, pay: 25000, shoot: 2, budget: 2, fame: 1 },
-  { id: 'indie', name: 'Indie film lead', minPop: 32, needAct: 18, pay: 40000, shoot: 4, budget: 2, fame: 1.2 },
-  { id: 'series', name: 'Streaming series (supporting)', minPop: 48, needAct: 28, pay: 250000, shoot: 6, budget: 4, fame: 2 },
-  { id: 'studio', name: 'Studio film (supporting)', minPop: 58, needAct: 38, pay: 1200000, shoot: 6, budget: 6, fame: 2.6 },
-  { id: 'lead', name: 'Blockbuster lead', minPop: 72, needAct: 52, pay: 8000000, shoot: 10, budget: 10, fame: 4 },
+  { id: 'cameo', name: 'Cameo in a music documentary', minPop: 18, needAct: 0, pay: 5000, shoot: 1, budget: 1, fame: 0.5, genre: 'documentary' },
+  { id: 'tvguest', name: 'TV guest role', minPop: 28, needAct: 8, pay: 25000, shoot: 2, budget: 2, fame: 1, genre: 'comedy' },
+  { id: 'indie', name: 'Indie film lead', minPop: 32, needAct: 18, pay: 40000, shoot: 4, budget: 2, fame: 1.2, genre: 'drama' },
+  { id: 'series', name: 'Streaming series (supporting)', minPop: 48, needAct: 28, pay: 250000, shoot: 6, budget: 4, fame: 2, genre: 'fantasy' },
+  { id: 'studio', name: 'Studio film (supporting)', minPop: 58, needAct: 38, pay: 1200000, shoot: 6, budget: 6, fame: 2.6, genre: 'action' },
+  { id: 'lead', name: 'Blockbuster lead', minPop: 72, needAct: 52, pay: 8000000, shoot: 10, budget: 10, fame: 4, genre: 'adventure' },
 ];
 export const FILM_WORDS = {
   a: ['The Last', 'Midnight', 'Silver', 'Northern', 'Paper', 'Velvet', 'Quiet', 'Electric', 'Burning', 'Lonely', 'Hidden', 'Golden'],
   b: ['Harbour', 'Summer', 'Frequency', 'Kingdom', 'Signal', 'Road', 'Season', 'Encore', 'Lights', 'Promise', 'Echo', 'Tide'],
 };
 
+// Fictional, name-led near-miss movie titles across genres, used for acting auditions.
+export const FILM_PROJECTS = [
+  { title: 'Spider-Boy: Across the City', genre: 'adventure' }, { title: 'Transformars: Iron Sky', genre: 'action' }, { title: 'The Wolf of Wall Avenue', genre: 'drama' },
+  { title: 'The Dark Knightlight', genre: 'action' }, { title: 'Dune: Sands of Destiny', genre: 'adventure' }, { title: 'Bardbie: Plastic Kingdom', genre: 'comedy' },
+  { title: 'Openheimer: The Manhattan Project', genre: 'drama' }, { title: 'Avarra: Fire and Tide', genre: 'fantasy' }, { title: 'Jurassic Spark', genre: 'adventure' },
+  { title: 'Mission: Improbable', genre: 'action' }, { title: 'Fast & Curious: Tokyo Drift', genre: 'action' }, { title: 'The Metrics', genre: 'sci-fi' },
+  { title: 'Titanic: Hearts Afloat', genre: 'romance' }, { title: 'Inside Outside', genre: 'comedy' }, { title: 'Top Son: Maverick', genre: 'action' },
+  { title: 'Everywhere, Everything, All at Once', genre: 'sci-fi' }, { title: 'Wicked: The Emerald Revue', genre: 'fantasy' }, { title: 'The Lion Prince', genre: 'adventure' },
+  { title: 'Dreamception', genre: 'sci-fi' }, { title: 'The Grand Budapest Hotelier', genre: 'comedy' }, { title: 'A Quiet-ish Place', genre: 'thriller' },
+  { title: 'The Shape of Watercolour', genre: 'romance' }, { title: 'Pride, Prejudice & Prom Night', genre: 'romance' }, { title: 'The Social Networker', genre: 'drama' },
+  { title: 'No Country for Old Menus', genre: 'thriller' }, { title: 'The Curious Case of Benjamin Button-Up', genre: 'drama' }, { title: 'La La Landline', genre: 'romance' }, { title: 'The Silence of the Hams', genre: 'comedy' },
+];
+
 // ---------- Festivals (fictional) ----------
 // week = week of year; size drives fees and lineup length. genres = what the bookers favour.
 export const FESTIVALS = [
-  { id: 'harbourdays', name: 'Harbour Days', city: 'syd', week: 3, size: 'major', genres: ['indie', 'pop', 'electronic', 'rock'] },
-  { id: 'riopulse', name: 'Rio Pulse', city: 'rio', week: 7, size: 'major', genres: ['latin', 'reggaeton', 'electronic', 'pop'] },
-  { id: 'neontide', name: 'Neon Tide', city: 'mia', week: 12, size: 'major', genres: ['electronic', 'hiphop', 'latin'] },
-  { id: 'miragevalley', name: 'Mirage Valley', city: 'la', week: 16, size: 'mega', genres: [] },
-  { id: 'glasshouse', name: 'Glasshouse Fields', city: 'lon', week: 26, size: 'mega', genres: ['rock', 'indie', 'pop', 'alternative', 'hiphop'] },
-  { id: 'northernlights', name: 'Northern Lights Fest', city: 'sto', week: 27, size: 'major', genres: ['pop', 'electronic', 'indie'] },
-  { id: 'highland', name: 'Highland Groove', city: 'ber', week: 30, size: 'major', genres: ['electronic', 'metal', 'rock', 'alternative'] },
-  { id: 'lakeshore', name: 'Lakeshore Thunder', city: 'chi', week: 31, size: 'mega', genres: [] },
-  { id: 'spectrum', name: 'Seoul Spectrum', city: 'sel', week: 33, size: 'major', genres: ['kpop', 'pop', 'rnb', 'hiphop'] },
-  { id: 'lantern', name: 'Lantern Sound', city: 'tyo', week: 35, size: 'major', genres: ['rock', 'pop', 'jazz', 'electronic'] },
-  { id: 'sierra', name: 'Sierra Nights', city: 'mex', week: 45, size: 'major', genres: ['latin', 'reggaeton', 'rock', 'pop'] },
-  { id: 'soundcity', name: 'Sound City Lagos', city: 'los', week: 51, size: 'major', genres: ['afrobeats', 'hiphop', 'rnb'] },
+  { id: 'cochella', name: 'Cochella', city: 'la', week: 16, size: 'mega', genres: ['pop', 'indie', 'electronic', 'hiphop'] },
+  { id: 'glimmerbury', name: 'Glimmerbury', city: 'lon', week: 26, size: 'mega', genres: ['rock', 'indie', 'pop', 'alternative'] },
+  { id: 'futureland', name: 'Futureland', city: 'mia', week: 12, size: 'mega', genres: ['electronic', 'hiphop', 'pop'] },
+  { id: 'rosefield', name: 'Rosefield Festival', city: 'par', week: 35, size: 'major', genres: ['pop', 'indie', 'electronic'] },
+  { id: 'primavibe', name: 'Primavibe', city: 'ams', week: 22, size: 'major', genres: ['indie', 'rock', 'electronic', 'pop'] },
+  { id: 'rockinriva', name: 'Rock in Riva', city: 'rio', week: 31, size: 'mega', genres: ['rock', 'metal', 'alternative'] },
+  { id: 'afroworld', name: 'Afro World', city: 'los', week: 51, size: 'major', genres: ['afrobeats', 'hiphop', 'rnb'] },
+  { id: 'fujiflow', name: 'Fujiflow', city: 'tyo', week: 33, size: 'major', genres: ['rock', 'pop', 'jazz', 'electronic'] },
+  { id: 'summerstatic', name: 'Summer Static', city: 'chi', week: 42, size: 'mega', genres: ['rock', 'pop', 'indie', 'electronic'] },
+  { id: 'ziget', name: 'Ziget', city: 'ber', week: 30, size: 'major', genres: ['electronic', 'metal', 'rock', 'alternative'] },
+  { id: 'sunflare', name: 'Sunflare Festival', city: 'sao', week: 45, size: 'major', genres: ['latin', 'reggaeton', 'rock', 'pop'] },
+  { id: 'worldbeatadelaide', name: 'Worldbeat Adelaide', city: 'syd', week: 3, size: 'major', genres: ['indie', 'pop', 'electronic', 'rock'] },
+  { id: 'rollinland', name: "Rollin' Loud", city: 'mia', week: 7, size: 'mega', genres: ['hiphop', 'rnb'] },
+  { id: 'wirewave', name: 'Wirewave Festival', city: 'lon', week: 39, size: 'major', genres: ['hiphop', 'pop', 'rnb', 'electronic'] },
+  { id: 'lollapulse', name: 'Lollapulse', city: 'chi', week: 27, size: 'mega', genres: ['rock', 'pop', 'indie', 'electronic', 'hiphop'] },
 ];
 export const FEST_SIZE = {
   major: { slots: { headliner: 3, sub: 7, undercard: 12 }, fee: { headliner: 900000, sub: 180000, undercard: 25000 }, crowd: 60000 },

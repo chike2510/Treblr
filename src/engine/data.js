@@ -163,14 +163,26 @@ export const CHARTS = [
 // Song certification ladder (Gold 75M ... Diamond 3B). Each entry: { id, name, min }.
 export { SONG_CERTS as CERTS } from './data2.js';
 
-// The Golden Treble Awards is the headline show (the industry's biggest night). Submissions open
-// six weeks before each ceremony and close the week before.
+// Fictional music ceremonies inspired by the global awards circuit. Existing ceremony weeks stay
+// in place; three additional shows fill the gaps without changing the annual calendar cadence.
 export const AWARD_SHOWS = [
-  { week: 8, id: 'golden', name: 'Golden Treble Awards', headline: true, prestige: 3, city: 'la', desc: 'The industry’s biggest night. Voted by the Recording Guild.' },
-  { week: 20, id: 'stream', name: 'Global Stream Awards', prestige: 2, city: 'lon', desc: 'Fan-voted, built on streaming numbers.' },
-  { week: 32, id: 'video', name: 'TreblrTube Video Awards', prestige: 1.5, city: 'nyc', desc: 'Music videos, performances and moments.' },
-  { week: 44, id: 'world', name: 'World Music Honours', prestige: 2, city: 'par', desc: 'Artists breaking across borders.' },
-  { week: 52, id: 'yearend', name: 'Treblr Year-End Honours', prestige: 1, city: 'tyo', desc: 'The year’s chart champions.' },
+  { week: 8, id: 'golden', name: 'Gramaphone Awards', headline: true, prestige: 3, city: 'la', desc: 'The recording guild’s defining night, celebrating songs, albums and performances.' },
+  { week: 14, id: 'crownchorus', name: 'Crown & Chorus Honors', prestige: 2, city: 'lon', desc: 'A British celebration of songwriting, live voices and bold new artists.' },
+  { week: 20, id: 'stream', name: 'Fanwave Music Honors', prestige: 2, city: 'nyc', desc: 'Fans decide the winners across the year’s biggest records.' },
+  { week: 26, id: 'soundcraft', name: 'Soundcraft Honors', prestige: 2, city: 'tyo', desc: 'A craft-first celebration of recorded music and breakthrough artists.' },
+  { week: 32, id: 'video', name: 'ClipSpark Awards', prestige: 1.5, city: 'mia', desc: 'Music videos, inventive visuals and unforgettable performances.' },
+  { week: 38, id: 'popculture', name: 'PopCulture Pulse Awards', prestige: 1.5, city: 'nyc', desc: 'The year’s most talked-about music and pop-culture moments.' },
+  { week: 44, id: 'world', name: 'Beadies Awards', prestige: 2, city: 'los', desc: 'A pan-African celebration of African music and global influence.' },
+  { week: 52, id: 'yearend', name: 'Hillboard Awards', prestige: 1.5, city: 'la', desc: 'Chart champions, measured by the records audiences kept playing.' },
+];
+
+// Separate fictional screen-industry calendar, resolved within the ordinary weekly simulation.
+export const ACTING_AWARD_SHOWS = [
+  { week: 10, id: 'goldframe', name: 'Goldframe Awards', city: 'la', desc: 'Film performances and the craft behind the year’s standout pictures.' },
+  { week: 20, id: 'worldstarglobe', name: 'Worldstar Globe Awards', city: 'la', desc: 'International film and television, with a spotlight on bold storytelling.' },
+  { week: 30, id: 'britframe', name: 'Britframe Awards', city: 'lon', desc: 'British screen craft, performances and productions.' },
+  { week: 40, id: 'screenguild', name: 'Screen Guild Honors', city: 'la', desc: 'Ensemble work and performances, recognized by fellow screen artists.' },
+  { week: 50, id: 'televisionspotlight', name: 'Television Spotlight Awards', city: 'nyc', desc: 'Television performances and series that held the audience’s attention.' },
 ];
 
 export const GOALS = [

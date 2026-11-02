@@ -2,7 +2,7 @@
 import { createRng } from './rng.js';
 import { trackSongCharts, investTick, ownLabelTick, syncAwardHistory, FEAT_SHARE, SUBMIT_LEAD } from './v5.js';
 import { clone, clamp, uid, fmtMoney, fmtNum } from './util.js';
-import { CHARTS, CITIES, ROLLOUTS, VENUES, LABELS, BRANDS, AWARD_SHOWS, cityById, genreName, venueUnlocked } from './data.js';
+import { CHARTS, CITIES, ROLLOUTS, VENUES, LABELS, BRANDS, AWARD_SHOWS, ACTING_AWARD_SHOWS, cityById, genreName, venueUnlocked } from './data.js';
 import { playerStreams, rivalSongPotential, radioSpins, marketShares, NPC_STREAM_K, PAY_PER_STREAM, FAN_FROM_DISC, FAN_FROM_AUD, FAN_HALF, gainHype, hypeDecay, releaseFatigue } from './model.js';
 import { computeCharts } from './charts.js';
 import { popularityFromListeners, makeRivalSong } from './state.js';
@@ -13,7 +13,7 @@ import { pickHeadline, renderHeadline } from './headlines.js';
 import { generateWeeklyGoalsFor } from './weekly.js';
 import { logTimeline, pushNotif } from './journal.js';
 import { openCrisis, contactForRival } from './features.js';
-import { applyBurnout, resolveTourWeek, weeklyMessages, pickSpotlight, maybeDrama, crisisTick, awardNomination, openAwardSubmissions, awardTick, trackYear, makeWrapped } from './systems.js';
+import { applyBurnout, resolveTourWeek, weeklyMessages, pickSpotlight, maybeDrama, crisisTick, awardNomination, openAwardSubmissions, awardTick, actingAwardTick, trackYear, makeWrapped } from './systems.js';
 import { updateFame, releaseReception, receptionLabel, certifySong, albumWeek, npcReleaseTick, chartStarPoints, trackChartRuns, npcChartPosts, statPost, addStarPoints, uniqueRivalTitle } from './career.js';
 import { labelRoyalty, labelReach, contractTick, deliverAlbum, distributionTick, lifestyleUpkeep, actingTick, festivalTick, payolaExposure, bankTick, cloudTick, labelTerms, dealText, rivalLabelId } from './business.js';
 import { placeOnPlaylist } from './actions.js';
@@ -39,6 +39,7 @@ export function advanceWeek(state) {
   // 0. Lingering systems that resolve before the week plays out.
   syncAwardHistory(s);
   awardTick(s, rng);
+  actingAwardTick(s, rng, ACTING_AWARD_SHOWS);
   crisisTick(s, rng);
 
   // 1. Scheduled releases go live (with release fatigue).

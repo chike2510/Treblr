@@ -2,7 +2,7 @@
 import { clamp, uid, fmtMoney, fmtNum } from './util.js';
 import { recordAwardResult } from './v5.js';
 import { gainHype, marketShares } from './model.js';
-import { VENUES, cityById, MARKETS, genreName } from './data.js';
+import { VENUES, cityById, MARKETS, genreName, ACTING_AWARD_SHOWS } from './data.js';
 import { earn, spend, pushNews } from './actions.js';
 import { trackTickets, addStarPoints, statPost } from './career.js';
 import { tourStaffCost } from './business.js';
@@ -226,6 +226,11 @@ export function awardOptions(s) {
     if (r.status !== 'out' || r.type !== 'album' || W - r.releaseWeek > 52) continue;
     out.push({ id: `album|${r.id}`, category: 'Album of the Year', title: r.title, strength: 0.5 * peakScore(r.peaks?.album) + 0.5 * lg(r.totalUnits || 0, 4, 2.5) });
   }
+  const filmCredits = (s.acting?.credits || []).filter((credit) => credit.releaseWeek == null || W - credit.releaseWeek <= 52);
+  for (const credit of filmCredits) {
+    const strength = clamp(((credit.score || 45) / 100) * 0.75 + Math.min(0.25, Math.log10(Math.max(1, credit.gross || 1)) / 28), 0, 1);
+    out.push({ id: `screen|${credit.id}`, category: credit.medium === 'tv' || credit.medium === 'television' ? 'Outstanding Television Performance' : 'Outstanding Screen Performance', title: credit.title, strength });
+  }
   for (const v of s.social.videos || []) {
     if (W - v.week > 52) continue;
     out.push({ id: `video|${v.id}`, category: 'Video of the Year', title: v.title, strength: lg(v.views, 5, 3) * 0.9 + (v.quality || 50) / 1000 });
@@ -241,7 +246,7 @@ export function openAwardSubmissions(s, show, showWeek) {
   const suggested = [];
   for (const o of opts) { if (seen.has(o.category) || suggested.length >= 3) continue; seen.add(o.category); suggested.push(o.id); }
   const by = s.player.label ? s.player.label.name : 'Your team';
-  s.awardSubmission = { show: show.name, showWeek, options: opts.slice(0, 12), suggested, picks: null, by, signed: !!s.player.label, status: 'open' };
+  s.awardSubmission = { show: show.name, showId: show.id, showWeek, options: opts.slice(0, 12), suggested, picks: null, by, signed: !!s.player.label, status: 'open' };
   pushNotif(s, 'award', `${by} suggests entries for the ${show.name}. Confirm them before week ${showWeek}.`, { tab: 'home', submissions: true });
   return s.awardSubmission;
 }
@@ -283,6 +288,38 @@ export function awardNomination(s, rng, show, rivalById) {
 export function awardTick(s, rng) {
   if (s.awardEvent && s.awardEvent.status === 'pending' && s.awardEvent.week < s.week) resolveSkippedAward(s, rng);
   if (s.awardEvent && s.awardEvent.status === 'won' && s.awardEvent.week < s.week) s.awardEvent.status = 'done';
+}
+
+// Screen-industry ceremonies share the established submissions, presentation and history pipeline.
+export function actingAwardNomination(s, rng, show) {
+  const a = s.acting || {};
+  const candidates = (a.credits || []).filter((credit) => credit.releaseWeek == null || s.week - credit.releaseWeek <= 52)
+    .map((credit) => ({ credit, score: clamp(((credit.score || 45) / 100) * 0.75 + Math.min(0.25, Math.log10(Math.max(1, credit.gross || 1)) / 28), 0, 1) }))
+    .sort((x, y) => y.score - x.score);
+  const nominees = candidates.slice(0, 3);
+  if (!nominees.length) {
+    pushNews(s, `The ${show.name} honours the year’s screen performances`, false, 'Awards');
+    return null;
+  }
+  const chosen = nominees[0];
+  const id = uid(s, 'screen-award');
+  const year = 2027 + Math.floor((s.week - 1) / 52);
+  s.acting.awardHistory = s.acting.awardHistory || [];
+  s.acting.awardHistory.unshift({ id, show: show.name, year, week: s.week, title: chosen.credit.title, result: rng.chance(chosen.score) ? 'won' : 'nominated', nominees: nominees.map((x) => x.credit.title) });
+  s.acting.awardHistory = s.acting.awardHistory.slice(0, 40);
+  const result = s.acting.awardHistory[0];
+  if (result.result === 'won') {
+    s.player.fans += Math.round(15000 + chosen.score * 90000);
+    addStarPoints(s, 5 + chosen.score * 7);
+  } else addStarPoints(s, 3);
+  pushNews(s, result.result === 'won' ? `${s.player.stageName} wins at the ${show.name} for “${chosen.credit.title}”` : `${s.player.stageName} nominated at the ${show.name} for “${chosen.credit.title}”`, true, 'Awards');
+  pushNotif(s, 'award', result.result === 'won' ? `You won at the ${show.name} for “${chosen.credit.title}”.` : `You’re nominated at the ${show.name} for “${chosen.credit.title}”.`, { tab: 'world', section: 'acting' });
+  logTimeline(s, 'acting', `${result.result === 'won' ? 'Won' : 'Nominated'} at the ${show.name}`, chosen.credit.title);
+  return result;
+}
+export function actingAwardTick(s, rng, shows) {
+  const yearWeek = ((s.week - 1) % 52) + 1;
+  for (const show of shows) if (show.week === yearWeek) actingAwardNomination(s, rng, show);
 }
 
 // ---------- year stats & Wrapped ----------

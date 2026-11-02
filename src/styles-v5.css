@@ -66,3 +66,6 @@
   .topbar .next-btn .nx-l { display: none; }
   .topbar .stat-chip.bell { margin-left: 2px; }
 }
+
+/* Original, name-led ceremony and festival artwork. */
+.feature-art-original{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;position:relative;overflow:hidden;color:#fff;background:radial-gradient(ellipse at 78% 22%,hsl(var(--art-hue) 78% 65% / .9),transparent 42%),linear-gradient(145deg,hsl(var(--art-hue) 48% 28%),#11131d 76%);isolation:isolate}.feature-art-original:before,.feature-art-original:after{content:"";position:absolute;z-index:-1;pointer-events:none}.feature-art-original:before{width:70%;aspect-ratio:1;border:1px solid #ffffff66;border-radius:50%;right:-18%;top:-25%;box-shadow:0 0 0 18px #ffffff12,0 0 0 38px #ffffff0a}.feature-art-original:after{width:55%;height:130%;right:8%;top:18%;border-left:1px solid #ffffff55;border-right:1px solid #ffffff22;transform:rotate(28deg)}.feature-art-mark{font-size:clamp(2rem,6vw,4.5rem);line-height:1;text-shadow:0 4px 24px #0008}.feature-art-label{font-size:clamp(.72rem,1.6vw,1.05rem);font-weight:800;letter-spacing:.11em;text-transform:uppercase;max-width:90%;text-shadow:0 2px 12px #000b}

@@ -612,7 +612,9 @@ button:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
 .wa-choice { min-height: 44px; border-radius: 22px; border: 1px solid #25D366; color: #25D366; padding: 0 14px; font-weight: 600; text-align: left; }
 .wa-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
 /* Feature page illustration system */
-.feature-art { display:block; width:100%; height:150px; border-radius:12px; overflow:hidden; background:#11121a; }
+.feature-art { display:block; width:100%; height:150px; border-radius:12px; overflow:hidden; background:#11121a; object-fit:cover; object-position:center; }
+.feature-art-fallback { position:relative; }
+.feature-art-fallback::after { content:attr(data-art-label); position:absolute; inset:auto 8px 8px; color:#fff; font-size:11px; letter-spacing:.08em; text-transform:uppercase; opacity:.82; }
 .feature-art-wide { height:142px; border-radius:10px 10px 0 0; }
 .lifestyle-card,.festival-card,.label-identity,.feature-profile,.award-hero { overflow:hidden; padding:0 !important; }
 .lifestyle-card-copy,.festival-card-copy,.label-identity-copy,.film-profile-copy,.award-copy { padding:12px; }

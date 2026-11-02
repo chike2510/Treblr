@@ -86,8 +86,8 @@ describe('feature-page visual art', () => {
     const listings = LIFESTYLE.filter((item) => ['home', 'rental', 'car'].includes(item.kind));
     const cards = renderToString(<div>{listings.map((item) => <FeatureArt key={item.id} kind={item.kind === 'car' ? 'car' : 'home'} name={item.name} id={item.id} />)}</div>);
     const sources = [...cards.matchAll(/src="([^"]+)"/g)].map(([, src]) => src);
-    expect(sources).toHaveLength(9);
-    expect(new Set(sources).size).toBe(9);
+    expect(sources).toHaveLength(listings.length);
+    expect(new Set(sources).size).toBe(listings.length);
     expect(sources.every((src) => src.startsWith('/assets/lifestyle/'))).toBe(true);
     expect(cards).not.toContain('/assets/treblr-home-penthouse.jpg');
     expect(page('acting')).toContain('SCREEN PROFILE');

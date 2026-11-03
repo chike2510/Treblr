@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   createNewGame, advanceWeek, writeSong, recordSong, releaseMusic, playGig, doJob, respondOffer,
   migrate, saveGame, loadGame, listSaves, SAVE_VERSION, CHARTS, RIVALS, CITIES, GENRES, MARKETS,
-  computeCharts, movement, playerPositions, upNext, goalProgress, calendarEvents, createRng, decay,
+  computeCharts, movement, playerPositions, upNext, goalProgress, calendarEvents, createRng, decay, gameYear,
 } from './index.js';
 
 const setup = { firstName: 'Sam', lastName: 'Lee', stageName: 'SAMLEE', city: 'tor', age: 22, genre: 'pop', subgenres: ['Synth-Pop'], path: 'bedroom' };
@@ -21,6 +21,12 @@ function makeReleasedSong(state, producer = 'hitmaker') {
   r = releaseMusic(r.state, { type: 'single', songIds: [id], rollout: 'standard' });
   return { state: r.state, id };
 }
+
+describe('game calendar year', () => {
+  it('uses the configured game start year across 52-week boundaries', () => {
+    expect([gameYear(1), gameYear(52), gameYear(53), gameYear(105)]).toEqual([2027, 2027, 2028, 2029]);
+  });
+});
 
 describe('world data is global', () => {
   it('spans many countries, genres and markets', () => {

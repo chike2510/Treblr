@@ -199,6 +199,10 @@ export const GOALS = [
 ];
 
 export const START_DATE = Date.UTC(2027, 0, 4); // Monday, week 1
+export const START_YEAR = new Date(START_DATE).getUTCFullYear();
+export function gameYear(week) {
+  return START_YEAR + Math.floor((week - 1) / 52);
+}
 export function weekDate(week) {
   return new Date(START_DATE + (week - 1) * 7 * 86400000);
 }

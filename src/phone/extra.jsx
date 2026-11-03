@@ -4,12 +4,12 @@
 import { useMemo, useState } from 'react';
 import {
   fmtNum, fmtMoney, genreName, cityById, tierLabel, formatWeekDate, certName, SONG_CERTS, ALBUM_CERTS, netWorth, assetsValue,
-  createRng, hashString, cloudUpload, STORE_ITEMS, fameInfo, labelById, rivalLabelId, ACTING_ROLES, popularityFromListeners,
+  createRng, hashString, cloudUpload, STORE_ITEMS, fameInfo, labelById, rivalLabelId, ACTING_ROLES, popularityFromListeners, gameYear,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Cover, Empty, facePhoto, ArtistAvatar, ArtistArt, AppNav, Sheet } from '../ui/kit.jsx';
 import { CertBadge } from './media.jsx';
 
-const yearOf = (w) => 2027 + Math.floor((w - 1) / 52);
+const yearOf = (w) => gameYear(w);
 const hrand = (key, lo, hi) => { const r = createRng(hashString(key)); return r.float(lo, hi); };
 
 /* =============================== Treblrpedia =============================== */

@@ -2,7 +2,7 @@
 import { clamp, uid, fmtMoney, fmtNum } from './util.js';
 import { recordAwardResult } from './v5.js';
 import { gainHype, marketShares } from './model.js';
-import { VENUES, cityById, MARKETS, genreName, ACTING_AWARD_SHOWS } from './data.js';
+import { VENUES, cityById, MARKETS, genreName, ACTING_AWARD_SHOWS, gameYear } from './data.js';
 import { earn, spend, pushNews } from './actions.js';
 import { trackTickets, addStarPoints, statPost } from './career.js';
 import { tourStaffCost } from './business.js';
@@ -257,7 +257,7 @@ export function awardNomination(s, rng, show, rivalById) {
   let picks = sub?.picks || (sub?.signed ? sub.suggested : null);
   if (sub && !sub.picks && sub.signed) pushNotif(s, 'award', `${sub.by} submitted your entries for the ${show.name}.`, { tab: 'home' });
   s.awardSubmission = null;
-  const year = 2027 + Math.floor((s.week - 1) / 52);
+  const year = gameYear(s.week);
   if (!picks?.length) {
     recordAwardResult(s, { id: `aw-${show.name}-${year}`, show: show.name, year, result: 'no entry', entries: [] });
     pushNews(s, `${rng.pick(top.slice(0, 6)).name} sweeps the ${show.name}`, false, 'Awards');
@@ -303,7 +303,7 @@ export function actingAwardNomination(s, rng, show) {
   }
   const chosen = nominees[0];
   const id = uid(s, 'screen-award');
-  const year = 2027 + Math.floor((s.week - 1) / 52);
+  const year = gameYear(s.week);
   s.acting.awardHistory = s.acting.awardHistory || [];
   s.acting.awardHistory.unshift({ id, show: show.name, year, week: s.week, title: chosen.credit.title, result: rng.chance(chosen.score) ? 'won' : 'nominated', nominees: nominees.map((x) => x.credit.title) });
   s.acting.awardHistory = s.acting.awardHistory.slice(0, 40);

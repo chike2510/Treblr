@@ -5,7 +5,7 @@
 import { run, spend, earn, pushNews, bump } from './actions.js';
 import { clamp, uid, fmtMoney, fmtNum } from './util.js';
 import { gainHype } from './model.js';
-import { cityById, genreName, VENUES } from './data.js';
+import { cityById, genreName, VENUES, gameYear } from './data.js';
 import {
   LABELS, labelById, CREATIVE_CONTROL, DISTRIBUTORS, distributorById, LIFESTYLE, lifestyleById, ACTING_ROLES, FILM_WORDS, FILM_PROJECTS,
   FESTIVALS, FEST_SIZE, TOUR_STAFF, DANCE_GENRES, PROMO_IDEAS, ROLLOUT_STEPS, PAYOLA, AD_TIERS,
@@ -600,7 +600,7 @@ export function festivalTick(s, rng, ev) {
       s.festivals[f.key] = { ...st, announced: true };
       const lu = festivalLineup(s, f, f.key);
       const heads = lu.headliner.map((id) => s.rivals.find((r) => r.id === id)?.name).filter(Boolean);
-      pushNews(s, `${f.name} ${2027 + yearOf(f.festWeek)} lineup: ${heads.join(', ')} headline`, false, 'Festivals');
+      pushNews(s, `${f.name} ${gameYear(f.festWeek)} lineup: ${heads.join(', ')} headline`, false, 'Festivals');
       if (st.pitched) pushNotif(s, 'festival', st.accepted ? `You’re on the ${f.name} lineup (${st.slot})! 🎪` : `${f.name} lineup is out. You didn’t make it this year.`, { tab: 'world', section: 'festivals' });
       if (st.accepted) { logTimeline(s, 'festival', `Booked for ${f.name}`, st.slot); statPost(s, `${s.player.stageName} is on the ${f.name} lineup.`, true); }
     }

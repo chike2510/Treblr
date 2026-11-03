@@ -2,7 +2,7 @@
 import { createRng } from './rng.js';
 import { trackSongCharts, investTick, ownLabelTick, syncAwardHistory, FEAT_SHARE, SUBMIT_LEAD } from './v5.js';
 import { clone, clamp, uid, fmtMoney, fmtNum } from './util.js';
-import { CHARTS, CITIES, ROLLOUTS, VENUES, LABELS, BRANDS, AWARD_SHOWS, ACTING_AWARD_SHOWS, cityById, genreName, venueUnlocked } from './data.js';
+import { CHARTS, CITIES, ROLLOUTS, VENUES, LABELS, BRANDS, AWARD_SHOWS, ACTING_AWARD_SHOWS, cityById, genreName, venueUnlocked, gameYear } from './data.js';
 import { playerStreams, rivalSongPotential, radioSpins, marketShares, NPC_STREAM_K, PAY_PER_STREAM, FAN_FROM_DISC, FAN_FROM_AUD, FAN_HALF, gainHype, hypeDecay, releaseFatigue } from './model.js';
 import { computeCharts } from './charts.js';
 import { popularityFromListeners, makeRivalSong } from './state.js';
@@ -353,7 +353,7 @@ export function advanceWeek(state) {
   // 10. Industry filler news.
   if (rng.chance(0.6)) {
     pushNews(s, rng.pick([
-      `${rng.pick(CITIES).name} festival announces its ${2027 + Math.floor(W / 52)} lineup`,
+      `${rng.pick(CITIES).name} festival announces its ${gameYear(W)} lineup`,
       `Streaming numbers hit a record high in ${rng.pick(['Brazil', 'India', 'Mexico', 'Nigeria', 'Germany', 'Japan', 'South Korea', 'the UK', 'Indonesia', 'France'])}`,
       `${genreName(rng.pick(['pop', 'latin', 'kpop', 'afrobeats', 'country', 'electronic', 'hiphop', 'indie']))} is the fastest-growing genre this quarter`,
       `Vinyl sales climb for the ${rng.int(15, 20)}th straight year`,

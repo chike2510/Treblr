@@ -47,6 +47,21 @@ export default function FeatureArt({ kind, name = '', id = '', className = '' })
   const lifestylePhoto = lifestylePhotos[id];
   const ceremonial = kind === 'award' || kind === 'festival';
   const photo = lifestylePhoto || (!ceremonial ? photos[kind] || photos[(kind === 'house' || kind === 'rental') ? 'home' : kind] : null);
+  if (kind === 'festival' && id === 'lollapulse') {
+    return (
+      <div className={`feature-art lollapulse-poster ${className}`} role="img" aria-label="Lollapulse, alternative music festival poster artwork">
+        <span className="lolla-poster-grain" aria-hidden="true" />
+        <span className="lolla-poster-kicker">TREBLR PRESENTS <i>·</i> CHICAGO</span>
+        <span className="lolla-poster-orbit" aria-hidden="true"><i /><b /></span>
+        <span className="lolla-poster-ridge" aria-hidden="true"><i /><b /></span>
+        <span className="lolla-poster-cable" aria-hidden="true" />
+        <span className="lolla-poster-title"><b>LOLLA</b><b>PULSE<span>®</span></b></span>
+        <span className="lolla-poster-rule" aria-hidden="true" />
+        <span className="lolla-poster-footer"><b>ALTERNATIVE MUSIC FESTIVAL</b><i>THREE DAYS OUT OF THE ORDINARY</i></span>
+        <span className="lolla-poster-stamp">INDEPENDENT<br />BY NATURE</span>
+      </div>
+    );
+  }
   if (ceremonial) {
     return <div className={`feature-art feature-art-original ${className}`} role="img" aria-label={`${kind} artwork for ${name || id || 'career'}`} style={{ '--art-hue': hue }}><span className="feature-art-mark">{kind === 'award' ? '✦' : '◈'}</span><span className="feature-art-label">{name || id}</span></div>;
   }

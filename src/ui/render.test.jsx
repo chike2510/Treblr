@@ -103,6 +103,15 @@ describe('feature-page visual art', () => {
     expect(results).toContain('award artwork for Treblr Awards');
     expect(page('award-submissions')).toContain('AWARD ENTRY ROOM');
   });
+  it('renders custom Lollapulse alternative-festival poster art rather than generic festival art', () => {
+    const poster = renderToString(<FeatureArt kind="festival" name="Lollapulse" id="lollapulse" className="feature-art-poster" />);
+    expect(poster).toContain('Lollapulse, alternative music festival poster artwork');
+    expect(poster).toContain('ALTERNATIVE MUSIC FESTIVAL');
+    expect(poster).toContain('lolla-poster-orbit');
+    expect(poster).not.toContain('<img');
+    expect(poster).not.toContain('festival artwork for Lollapulse');
+    expect(renderToString(<FeatureArt kind="festival" name="Rosefield Festival" id="rosefield" />)).toContain('feature-art-original');
+  });
   it('renders festival stage art and announced real lineup artists', () => {
     const all = page('festival-lineups');
     expect(all).toContain('festival artwork');

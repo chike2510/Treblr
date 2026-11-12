@@ -11,6 +11,7 @@ import { contactForRival, openCrisis, meetPerson, endRelationship, resolveSkippe
 import { logTimeline, pushNotif } from './journal.js';
 import { gigDemand, ARTIST_CUT } from './actions.js';
 import { collabQuote } from './npc.js';
+import { staffEff } from './hiring.js';
 
 // Burnout: ending weeks fully drained raises burnout; keeping something in the tank or resting lowers it.
 // Energy refills completely every week; burnout only trims the cap a little (max -20) once it passes 20.
@@ -40,7 +41,7 @@ export function resolveTourWeek(s, rng, ev) {
     if (stop.done || stop.week > s.week) continue;
     const demand = gigDemand(s, stop.cityId) * rng.float(0.85, 1.25) * (1 + nights.length * 0.02) * (0.85 + q / 350);
     const sold = Math.min(v.capacity, Math.round(demand));
-    const gross = Math.round(sold * v.ticket * ARTIST_CUT * (p.staff.booking ? 1.2 : 1));
+    const gross = Math.round(sold * v.ticket * ARTIST_CUT * (1 + 0.2 * staffEff(s, 'booking')));
     const fans = Math.round(sold * rng.float(0.06, 0.14) * (1 + p.skills.performance / 150) * (0.6 + q / 120));
     stop.done = true; stop.sold = sold; stop.gross = gross; stop.fans = fans; stop.soldOut = sold >= v.capacity;
     t.gross += gross; t.fans += fans; if (stop.soldOut) { t.sellouts += 1; p.sellouts += 1; }

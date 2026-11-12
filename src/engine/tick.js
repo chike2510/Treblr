@@ -9,6 +9,7 @@ import { popularityFromListeners, makeRivalSong } from './state.js';
 import { earn, spend, pushNews } from './actions.js';
 import { checkGoals, staffCost, LIVING_COST, housingCost } from './goals.js';
 import { TIERS, npcTitle } from './npc.js';
+import { staffEff, staffCut } from './hiring.js';
 import { pickHeadline, renderHeadline } from './headlines.js';
 import { generateWeeklyGoalsFor } from './weekly.js';
 import { logTimeline, pushNotif } from './journal.js';
@@ -148,7 +149,7 @@ export function advanceWeek(state) {
   }
   p.lifetimeStreams = (p.lifetimeStreams || 0) + totalStreams;
   trackYear(s, totalStreams, songStreams);
-  const mgr = p.staff.manager ? 1.1 : 1;
+  const mgr = 1 + 0.1 * staffEff(s, 'manager');
   if (streamRevenue > 0) {
     const net = labelRoyalty(s, streamRevenue * mgr);
     if (net >= 1) earn(s, 'streams', net, p.label && p.label.recouped < p.label.advance ? 'Streaming royalties (after recoupment)' : 'Streaming royalties');
@@ -250,7 +251,7 @@ export function advanceWeek(state) {
     pushNotif(s, 'fame', `You’re now considered a ${t.name.toLowerCase()} 🌟`, { tab: 'home' });
     if (['star', 'superstar', 'icon'].includes(t.id)) { pushNews(s, `${name} is officially a ${t.name.toLowerCase()}`, true, 'Fame'); statPost(s, `${name} has reached ${t.name} status.`, true); }
   }
-  p.hype = clamp(hypeDecay(p.hype, p.staff.publicist), 0, 100);
+  p.hype = clamp(hypeDecay(p.hype, p.staff.publicist ? staffEff(s, 'publicist') : false), 0, 100);
   p.followers.chirp += Math.round(newFans * 0.3);
   p.followers.snapshot += Math.round(newFans * 0.35);
   p.followers.clipz += Math.round(newFans * 0.25);
@@ -263,8 +264,8 @@ export function advanceWeek(state) {
   const sc = staffCost(s);
   if (sc) spend(s, 'staff', sc, 'Team salaries');
   const grossIn = Object.entries(s.ledger.income).filter(([k]) => !['advance', 'loan', 'rewards'].includes(k)).reduce((a, [, v]) => a + v, 0);
-  if (p.staff.manager && grossIn > 0) spend(s, 'staff', grossIn * 0.1, 'Manager commission (10%)');
-  if (p.staff.booking && s.ledger.income.gigs > 0) spend(s, 'staff', s.ledger.income.gigs * 0.1, 'Booking agent commission (10%)');
+  if (p.staff.manager && grossIn > 0) spend(s, 'staff', grossIn * staffCut(s, 'manager'), `Manager commission (${Math.round(staffCut(s, 'manager') * 100)}%)`);
+  if (p.staff.booking && s.ledger.income.gigs > 0) spend(s, 'staff', s.ledger.income.gigs * staffCut(s, 'booking'), `Booking agent commission (${Math.round(staffCut(s, 'booking') * 100)}%)`);
   const upkeep = lifestyleUpkeep(s);
   if (upkeep) spend(s, 'lifestyle', upkeep, 'Lifestyle upkeep');
   distributionTick(s);
@@ -478,7 +479,7 @@ function randomEvent(s, rng, events) {
 function generateOffers(s, rng) {
   const p = s.player;
   const W = s.week;
-  const mgrBoost = p.staff.manager ? 1.2 : 1;
+  const mgrBoost = 1 + 0.2 * staffEff(s, 'manager');
   const active = s.inbox.filter((m) => m.type === 'offer' && !m.status);
   const activeFrom = new Set(active.map((m) => m.from));
   const add = (subtype, from, subject, body, payload, weeks = 2) => {
@@ -506,7 +507,7 @@ function generateOffers(s, rng) {
     const fans = Math.round(Math.min(r.monthlyListeners * 0.002, 200000) * rng.float(0.4, 1));
     if (add('feature', r.name, `${r.name} wants a feature`, `${r.name} (${genreName(r.genre)}) wants a verse on their next single. Fee ${fmtMoney(cash)}, exposure to their audience (~+${fmtNum(fans)} fans). Costs 20 energy.`, { artist: r.name, rivalId: r.id, cash, fans, energy: 20 }, 3)) contactForRival(s, r.id);
   }
-  if (rng.chance(0.3 + (p.staff.booking ? 0.25 : 0))) {
+  if (rng.chance(0.3 + 0.25 * staffEff(s, 'booking'))) {
     // Offers scale with the player: only the biggest rooms you qualify for (no open-mic offers for a
     // charting artist), and the same promoter/room combination cools down for 10 weeks.
     const heat = Object.entries(p.fanHeat).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -517,7 +518,7 @@ function generateOffers(s, rng) {
     for (const [cid] of heat.length ? heat : [[p.city]]) for (const v of top) if (!(s.offerLog[`gig|${cid}|${v.id}`] != null && W - s.offerLog[`gig|${cid}|${v.id}`] < 10)) options.push([cid, v]);
     if (options.length) {
       const [cityId, venue] = rng.pick(options);
-      const cash = Math.round(venue.capacity * venue.ticket * 0.5 * (p.staff.booking ? 1.2 : 1) * rng.float(0.8, 1.2));
+      const cash = Math.round(venue.capacity * venue.ticket * 0.5 * (1 + 0.2 * staffEff(s, 'booking')) * rng.float(0.8, 1.2));
       const fans = Math.round(venue.capacity * rng.float(0.04, 0.1));
       const c = cityById(cityId);
       if (add('gig', `${c.name} promoter`, `Gig offer: ${venue.name} in ${c.name}`, `Guaranteed fee ${fmtMoney(cash)} to play a ${venue.name.toLowerCase()} in ${c.flag} ${c.name}. Costs ${venue.energy} energy.`, { venue: `${venue.name}, ${c.name}`, city: cityId, cash, fans, energy: venue.energy })) s.offerLog[`gig|${cityId}|${venue.id}`] = W;

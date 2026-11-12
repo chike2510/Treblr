@@ -12,6 +12,7 @@ import {
 } from './data2.js';
 import { logTimeline, pushNotif } from './journal.js';
 import { stat } from './weekly.js';
+import { staffEff } from './hiring.js';
 import { addStarPoints, statPost } from './career.js';
 import { contactForRival, openCrisis } from './features.js';
 
@@ -569,7 +570,7 @@ export function pitchFestival(state, { key }) {
     s.player.socialEnergy -= 5;
     const slot = festSlotFor(s, f);
     const fit = !f.genres.length || f.genres.includes(s.player.genre) ? 1 : 0.6;
-    const chance = slot ? clamp((0.35 + s.player.popularity / 200) * fit + (s.player.staff.booking ? 0.15 : 0) + (s.player.label ? 0.05 : 0), 0.05, 0.92) : 0.04;
+    const chance = slot ? clamp((0.35 + s.player.popularity / 200) * fit + 0.15 * staffEff(s, 'booking') + (s.player.label ? 0.05 : 0), 0.05, 0.92) : 0.04;
     const accepted = rng.chance(chance);
     s.festivals[key] = { pitched: s.week, accepted, slot: accepted ? (slot || 'undercard') : null, festWeek: f.festWeek };
     return { msg: `Pitch sent to ${f.name}. You’ll find out when the lineup drops (week ${f.lineupWeek}).` };

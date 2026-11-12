@@ -44,7 +44,7 @@ export function gainHype(p, amt) {
 }
 // Weekly hype decay: faster at high values.
 export function hypeDecay(hype, publicist = false) {
-  const rate = (0.1 + hype / 400) * (publicist ? 0.75 : 1);
+  const rate = (0.1 + hype / 400) * (publicist ? (typeof publicist === 'number' ? 1 - 0.25 * publicist : 0.75) : 1);
   return hype * (1 - rate);
 }
 // Skill growth with diminishing returns.

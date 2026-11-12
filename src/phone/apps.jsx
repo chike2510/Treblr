@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import {
   respondOffer, markRead, setStaff, saveGame, listSaves, deleteSave, calendarEvents, weekDate, STAFF,
   fmtNum, fmtMoney, weeklyExpenses, LABELS, exportPhotoPack, importPhotoPack, negotiateDeal, dealText, CREATIVE_CONTROL,
-  staffOffers, creditScore, creditBand, loanOffer, takeLoan, repayLoan, weeklyPayment, totalDebt, avgIncome, netWorth,
+  staffOffers, hirePool, staffTerms, creditScore, creditBand, loanOffer, takeLoan, repayLoan, weeklyPayment, totalDebt, avgIncome, netWorth,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, Seg, Empty, Bar } from '../ui/kit.jsx';
 import { TreblrX, Treblrgram, TreblrTok, TreblrTube } from './social.jsx';
@@ -218,6 +218,7 @@ function News() {
 /* ---------------- Manager ---------------- */
 function Manager() {
   const { state, act } = useGame();
+  const [role, setRole] = useState(null);
   const p = state.player;
   const hired = STAFF.filter((s) => p.staff[s.id]);
   const offers = staffOffers(state);
@@ -236,21 +237,57 @@ function Manager() {
         {tips.slice(0, 4).map((t, i) => <div key={i} className="small mt8">💬 {t}</div>)}
       </div>
       <h3 className="mt24" style={{ fontSize: 18 }}>Your team</h3>
+      <div className="tiny muted mt4">Tap a role to browse this week's candidates. The list refreshes every week.</div>
       <div className="col mt12">
-        {STAFF.map((s) => (
-          <div key={s.id} className="card tight">
-            <div className="row between gap6"><b>{s.name}</b><span className="small" style={{ flexShrink: 0 }}>{fmtMoney(offers[s.id].salary)}/wk{s.commission ? ` + ${Math.round(s.commission * 100)}% cut` : ''}</span></div>
-            <div className="tiny muted mt8" data-testid={`offer-${s.id}`}>
-              {offers[s.id].lines.map((l, i) => <div key={i} className="mt4">{l}</div>)}
-              {offers[s.id].recent && <div className="mt4">{offers[s.id].recent}</div>}
-              <div className="mt4"><b>Break-even:</b> {offers[s.id].breakEven}</div>
-              <div className="mt4"><b>Verdict:</b> {offers[s.id].verdict}</div>
-            </div>
-            <button className={`btn sm mt12 ${p.staff[s.id] ? 'danger' : 'accent'}`} onClick={() => act(setStaff, { role: s.id, hire: !p.staff[s.id] })}>{p.staff[s.id] ? 'Let go' : 'Hire'}</button>
-          </div>
-        ))}
+        {STAFF.map((s) => {
+          const pick = p.staffPick?.[s.id];
+          const t = staffTerms(state, s.id);
+          return (
+            <button key={s.id} className="card tight press" data-testid={`role-${s.id}`} style={{ textAlign: 'left', width: '100%' }} onClick={() => setRole(s.id)}>
+              <div className="row between gap6"><b>{s.name}</b><span className="small" style={{ flexShrink: 0 }}>{p.staff[s.id] ? 'Hired' : 'Open'} ›</span></div>
+              {p.staff[s.id]
+                ? <div className="tiny mt8">{pick ? `${pick.name} (${pick.agency})` : 'Standard hire'} · Efficiency {t.efficiency.toFixed(2)} · {fmtMoney(offers[s.id].salary)}/wk{s.commission ? ` + ${Math.round(t.cut * 100)}% cut` : ''}</div>
+                : <div className="tiny muted mt8">{hirePool(state, s.id).length} candidates this week · from {fmtMoney(Math.min(...hirePool(state, s.id).map((c) => c.price)))}/wk</div>}
+            </button>
+          );
+        })}
       </div>
+      <HireMarket role={role} onClose={() => setRole(null)} />
     </div>
+  );
+}
+
+export function HireMarket({ role, onClose }) {
+  const { state, act } = useGame();
+  const p = state.player;
+  const st = STAFF.find((x) => x.id === role);
+  const offers = staffOffers(state);
+  if (!st) return null;
+  const pool = hirePool(state, role);
+  const best = Math.max(...pool.map((c) => c.efficiency));
+  const pick = p.staffPick?.[role];
+  return (
+    <Sheet open title={`${st.name} candidates`} sub={`Week ${state.week} market. New faces next week.`} onClose={onClose}>
+      <div className="col gap8" data-testid="hire-market" data-role={role}>
+        <div className="tiny muted">{st.buff}</div>
+        <div className="tiny muted" data-testid={`offer-${role}`}>
+          {offers[role].lines.map((l, i) => <div key={i} className="mt4">{l}</div>)}
+          <div className="mt4"><b>Break-even (standard hire):</b> {offers[role].breakEven}</div>
+        </div>
+        {p.staff[role] && <div className="card tight"><div className="tiny">Current: <b>{pick ? pick.name : 'Standard hire'}</b> · Efficiency {staffTerms(state, role).efficiency.toFixed(2)} · {fmtMoney(offers[role].salary)}/wk</div><button className="btn sm danger mt8" onClick={() => act(setStaff, { role, hire: false })}>Let go</button></div>}
+        {pool.map((c) => {
+          const current = pick?.id === c.id;
+          return (
+            <div key={c.id} className="card tight" data-testid={`cand-${c.id}`}>
+              <div className="row between gap6"><div><b>{c.name}</b><div className="tiny muted">{c.agency} · {c.tier}</div></div><div style={{ textAlign: 'right' }}><b>{fmtMoney(c.price)}/wk</b><div className="tiny muted">{c.value} eff per $1k</div></div></div>
+              <div className="mt8"><div className="row between tiny"><span>Efficiency</span><b>{c.efficiency.toFixed(2)}{c.efficiency === best ? ' (best)' : ''}</b></div><Bar pct={Math.min(1, c.efficiency / 1.5)} /></div>
+              <div className="tiny muted mt8">{c.effects.map((l, i) => <div key={i}>{l}</div>)}</div>
+              <button className={`btn sm mt12 ${current ? '' : 'accent'}`} disabled={current} onClick={() => act(setStaff, { role, hire: true, candidateId: c.id })}>{current ? 'Hired' : p.staff[role] ? 'Switch to this one' : 'Hire'}</button>
+            </div>
+          );
+        })}
+      </div>
+    </Sheet>
   );
 }
 

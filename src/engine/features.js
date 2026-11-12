@@ -8,6 +8,7 @@ import { collabQuote, tierLabel } from './npc.js';
 import { scaledCollabQuote, genreFit, rivalBusy } from './v5.js';
 import { weeklyProgress, stat } from './weekly.js';
 import { logTimeline, pushNotif } from './journal.js';
+import { staffEff } from './hiring.js';
 import { sameLabel, setlistScore, tourStaffCost, ownsKind } from './business.js';
 import { addStarPoints, statPost } from './career.js';
 
@@ -479,7 +480,7 @@ export function handleCrisis(state, { choice }) {
       const hired = p.staff.publicist;
       if (!hired && p.cash < 2500) return fail('A freelance publicist costs $2,500.');
       if (!hired) spend(s, 'staff', 2500, 'Crisis PR (freelance)');
-      if (rng.chance(hired ? 0.9 : 0.65)) { gainHype(p, 2); s.crisis = null; return { msg: 'Your publicist spun it. Crisis contained.' }; }
+      if (rng.chance(hired ? Math.min(0.95, 0.65 + 0.25 * staffEff(s, 'publicist')) : 0.65)) { gainHype(p, 2); s.crisis = null; return { msg: 'Your publicist spun it. Crisis contained.' }; }
       gainHype(p, -6); s.crisis = null; return { msg: 'Even the publicist couldn\u2019t fully save this one.' };
     }
     if (choice === 'apologise') {

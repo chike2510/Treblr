@@ -6,6 +6,7 @@ import {
 } from './data.js';
 import { projectWriteQuality, projectRecordQuality, lengthFit, gainHype, skillGain } from './model.js';
 import { checkGoals } from './goals.js';
+import { staffEff, hirePool } from './hiring.js';
 import { stat } from './weekly.js';
 import { fanComments } from './comments.js';
 import { pushNotif, logTimeline, eraOf } from './journal.js';
@@ -332,7 +333,7 @@ export function playGig(state, { venueId, cityId }) {
     s.player.gigLog[key] = { count: (prev ? prev.count * Math.pow(0.85, s.week - prev.week) : 0) + 1, week: s.week };
     stat(s, 'gig');
     const soldOut = sold >= v.capacity;
-    const pay = sold * v.ticket * ARTIST_CUT * (s.player.staff.booking ? 1.2 : 1);
+    const pay = sold * v.ticket * ARTIST_CUT * (1 + 0.2 * staffEff(s, 'booking'));
     earn(s, 'gigs', pay, `${v.name}, ${city.name}`);
     const roomFit = clamp(v.capacity / Math.max(80, s.player.fans * 0.05), 0.15, 1);
     const newFans = Math.round(sold * rng.float(0.06, 0.16) * (1 + s.player.skills.performance / 100) * fat * roomFit);
@@ -421,13 +422,29 @@ export function respondOffer(state, { id, accept }) {
 }
 
 // ---------- Team, business, media ----------
-export function setStaff(state, { role, hire }) {
+export function setStaff(state, { role, hire, candidateId }) {
   return run(state, (s) => {
     const st = STAFF.find((x) => x.id === role);
     if (!st) return fail('Unknown role.');
-    if (hire && s.player.cash < st.salary * 2) return fail(`Keep at least ${fmtMoney(st.salary * 2)} to cover their first weeks.`);
-    s.player.staff[role] = !!hire;
-    return { msg: hire ? `${st.name} hired, ${fmtMoney(st.salary)}/week.` : `${st.name} let go.` };
+    s.player.staffPick = s.player.staffPick || {};
+    if (!hire) {
+      s.player.staff[role] = false;
+      delete s.player.staffPick[role];
+      return { msg: `${st.name} let go.` };
+    }
+    // Hire from this week's market when a candidate is chosen; no candidate = the standard hire.
+    let cand = null;
+    if (candidateId) {
+      cand = hirePool(s, role).find((c) => c.id === candidateId);
+      if (!cand) return fail('That candidate is no longer available. The list refreshed.');
+    }
+    const price = cand ? cand.price : st.salary;
+    if (s.player.staff[role] && cand && s.player.staffPick[role]?.id === cand.id) return fail(`${cand.name} already works for you.`);
+    if (s.player.cash < price * 2) return fail(`Keep at least ${fmtMoney(price * 2)} to cover their first weeks.`);
+    s.player.staff[role] = true;
+    if (cand) s.player.staffPick[role] = { id: cand.id, name: cand.name, agency: cand.agency, efficiency: cand.efficiency, cut: cand.cut, price: cand.price, tier: cand.tier, hiredWeek: s.week };
+    else delete s.player.staffPick[role];
+    return { msg: `${cand ? cand.name : st.name} hired as ${st.name.toLowerCase()}, ${fmtMoney(price)}/week.` };
   });
 }
 
@@ -478,7 +495,7 @@ export function doMedia(state, { kind }) {
     const p = s.player;
     const cost = { press: ENERGY.press, radio: ENERGY.radio, interview: ENERGY.interview }[kind];
     if (!cost) return fail('Unknown media.');
-    const e = p.staff.publicist ? Math.round(cost * 0.7) : cost;
+    const e = p.staff.publicist ? Math.round(cost * (1 - 0.3 * staffEff(s, 'publicist'))) : cost;
     if (!needEnergy(s, e)) return fail('Not enough energy.');
     if (kind === 'interview' && p.popularity < 20) return fail('Podcasts want popularity 20+.');
     p.energy -= e;

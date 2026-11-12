@@ -83,8 +83,10 @@ export function upNext(s) {
 
 export function staffSalaries(s) {
   const sal = { manager: 1500, publicist: 1000, booking: 700 };
+  // Whoever you hired from the weekly market is paid their agreed price (locked in when hired).
+  for (const r of Object.keys(sal)) if (s.player?.staff?.[r] && s.player.staffPick?.[r]) sal[r] = s.player.staffPick[r].price;
   const mgrRel = (s.contacts || []).find((c) => c.role === 'manager')?.rel ?? 0;
-  if (mgrRel >= 70) sal.manager = 1200; // a manager who likes you takes a smaller salary
+  if (mgrRel >= 70) sal.manager = Math.round(sal.manager * 0.8); // a manager who likes you takes a smaller salary
   return sal;
 }
 export function staffCost(s) {

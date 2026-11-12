@@ -12,7 +12,7 @@ import World from '../screens/World.jsx';
 import Profile from '../screens/Profile.jsx';
 import Reveal from '../screens/Reveal.jsx';
 import { AwardShow, CrisisSheet, WrappedCard, NotificationsPanel } from '../screens/Overlays.jsx';
-import { APPS, APP_ALIASES } from '../phone/apps.jsx';
+import { APPS, APP_ALIASES, HireMarket } from '../phone/apps.jsx';
 import { runSim } from '../../scripts/balance-sim.mjs';
 
 function rich() {
@@ -110,8 +110,16 @@ describe('Treblr-branded phone apps', () => {
     const t = app('treblrtok');
     expect(t).toContain('For You'); expect(t).toContain('LIVE'); expect(t).toContain('Duet'); expect(t).toContain('Use sound');
     const m = app('manager');
-    expect(m).toContain('Your team'); expect(m).toMatch(/\/wk(<!-- -->)? \+ 10% cut/); expect(m).toContain('Break-even:'); expect(m).toContain('per $1,000 of streams');
-    expect(m).toContain('hype kept per week'); expect(m).toContain('press 15 to 11'); expect(m).toContain('+$80 per $1,000 of gig pay');
+    expect(m).toContain('Your team'); expect(m).toContain('role-manager'); expect(m).toContain('role-publicist'); expect(m).toContain('role-booking');
+    expect(m).toContain('candidates this week'); expect(m).toMatch(/\/wk(<!-- -->)? \+ 10% cut/);
+    for (const role of ['manager', 'publicist', 'booking']) {
+      const h = html(<HireMarket role={role} onClose={() => {}} />);
+      expect(h).toContain('hire-market'); expect(h).toContain('Efficiency'); expect(h).toContain('/wk'); expect(h).toContain('Break-even');
+      expect((h.match(/data-testid="cand-/g) || []).length).toBe(E.POOL_SIZE);
+    }
+    expect(html(<HireMarket role="manager" onClose={() => {}} />)).toContain('per $1,000 of streams');
+    expect(html(<HireMarket role="publicist" onClose={() => {}} />)).toContain('press 15 to 11');
+    expect(html(<HireMarket role="booking" onClose={() => {}} />)).toContain('+$80 per $1,000 of gig pay');
     const y = app('treblrtube');
     expect(y).toContain('Upload a music video'); expect(y).toContain('Shorts'); expect(y).toContain('(Official Video)');
     const sp = app('treblify');

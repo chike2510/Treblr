@@ -161,9 +161,20 @@ describe('game-wide screens', () => {
     for (const route of routes) expect(html(<World initial={route} />).length).toBeGreaterThan(300);
     const tr = html(<World initial="training" />);
     expect(tr).toContain('Songwriting workshop');
-    for (const [section, text] of [['labels', 'Label'], ['lifestyle', 'Assets'], ['acting', 'SCREEN PROFILE'], ['merch', 'Merch'], ['festivals', 'Pitch yourself'], ['awards', 'Season calendar']]) {
+    for (const [section, text] of [['labels', 'Label'], ['lifestyle', 'Assets'], ['acting', 'SCREEN PROFILE'], ['merch', 'Overview'], ['festivals', 'Pitch yourself'], ['awards', 'Season calendar']]) {
       expect(html(<World initial={section} />)).toContain(text);
     }
+  });
+  it('no breadcrumb renders on any World feature page or Festival Browse', () => {
+    const routes = ['tours','tour-routes','tour-crew','tour-shows','labels','label-independent','label-distribution','label-deals','label-imprint','lifestyle','lifestyle-property','lifestyle-vehicles','acting','acting-auditions','acting-credits','merch','merch-products','merch-sales','festivals','festival-pitches','festival-lineups','awards','award-submissions','award-results','training'];
+    for (const route of routes) {
+      const out = html(<World initial={route} />);
+      expect(out).not.toMatch(/World\s*\/\s/);
+      expect(out).not.toMatch(/(festivals|tours|labels|lifestyle|acting|merch|awards)\s*\/\s*(<!-- -->)?\s*(Browse|Overview|Profile|Season|Portfolio|Career paths)/i);
+    }
+    const fb = html(<World initial="festivals" />);
+    expect(fb).toContain('Browse');
+    expect(fb).not.toMatch(/festivals\s*\/\s*(<!-- -->)?\s*Browse/i);
   });
   it('Profile shows relationship status', () => {
     expect(html(<Profile onClose={() => {}} />)).toMatch(/Single|Dating/);

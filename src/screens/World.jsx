@@ -44,7 +44,7 @@ export default function World({ initial }) {
     const item = SECTIONS.flatMap((section) => section.items).find((x) => x.id === (featureRoot || initial));
     const Page = FEATURE_PAGE_COMPONENTS[featureRoot || initial];
     const title = featurePageTitle(initial) || item?.name;
-    return <div className="screen world-feature"><div className="row between"><div><Mono style={{ color: 'var(--teal)' }}>World / {item?.name} / {title}</Mono><h1 style={{ fontSize: 30 }}>{title}</h1><div className="small muted">Week {state.week} · {p.stageName} · {fmtMoney(p.cash)} · {p.energy} energy</div></div><button className="icon-btn" onClick={() => go({ tab: 'world' })} aria-label="Back to World"><Icon name="close" size={20} /></button></div>{featureRoot && <FeatureSubnav system={featureRoot} page={initial} />}<div className="section mt12"><Page page={initial} /></div></div>;
+    return <div className="screen world-feature"><div className="row between"><div><h1 style={{ fontSize: 30 }}>{title}</h1><div className="small muted">Week {state.week} · {p.stageName} · {fmtMoney(p.cash)} · {p.energy} energy</div></div><button className="icon-btn" onClick={() => go({ tab: 'world' })} aria-label="Back to World"><Icon name="close" size={20} /></button></div>{featureRoot && <FeatureSubnav system={featureRoot} page={initial} />}<div className="section mt12"><Page page={initial} /></div></div>;
   }
   const heat = p.fanHeat;
   const max = Math.max(1, ...Object.values(heat));

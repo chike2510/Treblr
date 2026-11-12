@@ -1,4 +1,4 @@
-import { useGame, Mono } from '../ui/kit.jsx';
+import { useGame } from '../ui/kit.jsx';
 
 export const FEATURE_SUBPAGES = {
   tours: { tours: 'Overview', 'tour-routes': 'Route book', 'tour-crew': 'Road crew', 'tour-shows': 'Show ledger' },
@@ -16,5 +16,5 @@ export const featurePageTitle = (id) => FEATURE_SUBPAGES[FEATURE_ROUTE_ROOT[id]]
 export default function FeatureSubnav({ system, page }) {
   const { go } = useGame();
   const pages = FEATURE_SUBPAGES[FEATURE_ROUTE_ROOT[page]] || {};
-  return <><div className="pills mt8" aria-label={`${system} pages`}>{Object.entries(pages).map(([route, label]) => <button key={route} className={`pill ${page === route ? 'on' : ''}`} onClick={() => go({ tab: 'world', section: route })}>{label}</button>)}</div><div className="tiny muted mt8"><Mono>{system.replace('-', ' ')} / {pages[page]}</Mono></div></>;
+  return <><div className="pills mt8" aria-label={`${system} pages`}>{Object.entries(pages).map(([route, label]) => <button key={route} className={`pill ${page === route ? 'on' : ''}`} onClick={() => go({ tab: 'world', section: route })}>{label}</button>)}</div></>;
 }

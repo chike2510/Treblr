@@ -1,3 +1,5 @@
+import DesignedPoster, { posterFor } from './FestivalAwardPosters.jsx';
+
 const photos = {
   car: { kind: 'car', src: '/assets/treblr-car-s-class.jpg', description: 'Black Mercedes-Benz S-Class W223 sedan, photo by Damian B Oh, CC BY-SA 4.0' },
   festival: { kind: 'festival', src: '/assets/treblr-festival-crowd.jpg', description: 'Crowd and stage at All Good Music Festival, photo by JosephAdams, CC BY 2.0' },
@@ -62,6 +64,8 @@ export default function FeatureArt({ kind, name = '', id = '', className = '' })
       </div>
     );
   }
+  const designed = ceremonial ? posterFor(name, id) : null;
+  if (designed) return <DesignedPoster slug={designed.slug} poster={designed.poster} kind={kind} className={className} />;
   if (ceremonial) {
     return <div className={`feature-art feature-art-original ${className}`} role="img" aria-label={`${kind} artwork for ${name || id || 'career'}`} style={{ '--art-hue': hue }}><span className="feature-art-mark">{kind === 'award' ? '✦' : '◈'}</span><span className="feature-art-label">{name || id}</span></div>;
   }

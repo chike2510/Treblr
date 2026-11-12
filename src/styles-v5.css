@@ -80,3 +80,125 @@
 .lolla-poster-rule{z-index:3;width:62%;height:1px;background:linear-gradient(90deg,var(--lp-lime),#ffffff66,transparent);margin-bottom:10px}.lolla-poster-footer{z-index:3;display:flex;flex-direction:column;gap:5px;max-width:82%;font:800 clamp(7px,1.7vw,10px)/1.4 ui-monospace,monospace;letter-spacing:.11em}.lolla-poster-footer b{color:var(--lp-lime);font-size:1.08em}.lolla-poster-footer i{font-style:normal;color:#eee5d5a8;font-size:.82em;letter-spacing:.12em}.lolla-poster-stamp{position:absolute;z-index:3;right:clamp(14px,4vw,28px);bottom:clamp(14px,4vw,28px);padding:5px 7px;border:1px solid #ff806d99;color:#ff9b81;font:800 7px/1.25 ui-monospace,monospace;letter-spacing:.1em;transform:rotate(-7deg);text-align:center}
 .feature-art-wide.lollapulse-poster{height:142px}.feature-art-poster.lollapulse-poster{height:160px}.lollapulse-poster.feature-art-wide .lolla-poster-title{font-size:clamp(27px,7vw,48px);padding-top:0}.lollapulse-poster.feature-art-wide .lolla-poster-footer{font-size:7px}.lollapulse-poster.feature-art-poster .lolla-poster-title{font-size:clamp(31px,8vw,56px)}
 @media(max-width:420px){.feature-art-wide.lollapulse-poster{height:126px}.feature-art-poster.lollapulse-poster{height:140px}}
+/* Individually designed fictional festival and award posters. Each slug has its own palette, motif and typography. */
+.fpx{--bg1:#111;--bg2:#222;--ink:#fff;--a:#fc0;--b:#f0f;--ts:15cqw;position:relative;isolation:isolate;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;padding:6cqw 7cqw;color:var(--ink);background:linear-gradient(155deg,var(--bg1),var(--bg2));container-type:inline-size;text-align:left}
+.fpx>.fpx-m{position:absolute;inset:0;z-index:-1;pointer-events:none}.fpx>.fpx-m>i{position:absolute;display:block}
+.fpx:after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(0deg,#0006,transparent 45%)}
+.fpx-kicker{z-index:2;font:800 clamp(6px,3.2cqw,11px)/1.2 ui-monospace,monospace;letter-spacing:.18em;color:var(--a)}
+.fpx-title{z-index:3;display:flex;flex-direction:column;margin:auto 0;font-weight:900;font-size:var(--ts);line-height:.84;letter-spacing:-.04em;text-shadow:2px 3px 0 var(--bg1)}.fpx-title b:nth-child(2){color:var(--a);text-shadow:2px 3px 0 var(--bg1),4px 6px 0 var(--b)}
+.fpx-title b{font-weight:inherit;white-space:nowrap}
+.fpx-tag{z-index:3;font:700 clamp(6px,2.7cqw,10px)/1.3 ui-monospace,monospace;letter-spacing:.12em;color:var(--a);max-width:76%;border-top:1px solid var(--a);padding-top:1.6cqw}
+.fpx-stamp{position:absolute;z-index:3;right:6cqw;bottom:6cqw;padding:1cqw 2cqw;border:1px solid var(--b);color:var(--b);font:800 clamp(5px,2.2cqw,8px)/1.25 ui-monospace,monospace;letter-spacing:.1em;text-align:center;transform:rotate(-6deg);white-space:pre-line}
+.fpx-center{align-items:center;text-align:center}.fpx-center .fpx-title{align-items:center}.fpx-center .fpx-tag{max-width:90%;text-align:center}
+.fpx-right{align-items:flex-end;text-align:right}.fpx-right .fpx-title{align-items:flex-end}
+.fpx.feature-art-wide{height:142px}.fpx.feature-art-poster{height:160px}.fpx.award-live-art{height:130px}
+@media(max-width:420px){.fpx.feature-art-wide{height:126px}.fpx.feature-art-poster{height:140px}}
+.fpx.award-art{padding:8cqw}.fpx.award-art .fpx-kicker,.fpx.award-art .fpx-tag,.fpx.award-art .fpx-stamp{display:none}
+.fpx-cochella{--bg1:#2a0f3d;--bg2:#ff6a3d;--ink:#fff3df;--a:#ffb347;--b:#ff3f8e;--ts:15.0cqw;font-family:"Trebuchet MS",Verdana,sans-serif}
+.fpx-cochella .m1{inset:0;background:radial-gradient(circle at 70% 52%,#ffd36b 0 14%,#ff7a45 15% 26%,#ff3f8e 27% 38%,transparent 39%)}
+.fpx-cochella .m2{inset:0;background:repeating-linear-gradient(0deg,#2a0f3d 0 3px,transparent 3px 9px);-webkit-mask:linear-gradient(transparent 38%,#000 38% 58%,transparent 58%);mask:linear-gradient(transparent 38%,#000 38% 58%,transparent 58%)}
+.fpx-cochella .m3{inset:0;background:#1c0a2b;clip-path:polygon(0 100%,0 74%,18% 62%,38% 76%,58% 58%,80% 72%,100% 60%,100% 100%)}
+.fpx-glimmerbury{--bg1:#0c2418;--bg2:#1d5a3a;--ink:#f6f0d4;--a:#f2c94c;--b:#7fd69a;--ts:15.0cqw;font-family:Georgia,"Times New Roman",serif}
+.fpx-glimmerbury .m1{inset:0;background:#f2c94c33;clip-path:polygon(50% 8%,84% 64%,16% 64%)}
+.fpx-glimmerbury .m2{inset:0;background:radial-gradient(circle,#fff8 0 1px,transparent 2px) 0 0/22px 26px;-webkit-mask:linear-gradient(#000,transparent 45%);mask:linear-gradient(#000,transparent 45%)}
+.fpx-glimmerbury .m3{inset:0;background:#0a1d13;clip-path:polygon(0 100%,0 72%,25% 62%,55% 74%,100% 60%,100% 100%)}
+.fpx-futureland{--bg1:#07051f;--bg2:#2b0b5e;--ink:#e9fbff;--a:#00f0ff;--b:#ff2bd6;--ts:15.0cqw;font-family:ui-monospace,Menlo,monospace}
+.fpx-futureland .m1{inset:0;background:radial-gradient(circle at 68% 38%,#fff 0 3%,#9ef6ff 4% 10%,#6a3df0 11% 22%,transparent 23%)}
+.fpx-futureland .m2{inset:0;background:linear-gradient(#00f0ff55 1px,transparent 1px) 0 0/100% 14%,linear-gradient(90deg,#ff2bd666 1px,transparent 1px) 50% 0/14% 100%;transform:perspective(160px) rotateX(58deg) translateY(30%) scale(1.8);transform-origin:50% 100%;-webkit-mask:linear-gradient(transparent 20%,#000);mask:linear-gradient(transparent 20%,#000)}
+.fpx-futureland .m3{inset:0;border-bottom:2px solid #00f0ff;top:62%;box-shadow:0 0 18px #00f0ffaa}
+.fpx-rosefield{--bg1:#3a0d1d;--bg2:#9b2a4a;--ink:#ffe9ee;--a:#ff9fb5;--b:#f6d28b;--ts:15.0cqw;font-family:Georgia,"Times New Roman",serif}
+.fpx-rosefield .m1{inset:0;background:radial-gradient(circle at 50% 46%,#f6d28b 0 4%,#d94d73 5% 12%,#ff9fb5 13% 15%,#b8335a 16% 24%,#ff9fb5 25% 27%,#8d2145 28% 38%,#ff9fb5 39% 40%,transparent 41%)}
+.fpx-rosefield .m2{inset:0;background:conic-gradient(from 10deg at 50% 46%,#ffffff18 0 12deg,transparent 12deg 30deg);-webkit-mask:radial-gradient(circle at 50% 46%,#000 0 60%,transparent 61%);mask:radial-gradient(circle at 50% 46%,#000 0 60%,transparent 61%)}
+.fpx-rosefield .m3{inset:0;border:1px solid #f6d28b88;inset:6px}
+.fpx-primavibe{--bg1:#12332b;--bg2:#f4a6c8;--ink:#10261f;--a:#7bf0a8;--b:#ffe36e;--ts:15.0cqw;font-family:"Trebuchet MS",Verdana,sans-serif}
+.fpx-primavibe .m1{inset:0;background:repeating-radial-gradient(circle at 80% 30%,#ffe36e 0 6px,transparent 6px 14px,#ff7fb2 14px 20px,transparent 20px 28px);-webkit-mask:linear-gradient(120deg,transparent 15%,#000 40%);mask:linear-gradient(120deg,transparent 15%,#000 40%)}
+.fpx-primavibe .m2{inset:0;background:linear-gradient(#7bf0a8,#7bf0a8) 10% 70%/26% 7% no-repeat,linear-gradient(#ff7fb2,#ff7fb2) 30% 78%/40% 7% no-repeat,linear-gradient(#ffe36e,#ffe36e) 6% 86%/34% 7% no-repeat}
+.fpx-primavibe .m3{inset:0;inset:auto 0 0 0;height:34%;background:#0e2a22;clip-path:polygon(0 60%,15% 40%,30% 62%,48% 30%,66% 58%,84% 36%,100% 60%,100% 100%,0 100%)}
+.fpx-rockinriva{--bg1:#120808;--bg2:#7a0f12;--ink:#fff1e0;--a:#ff2e2e;--b:#ffd400;--ts:15.0cqw;font-family:Impact,"Arial Narrow",sans-serif}
+.fpx-rockinriva .m1{inset:0;background:#ffd400;clip-path:polygon(62% 0,40% 46%,56% 46%,38% 100%,78% 38%,60% 38%,80% 0)}
+.fpx-rockinriva .m2{inset:0;inset:auto 0 0;height:46%;background:#1d0b0b;clip-path:polygon(0 100%,0 58%,14% 54%,26% 8%,40% 52%,58% 60%,68% 28%,82% 56%,100% 50%,100% 100%)}
+.fpx-rockinriva .m3{inset:0;background:radial-gradient(circle at 20% 22%,#ff2e2e 0 7%,transparent 8%)}
+.fpx-afroworld{--bg1:#1c0f05;--bg2:#c8561c;--ink:#fff1d6;--a:#ffc12e;--b:#1fa36b;--ts:15.0cqw;font-family:Impact,"Arial Narrow",sans-serif}
+.fpx-afroworld .m1{inset:0;background:radial-gradient(circle at 74% 34%,#ffc12e 0 12%,#f27a1a 13% 20%,transparent 21%)}
+.fpx-afroworld .m2{inset:0;inset:auto 0 0;height:30%;background:repeating-linear-gradient(90deg,#1fa36b 0 12%,#ffc12e 12% 18%,#c8301c 18% 30%,#1c0f05 30% 36%);opacity:.9}
+.fpx-afroworld .m3{inset:0;background:repeating-linear-gradient(45deg,#ffffff10 0 8px,transparent 8px 16px)}
+.fpx-fujiflow{--bg1:#0a1030;--bg2:#2c3c8f;--ink:#f4f7ff;--a:#ff3b4e;--b:#9fd0ff;--ts:15.0cqw;font-family:"Trebuchet MS",Verdana,sans-serif}
+.fpx-fujiflow .m1{inset:0;background:radial-gradient(circle at 50% 30%,#ff3b4e 0 14%,transparent 15%)}
+.fpx-fujiflow .m2{inset:0;background:linear-gradient(180deg,#f4f7ff 0 34%,#3a4aa8 34%);clip-path:polygon(50% 24%,86% 78%,14% 78%)}
+.fpx-fujiflow .m3{inset:0;inset:auto 0 0;height:30%;background:repeating-radial-gradient(circle at 50% 160%,transparent 0 10px,#9fd0ff 10px 12px)}
+.fpx-summerstatic{--bg1:#111111;--bg2:#2e2e2e;--ink:#fffbe8;--a:#ffe500;--b:#ff4d2e;--ts:15.0cqw;font-family:ui-monospace,Menlo,monospace}
+.fpx-summerstatic .m1{inset:0;background:repeating-linear-gradient(90deg,#fff3 0 2px,#0003 2px 4px,#fff2 4px 5px,#0004 5px 8px);-webkit-mask:linear-gradient(135deg,transparent 30%,#000 70%);mask:linear-gradient(135deg,transparent 30%,#000 70%)}
+.fpx-summerstatic .m2{inset:0;background:repeating-linear-gradient(0deg,#00000066 0 2px,transparent 2px 5px)}
+.fpx-summerstatic .m3{inset:0;background:radial-gradient(circle at 78% 30%,#ffe500 0 11%,transparent 12%);box-shadow:inset 0 0 40px #000}
+.fpx-ziget{--bg1:#0f1214;--bg2:#2a3036;--ink:#e8ecef;--a:#ff5a1f;--b:#8fa3b0;--ts:15.0cqw;font-family:"Courier New",monospace}
+.fpx-ziget .m1{inset:0;background:linear-gradient(#8fa3b0,#8fa3b0) 14% 100%/14% 55% no-repeat,linear-gradient(#5d6c76,#5d6c76) 32% 100%/18% 38% no-repeat,linear-gradient(#8fa3b0,#8fa3b0) 54% 100%/12% 66% no-repeat,linear-gradient(#5d6c76,#5d6c76) 70% 100%/20% 44% no-repeat}
+.fpx-ziget .m2{inset:0;background:linear-gradient(#ff5a1f,#ff5a1f) 80% 6%/2px 30% no-repeat,radial-gradient(circle at 80% 6%,#ff5a1f 0 7px,transparent 8px),linear-gradient(#ff5a1f,#ff5a1f) 76% 24%/10% 2px no-repeat}
+.fpx-ziget .m3{inset:0;background:repeating-linear-gradient(135deg,#ffffff08 0 3px,transparent 3px 7px)}
+.fpx-sunflare{--bg1:#3a0e2a;--bg2:#ff6a1f;--ink:#fff4e0;--a:#ffd23f;--b:#19c3b4;--ts:15.0cqw;font-family:"Trebuchet MS",Verdana,sans-serif}
+.fpx-sunflare .m1{inset:0;background:repeating-conic-gradient(from 0deg at 50% 46%,#ffd23f55 0 6deg,transparent 6deg 15deg)}
+.fpx-sunflare .m2{inset:0;background:radial-gradient(circle at 50% 46%,#fff4c2 0 7%,#ffd23f 8% 15%,#ff8a1f 16% 22%,transparent 23%)}
+.fpx-sunflare .m3{inset:0;inset:auto 0 0;height:24%;background:linear-gradient(#19c3b4,#0b6e75);clip-path:polygon(0 40%,20% 26%,40% 44%,60% 24%,80% 42%,100% 28%,100% 100%,0 100%)}
+.fpx-worldbeatadelaide{--bg1:#062a33;--bg2:#d1642b;--ink:#fff3e2;--a:#ffb454;--b:#2ec4b6;--ts:15.0cqw;font-family:"Trebuchet MS",Verdana,sans-serif}
+.fpx-worldbeatadelaide .m1{inset:0;background:repeating-radial-gradient(circle at 76% 62%,#ffb454 0 5px,transparent 5px 12px);-webkit-mask:radial-gradient(circle at 76% 62%,#000 0 38%,transparent 39%);mask:radial-gradient(circle at 76% 62%,#000 0 38%,transparent 39%)}
+.fpx-worldbeatadelaide .m2{inset:0;inset:auto 0 0;height:36%;background:#d1642b;clip-path:polygon(0 100%,0 50%,25% 30%,50% 55%,75% 35%,100% 50%,100% 100%)}
+.fpx-worldbeatadelaide .m3{inset:0;inset:auto 0 0;height:20%;background:repeating-linear-gradient(90deg,#2ec4b6 0 6px,#062a33 6px 12px)}
+.fpx-rollinland{--bg1:#14052b;--bg2:#5a14b8;--ink:#fff0ff;--a:#ffcf33;--b:#ff3da5;--ts:15.0cqw;font-family:Impact,"Arial Narrow",sans-serif}
+.fpx-rollinland .m1{inset:0;background:radial-gradient(circle at 74% 50%,#14052b 0 12%,#ffcf33 13% 15%,#14052b 16% 28%,#ff3da5 29% 31%,#14052b 32% 46%,#5a14b8 47% 49%,transparent 50%)}
+.fpx-rollinland .m2{inset:0;background:radial-gradient(circle at 74% 50%,#ffffff22 0 2%,transparent 3%);box-shadow:inset 0 0 0 1px #ff3da555}
+.fpx-rollinland .m3{inset:0;inset:auto 0 0;height:20%;background:linear-gradient(90deg,#ffcf33 0 3px,transparent 3px) 0 0/16px 100%;opacity:.5}
+.fpx-wirewave{--bg1:#0a0f1f;--bg2:#17306e;--ink:#eef6ff;--a:#4df0ff;--b:#ff4fa3;--ts:15.0cqw;font-family:ui-monospace,Menlo,monospace}
+.fpx-wirewave .m1{inset:0;background:repeating-radial-gradient(ellipse at 20% 120%,transparent 0 14px,#4df0ff 14px 15px);-webkit-mask:linear-gradient(transparent 20%,#000 60%);mask:linear-gradient(transparent 20%,#000 60%)}
+.fpx-wirewave .m2{inset:0;background:repeating-radial-gradient(ellipse at 90% -20%,transparent 0 16px,#ff4fa3 16px 17px);-webkit-mask:linear-gradient(#000 20%,transparent 80%);mask:linear-gradient(#000 20%,transparent 80%)}
+.fpx-wirewave .m3{inset:0;background:linear-gradient(#4df0ff,#4df0ff) 0 52%/100% 1px no-repeat;box-shadow:0 0 14px #4df0ff55}
+.fpx-golden{--bg1:#0b0a08;--bg2:#2b2211;--ink:#fff6dc;--a:#f5c542;--b:#b88a1e;--ts:15.0cqw;font-family:Georgia,"Times New Roman",serif}
+.fpx-golden .m1{inset:0;background:conic-gradient(from 200deg at 72% 44%,#f5c542,#fff2b0,#b88a1e,#f5c542 40%,transparent 41%);clip-path:polygon(72% 44%,100% 12%,100% 76%)}
+.fpx-golden .m2{inset:0;background:radial-gradient(circle at 72% 44%,#0b0a08 0 5%,#f5c542 6% 8%,transparent 9%),linear-gradient(#f5c542,#f5c542) 72% 52%/3px 30% no-repeat}
+.fpx-golden .m3{inset:0;inset:auto 18% 8% 40%;height:7%;background:#b88a1e;border-radius:50%/60%}
+.fpx-crownchorus{--bg1:#12123d;--bg2:#4a1030;--ink:#fff4df;--a:#e8b94a;--b:#c0314f;--ts:15.0cqw;font-family:Georgia,"Times New Roman",serif}
+.fpx-crownchorus .m1{inset:0;background:#e8b94a;clip-path:polygon(22% 52%,30% 22%,40% 40%,50% 14%,60% 40%,70% 22%,78% 52%)}
+.fpx-crownchorus .m2{inset:0;background:linear-gradient(#c0314f,#c0314f) 22% 53%/56% 7% no-repeat}
+.fpx-crownchorus .m3{inset:0;background:radial-gradient(circle,#e8b94a 0 2px,transparent 3px) 0 0/26px 26px;opacity:.25}
+.fpx-stream{--bg1:#1a0a3a;--bg2:#0d5fa8;--ink:#f4fbff;--a:#ff5fa8;--b:#5ff0ff;--ts:15.0cqw;font-family:"Trebuchet MS",Verdana,sans-serif}
+.fpx-stream .m1{inset:0;background:repeating-radial-gradient(circle at 74% 44%,transparent 0 10px,#5ff0ff 10px 12px);-webkit-mask:radial-gradient(circle at 74% 44%,#000 0 50%,transparent 51%);mask:radial-gradient(circle at 74% 44%,#000 0 50%,transparent 51%)}
+.fpx-stream .m2{inset:0;background:radial-gradient(circle at 74% 44%,#ff5fa8 0 6%,transparent 7%)}
+.fpx-stream .m3{inset:0;background:radial-gradient(circle,#ffffff30 0 1px,transparent 2px) 0 0/18px 18px}
+.fpx-soundcraft{--bg1:#f1e8d6;--bg2:#d8c9a8;--ink:#1c1a17;--a:#d6342b;--b:#1c1a17;--ts:15.0cqw;font-family:"Trebuchet MS",Verdana,sans-serif}
+.fpx-soundcraft .m1{inset:0;background:linear-gradient(90deg,#1c1a17 0 4px,transparent 4px) 0 0/10% 100%;-webkit-mask:linear-gradient(90deg,transparent 40%,#000 41%);mask:linear-gradient(90deg,transparent 40%,#000 41%);opacity:.25}
+.fpx-soundcraft .m2{inset:0;background:linear-gradient(#d6342b,#d6342b) 56% 38%/4px 24% no-repeat,linear-gradient(#1c1a17,#1c1a17) 62% 30%/4px 40% no-repeat,linear-gradient(#d6342b,#d6342b) 68% 22%/4px 56% no-repeat,linear-gradient(#1c1a17,#1c1a17) 74% 34%/4px 32% no-repeat,linear-gradient(#d6342b,#d6342b) 80% 42%/4px 16% no-repeat,linear-gradient(#1c1a17,#1c1a17) 86% 30%/4px 40% no-repeat}
+.fpx-soundcraft .m3{inset:0;background:radial-gradient(circle at 24% 26%,#d6342b 0 9%,transparent 10%)}
+.fpx-video{--bg1:#08111f;--bg2:#101a3f;--ink:#f4fbff;--a:#00e5ff;--b:#ff3d9a;--ts:15.0cqw;font-family:Impact,"Arial Narrow",sans-serif}
+.fpx-video .m1{inset:0;inset:12% 10% 40% 40%;border:2px solid #00e5ff;background:linear-gradient(90deg,#00e5ff 0 5%,transparent 5% 95%,#00e5ff 95%);opacity:.7}
+.fpx-video .m2{inset:0;background:#ff3d9a;clip-path:polygon(60% 22%,60% 40%,76% 31%)}
+.fpx-video .m3{inset:0;background:repeating-linear-gradient(90deg,#fff 0 6px,transparent 6px 14px) 0 0/100% 6px no-repeat,repeating-linear-gradient(90deg,#fff 0 6px,transparent 6px 14px) 0 100%/100% 6px no-repeat;opacity:.3}
+.fpx-popculture{--bg1:#ffd400;--bg2:#ff3d8b;--ink:#1a1a1a;--a:#1a1a1a;--b:#ffffff;--ts:15.0cqw;font-family:Impact,"Arial Narrow",sans-serif}
+.fpx-popculture .m1{inset:0;background:radial-gradient(circle,#1a1a1a 0 28%,transparent 30%) 0 0/12px 12px;-webkit-mask:radial-gradient(circle at 78% 40%,#000 0 40%,transparent 62%);mask:radial-gradient(circle at 78% 40%,#000 0 40%,transparent 62%);opacity:.55}
+.fpx-popculture .m2{inset:0;inset:6% 4% 44% 48%;background:#ff3d8b;clip-path:polygon(50% 0,60% 30%,95% 20%,72% 46%,100% 62%,64% 66%,60% 100%,45% 70%,8% 86%,30% 54%,0 38%,38% 34%)}
+.fpx-popculture .m3{inset:0;border:3px solid #1a1a1a;inset:5px}
+.fpx-world{--bg1:#0d2b26;--bg2:#7a2c12;--ink:#fff1d4;--a:#f2b134;--b:#1fa38a;--ts:15.0cqw;font-family:Georgia,"Times New Roman",serif}
+.fpx-world .m1{inset:0;background:radial-gradient(circle at 10% 70%,#f2b134 0 4.5%,transparent 5%) 0 0/17% 24%,radial-gradient(circle at 10% 70%,#1fa38a 0 4.5%,transparent 5%) 8% 12%/17% 24%;-webkit-mask:radial-gradient(ellipse at 50% 0,transparent 45%,#000 46%);mask:radial-gradient(ellipse at 50% 0,transparent 45%,#000 46%)}
+.fpx-world .m2{inset:0;background:radial-gradient(circle at 50% 62%,#e2492c 0 8%,#f2b134 9% 11%,transparent 12%)}
+.fpx-world .m3{inset:0;inset:auto 0 0;height:12%;background:repeating-linear-gradient(90deg,#f2b134 0 10%,#1fa38a 10% 20%,#e2492c 20% 30%)}
+.fpx-yearend{--bg1:#050b18;--bg2:#0c2a5e;--ink:#eef4ff;--a:#c9d6ea;--b:#3d8bff;--ts:15.0cqw;font-family:"Trebuchet MS",Verdana,sans-serif}
+.fpx-yearend .m1{inset:0;background:linear-gradient(#3d8bff,#3d8bff) 50% 100%/9% 22% no-repeat,linear-gradient(#5aa0ff,#5aa0ff) 62% 100%/9% 34% no-repeat,linear-gradient(#8fbaff,#8fbaff) 74% 100%/9% 48% no-repeat,linear-gradient(#c9d6ea,#c9d6ea) 86% 100%/9% 64% no-repeat}
+.fpx-yearend .m2{inset:0;background:linear-gradient(#c9d6ea,#c9d6ea) 0 70%/100% 1px no-repeat,linear-gradient(#c9d6ea55,#c9d6ea55) 0 50%/100% 1px no-repeat,linear-gradient(#c9d6ea33,#c9d6ea33) 0 30%/100% 1px no-repeat}
+.fpx-yearend .m3{inset:0;background:radial-gradient(circle at 86% 30%,#fff 0 4%,transparent 5%)}
+.fpx-goldframe{--bg1:#0a0806;--bg2:#2a1d0c;--ink:#fff4d6;--a:#e9b949;--b:#8a6414;--ts:15.0cqw;font-family:Georgia,"Times New Roman",serif}
+.fpx-goldframe .m1{inset:0;inset:10% 14% 36%;border:3px solid #e9b949;box-shadow:inset 0 0 0 6px #0a0806,inset 0 0 0 8px #e9b94988,0 0 26px #e9b94944}
+.fpx-goldframe .m2{inset:0;inset:16% 20% 42%;background:linear-gradient(135deg,#e9b94922,transparent 60%)}
+.fpx-goldframe .m3{inset:0;background:conic-gradient(from 90deg at 50% 100%,#e9b94933 0 20deg,transparent 20deg 160deg,#e9b94933 160deg 180deg,transparent 180deg)}
+.fpx-worldstarglobe{--bg1:#06142e;--bg2:#0f3d7a;--ink:#eef6ff;--a:#f4c542;--b:#5db7ff;--ts:14.1cqw;font-family:Georgia,"Times New Roman",serif}
+.fpx-worldstarglobe .m1{inset:0;background:radial-gradient(circle at 72% 44%,#5db7ff55 0 30%,#0f3d7a 31% 33%,transparent 34%),repeating-linear-gradient(90deg,transparent 0 16px,#f4c54255 16px 17px);-webkit-mask:radial-gradient(circle at 72% 44%,#000 0 34%,transparent 35%);mask:radial-gradient(circle at 72% 44%,#000 0 34%,transparent 35%)}
+.fpx-worldstarglobe .m2{inset:0;background:repeating-linear-gradient(0deg,transparent 0 16px,#f4c54255 16px 17px);-webkit-mask:radial-gradient(circle at 72% 44%,#000 0 34%,transparent 35%);mask:radial-gradient(circle at 72% 44%,#000 0 34%,transparent 35%)}
+.fpx-worldstarglobe .m3{inset:0;background:#f4c542;clip-path:polygon(72% 6%,74% 12%,80% 12%,75% 16%,77% 22%,72% 18%,67% 22%,69% 16%,64% 12%,70% 12%)}
+.fpx-britframe{--bg1:#0b1230;--bg2:#1a2a6c;--ink:#f6f2ea;--a:#d62839;--b:#d9b45a;--ts:15.0cqw;font-family:Georgia,"Times New Roman",serif}
+.fpx-britframe .m1{inset:0;background:repeating-linear-gradient(115deg,transparent 0 22px,#d6283955 22px 34px,transparent 34px 44px,#f6f2ea22 44px 50px)}
+.fpx-britframe .m2{inset:0;inset:14% 8% 42% 46%;border:2px solid #d9b45a;background:linear-gradient(#d9b45a,#d9b45a) 50% 0/2px 100% no-repeat,linear-gradient(#d9b45a,#d9b45a) 0 50%/100% 2px no-repeat}
+.fpx-britframe .m3{inset:0;inset:auto 0 0;height:8%;background:#d62839}
+.fpx-screenguild{--bg1:#06231a;--bg2:#0d4a38;--ink:#f3f7ee;--a:#e5c15d;--b:#3fd0a0;--ts:15.0cqw;font-family:Georgia,"Times New Roman",serif}
+.fpx-screenguild .m1{inset:0;background:radial-gradient(circle at 20% 30%,#e5c15d 0 7%,transparent 8%),radial-gradient(circle at 36% 24%,#3fd0a0 0 9%,transparent 10%),radial-gradient(circle at 54% 20%,#e5c15d 0 10%,transparent 11%),radial-gradient(circle at 72% 24%,#3fd0a0 0 9%,transparent 10%),radial-gradient(circle at 86% 30%,#e5c15d 0 7%,transparent 8%)}
+.fpx-screenguild .m2{inset:0;background:linear-gradient(#e5c15d44,#e5c15d44) 10% 46%/80% 1px no-repeat}
+.fpx-screenguild .m3{inset:0;background:radial-gradient(ellipse at 50% 100%,#3fd0a044,transparent 60%)}
+.fpx-televisionspotlight{--bg1:#10061f;--bg2:#3a1470;--ink:#fff4ff;--a:#ffd24d;--b:#b36bff;--ts:12.7cqw;font-family:"Trebuchet MS",Verdana,sans-serif}
+.fpx-televisionspotlight .m1{inset:0;background:conic-gradient(from 160deg at 70% -6%,transparent 0 6deg,#ffd24d66 6deg 34deg,transparent 34deg)}
+.fpx-televisionspotlight .m2{inset:0;inset:42% 14% 22% 44%;border:3px solid #b36bff;border-radius:10px;background:linear-gradient(#b36bff22,#ffd24d22);box-shadow:0 0 20px #b36bff66}
+.fpx-televisionspotlight .m3{inset:0;inset:auto 0 0;height:10%;background:radial-gradient(ellipse at 66% 0,#ffd24d88,transparent 60%)}

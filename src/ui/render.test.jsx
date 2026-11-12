@@ -17,7 +17,8 @@ import Onboarding, { coverCompleteness, stepValid, DebutCover, STRAPLINES } from
 import { APPS } from '../phone/apps.jsx';
 import App, { Title } from '../App.jsx';
 import { saveGame } from '../engine/index.js';
-import { LIFESTYLE } from '../engine/data2.js';
+import { LIFESTYLE, FESTIVALS } from '../engine/data2.js';
+import { AWARD_SHOWS, ACTING_AWARD_SHOWS } from '../engine/data.js';
 import FeatureArt from './FeatureArt.jsx';
 
 function midCareer() {
@@ -110,7 +111,20 @@ describe('feature-page visual art', () => {
     expect(poster).toContain('lolla-poster-orbit');
     expect(poster).not.toContain('<img');
     expect(poster).not.toContain('festival artwork for Lollapulse');
-    expect(renderToString(<FeatureArt kind="festival" name="Rosefield Festival" id="rosefield" />)).toContain('feature-art-original');
+    expect(renderToString(<FeatureArt kind="festival" name="Rosefield Festival" id="rosefield" />)).toContain('fpx-rosefield');
+  });
+  it('gives every other festival and award its own designed poster', () => {
+    const entries = [...FESTIVALS.filter((f) => f.id !== 'lollapulse').map((f) => ['festival', f]), ...AWARD_SHOWS.map((a) => ['award', a]), ...ACTING_AWARD_SHOWS.map((a) => ['award', a])];
+    expect(entries.length).toBe(27);
+    const seen = new Set();
+    for (const [kind, e] of entries) {
+      const html = renderToString(<FeatureArt kind={kind} name={e.name} id={e.id} />);
+      expect(html).toContain(`fpx-${e.id}`);
+      expect(html).not.toContain('feature-art-original');
+      expect(html).not.toContain('<img');
+      seen.add(html);
+    }
+    expect(seen.size).toBe(27);
   });
   it('renders festival stage art and announced real lineup artists', () => {
     const all = page('festival-lineups');

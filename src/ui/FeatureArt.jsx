@@ -41,8 +41,8 @@ const lifestylePhotos = {
   watch: { src: '/assets/lifestyle/watch.jpg', description: 'Two-tone luxury watch, Wikimedia Commons' },
   iced: { src: '/assets/lifestyle/iced.jpg', description: 'Diamond-set pendant, Wikimedia Commons' },
   art: { src: '/assets/lifestyle/art.jpg', description: 'Gallery with framed paintings, Wikimedia Commons' },
-  homestudio: { src: '/assets/lifestyle/homestudio.jpg', description: 'Home recording studio with monitors and mic, Wikimedia Commons' },
-  jet: { src: '/assets/lifestyle/jet.jpg', description: 'Gulfstream G650 private jet, Wikimedia Commons' },
+  homestudio: { src: '/assets/lifestyle/homestudio.jpg', description: 'Neve 81 Series mixing console with studio monitors, Cashlee69, Wikimedia Commons' },
+  jet: { src: '/assets/lifestyle/jet.jpg', description: 'Dassault Falcon 7X forward cabin, JetRequest.com, Wikimedia Commons' },
 };
 
 const hash = (value) => [...String(value)].reduce((n, c) => n + c.charCodeAt(0), 0) % 360;

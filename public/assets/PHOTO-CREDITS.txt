@@ -38,3 +38,6 @@ lifestyle/aston-dbs.jpg: Aston Martin DBS Superleggera, Alexander Migl, CC BY-SA
 lifestyle/bentley-gt.jpg: Bentley Continental GT Mulliner, Ethan Llamas, CC BY-SA 4.0
 
 lifestyle/chain.jpg: gold chain necklaces, Wikimedia Commons, CC0 / public domain
+lifestyle/jet.jpg: Dassault Falcon 7X forward cabin interior, JetRequest.com, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Dassault_Falcon_7X_forward_cabin_interior.JPG (cropped)
+lifestyle/jet-cabin.jpg: Bombardier Global 6000 interior, JetRequest.com, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Bombardier_Global_6000_interior_2.JPG (cropped)
+lifestyle/homestudio.jpg: Neve 81 Series Mixing Console, Cashlee69, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Neve_81_Series_Mixing_Console.jpg (cropped)

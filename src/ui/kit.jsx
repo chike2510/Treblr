@@ -8,9 +8,9 @@ export const AREA = { home: '#C6FF3D', studio: '#FF6B4A', phone: '#6C7BFF', char
 export const DEFAULT_FACE = '/artist.jpg';
 export const SAMPLE_COVERS = [
   '/cover1.jpg', '/cover2.jpg', '/cover3.jpg',
-  '/assets/treblr-festival-crowd.jpg', '/assets/treblr-film-set.jpg', '/assets/treblr-award-trophy.jpg',
-  '/assets/lifestyle/ferrari-296.jpg', '/assets/lifestyle/aston-dbs.jpg', '/assets/lifestyle/penthouse-suite.jpg',
-  '/assets/lifestyle/jet-cabin.jpg', '/assets/lifestyle/watch.jpg', '/assets/lifestyle/city-loft.jpg',
+  '/assets/covers/golden-hour.jpg', '/assets/covers/no-mercy.jpg', '/assets/covers/neon-drive.jpg',
+  '/assets/covers/quiet-pines.jpg', '/assets/covers/velvet-hours.jpg', '/assets/covers/loud-and-broke.jpg',
+  '/assets/covers/liquid-state.jpg', '/assets/covers/blue-room.jpg', '/assets/covers/sugar-rush.jpg',
 ];
 
 const P = {

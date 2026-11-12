@@ -390,12 +390,39 @@ describe('save migration v3 -> v4', () => {
   });
 });
 
-import { existsSync } from 'node:fs';
-import { SAMPLE_COVERS } from '../ui/kit.jsx';
-describe('cover editor photos', () => {
-  it('offers 12+ unique photos that all exist on disk', () => {
-    expect(SAMPLE_COVERS.length).toBeGreaterThanOrEqual(12);
-    expect(new Set(SAMPLE_COVERS).size).toBe(SAMPLE_COVERS.length);
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { SAMPLE_COVERS, Cover } from '../ui/kit.jsx';
+describe('cover editor artworks', () => {
+  const DESIGNED = ['/cover1.jpg', '/cover2.jpg', '/cover3.jpg'];
+  it('offers 12 unique cover assets that all exist on disk', () => {
+    expect(SAMPLE_COVERS.length).toBe(12);
+    expect(new Set(SAMPLE_COVERS).size).toBe(12);
     for (const src of SAMPLE_COVERS) expect(existsSync('public' + src)).toBe(true);
+  });
+  it('keeps the first 3 originals and uses designed cover artworks for the other 9, never lifestyle/real-life photos', () => {
+    expect(SAMPLE_COVERS.slice(0, 3)).toEqual(DESIGNED);
+    for (const src of SAMPLE_COVERS.slice(3)) {
+      expect(src.startsWith('/assets/covers/')).toBe(true);
+      expect(src).not.toMatch(/lifestyle|crowd|film-set|trophy|penthouse|car-|jet|watch/);
+    }
+    const files = readdirSync('public/assets/covers').filter((f) => f.endsWith('.jpg'));
+    expect(files.length).toBe(9);
+  });
+  it('designed artworks are distinct images (different bytes) and the generator source ships with the repo', () => {
+    const hashes = SAMPLE_COVERS.map((src) => createHash('sha1').update(readFileSync('public' + src)).digest('hex'));
+    expect(new Set(hashes).size).toBe(12);
+    expect(existsSync('scripts/gen-covers.py')).toBe(true);
+  });
+  it('picker selection is wired into the cover preview', () => {
+    const studio = readFileSync('src/screens/Studio.jsx', 'utf8');
+    expect(studio).toMatch(/SAMPLE_COVERS\.map/);
+    expect(studio).toMatch(/setCover\(\{ gradient: cover\.gradient, image: src \}\)/);
+    for (const src of SAMPLE_COVERS) {
+      const html = renderToStaticMarkup(createElement(Cover, { cover: { image: src }, size: 120 }));
+      expect(html).toContain('src="' + src + '"');
+    }
   });
 });

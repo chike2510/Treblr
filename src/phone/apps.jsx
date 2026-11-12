@@ -257,7 +257,26 @@ function Manager() {
   );
 }
 
-export function HireMarket({ role, onClose }) {
+function OfferDetails({ role, offer, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="tiny muted" data-testid={`offer-${role}`}>
+      <div className="row between gap6">
+        <div><b>{offer.lines[0]}</b>{offer.verdict ? <div className="mt4">{offer.verdict}</div> : null}</div>
+        <button type="button" className="btn sm" data-testid={`offer-toggle-${role}`} aria-expanded={open} onClick={() => setOpen((v) => !v)}>{open ? 'Hide details' : 'Offer details'}</button>
+      </div>
+      {open && (
+        <div data-testid={`offer-details-${role}`}>
+          {offer.lines.slice(1).map((l, i) => <div key={i} className="mt4">{l}</div>)}
+          <div className="mt4"><b>Break-even (standard hire):</b> {offer.breakEven}</div>
+          {offer.recent ? <div className="mt4">{offer.recent}</div> : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function HireMarket({ role, onClose, defaultOpen = false }) {
   const { state, act } = useGame();
   const p = state.player;
   const st = STAFF.find((x) => x.id === role);
@@ -270,10 +289,7 @@ export function HireMarket({ role, onClose }) {
     <Sheet open title={`${st.name} candidates`} sub={`Week ${state.week} market. New faces next week.`} onClose={onClose}>
       <div className="col gap8" data-testid="hire-market" data-role={role}>
         <div className="tiny muted">{st.buff}</div>
-        <div className="tiny muted" data-testid={`offer-${role}`}>
-          {offers[role].lines.map((l, i) => <div key={i} className="mt4">{l}</div>)}
-          <div className="mt4"><b>Break-even (standard hire):</b> {offers[role].breakEven}</div>
-        </div>
+        <OfferDetails role={role} offer={offers[role]} defaultOpen={defaultOpen} />
         {p.staff[role] && <div className="card tight"><div className="tiny">Current: <b>{pick ? pick.name : 'Standard hire'}</b> · Efficiency {staffTerms(state, role).efficiency.toFixed(2)} · {fmtMoney(offers[role].salary)}/wk</div><button className="btn sm danger mt8" onClick={() => act(setStaff, { role, hire: false })}>Let go</button></div>}
         {pool.map((c) => {
           const current = pick?.id === c.id;

@@ -81,10 +81,14 @@ export function upNext(s) {
   return out.filter((x) => (seen.has(x.id) ? false : seen.add(x.id))).slice(0, 3);
 }
 
-export function staffCost(s) {
+export function staffSalaries(s) {
   const sal = { manager: 1500, publicist: 1000, booking: 700 };
   const mgrRel = (s.contacts || []).find((c) => c.role === 'manager')?.rel ?? 0;
   if (mgrRel >= 70) sal.manager = 1200; // a manager who likes you takes a smaller salary
+  return sal;
+}
+export function staffCost(s) {
+  const sal = staffSalaries(s);
   return Object.entries(s.player.staff).reduce((a, [k, v]) => a + (v ? sal[k] : 0), 0);
 }
 export function housingCost(s) {

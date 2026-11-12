@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import {
   respondOffer, markRead, setStaff, saveGame, listSaves, deleteSave, calendarEvents, weekDate, STAFF,
   fmtNum, fmtMoney, weeklyExpenses, LABELS, exportPhotoPack, importPhotoPack, negotiateDeal, dealText, CREATIVE_CONTROL,
-  creditScore, creditBand, loanOffer, takeLoan, repayLoan, weeklyPayment, totalDebt, avgIncome, netWorth,
+  staffOffers, creditScore, creditBand, loanOffer, takeLoan, repayLoan, weeklyPayment, totalDebt, avgIncome, netWorth,
 } from '../engine/index.js';
 import { useGame, Icon, Mono, Sheet, Seg, Empty, Bar } from '../ui/kit.jsx';
 import { TreblrX, Treblrgram, TreblrTok, TreblrTube } from './social.jsx';
@@ -220,6 +220,7 @@ function Manager() {
   const { state, act } = useGame();
   const p = state.player;
   const hired = STAFF.filter((s) => p.staff[s.id]);
+  const offers = staffOffers(state);
   const tips = [];
   if (p.cash < weeklyExpenses(state) * 3) tips.push('Cash is thin. Book jobs or gigs before spending on rollouts.');
   if (state.songs.filter((s) => s.status === 'recorded').length >= 3) tips.push('You have enough recorded songs for an EP, EPs can chart on the Album Chart.');
@@ -238,8 +239,13 @@ function Manager() {
       <div className="col mt12">
         {STAFF.map((s) => (
           <div key={s.id} className="card tight">
-            <div className="row between gap6"><b>{s.name}</b><span className="small" style={{ flexShrink: 0 }}>{fmtMoney(s.salary)}/wk{s.commission ? ` + ${Math.round(s.commission * 100)}%` : ''}</span></div>
-            <div className="tiny muted mt8">{s.buff}</div>
+            <div className="row between gap6"><b>{s.name}</b><span className="small" style={{ flexShrink: 0 }}>{fmtMoney(offers[s.id].salary)}/wk{s.commission ? ` + ${Math.round(s.commission * 100)}% cut` : ''}</span></div>
+            <div className="tiny muted mt8" data-testid={`offer-${s.id}`}>
+              {offers[s.id].lines.map((l, i) => <div key={i} className="mt4">{l}</div>)}
+              {offers[s.id].recent && <div className="mt4">{offers[s.id].recent}</div>}
+              <div className="mt4"><b>Break-even:</b> {offers[s.id].breakEven}</div>
+              <div className="mt4"><b>Verdict:</b> {offers[s.id].verdict}</div>
+            </div>
             <button className={`btn sm mt12 ${p.staff[s.id] ? 'danger' : 'accent'}`} onClick={() => act(setStaff, { role: s.id, hire: !p.staff[s.id] })}>{p.staff[s.id] ? 'Let go' : 'Hire'}</button>
           </div>
         ))}

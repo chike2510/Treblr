@@ -109,6 +109,9 @@ describe('Treblr-branded phone apps', () => {
     expect(g).toContain('Your story'); expect(g).toContain('likes'); expect(g).toContain('tg-stories');
     const t = app('treblrtok');
     expect(t).toContain('For You'); expect(t).toContain('LIVE'); expect(t).toContain('Duet'); expect(t).toContain('Use sound');
+    const m = app('manager');
+    expect(m).toContain('Your team'); expect(m).toMatch(/\/wk(<!-- -->)? \+ 10% cut/); expect(m).toContain('Break-even:'); expect(m).toContain('per $1,000 of streams');
+    expect(m).toContain('hype kept per week'); expect(m).toContain('press 15 to 11'); expect(m).toContain('+$80 per $1,000 of gig pay');
     const y = app('treblrtube');
     expect(y).toContain('Upload a music video'); expect(y).toContain('Shorts'); expect(y).toContain('(Official Video)');
     const sp = app('treblify');

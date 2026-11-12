@@ -6,6 +6,7 @@ export * from './state.js';
 export * from './charts.js';
 export * from './actions.js';
 export * from './goals.js';
+export * from './offers.js';
 export { advanceWeek } from './tick.js';
 export * from './npc.js';
 export * from './features.js';

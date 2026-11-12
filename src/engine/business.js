@@ -579,13 +579,18 @@ export function pitchFestival(state, { key }) {
 export function festivalLineup(s, f, key) {
   const size = FEST_SIZE[f.size];
   const rng = { h: hashStr(key), next() { this.h = Math.imul(this.h ^ (this.h >>> 15), 2246822507) >>> 0; this.h = (this.h + 0x9e3779b9) >>> 0; return this.h / 4294967296; } };
-  const fit = (r) => (!f.genres.length || r.genres.some((g) => f.genres.includes(g)) ? 1.6 : 0.6) * (r.country === cityById(f.city).country ? 1.4 : 1);
-  const scored = s.rivals.map((r) => ({ r, sc: Math.log10(r.monthlyListeners) * fit(r) + rng.next() * 1.2 })).sort((a, b) => b.sc - a.sc);
+  // Billing is genre-tiered first (festival's lead genre > other booked genres as the artist's primary > any tag > off-genre),
+  // then ranked by fame with a little yearly jitter, so rap leads a hip-hop fest and pop can't outrank it.
+  const fg = f.genres || [];
+  const tier = (r) => { const g = r.genres || []; return !fg.length ? 2 : g[0] === fg[0] ? 3 : fg.includes(g[0]) ? 2 : g.some((x) => fg.includes(x)) ? 1 : 0; };
+  const home = (r) => (r.country === cityById(f.city).country ? 1.05 : 1);
+  const scored = s.rivals.map((r) => ({ r, t: tier(r), sc: Math.max(1, r.monthlyListeners) * home(r) * (0.93 + rng.next() * 0.14) })).sort((a, b) => b.t - a.t || b.sc - a.sc);
   const names = scored.map((x) => x.r.id);
   const st = (s.festivals || {})[key];
   const me = st?.accepted ? st.slot : null;
   const take = (n, from) => names.slice(from, from + n);
-  const head = take(size.slots.headliner - (me === 'headliner' ? 1 : 0), 0);
+  const byFame = (ids) => ids.slice().sort((x, y) => (s.rivals.find((r) => r.id === y)?.monthlyListeners || 0) - (s.rivals.find((r) => r.id === x)?.monthlyListeners || 0));
+  const head = byFame(take(size.slots.headliner - (me === 'headliner' ? 1 : 0), 0));
   const sub = take(size.slots.sub - (me === 'sub' ? 1 : 0), head.length);
   const under = take(size.slots.undercard - (me === 'undercard' ? 1 : 0), head.length + sub.length);
   return { headliner: head, sub, undercard: under, me };

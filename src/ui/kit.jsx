@@ -6,7 +6,12 @@ export const useGame = () => useContext(GameCtx);
 
 export const AREA = { home: '#C6FF3D', studio: '#FF6B4A', phone: '#6C7BFF', charts: '#FFB020', world: '#2DD4BF' };
 export const DEFAULT_FACE = '/artist.jpg';
-export const SAMPLE_COVERS = ['/cover1.jpg', '/cover2.jpg', '/cover3.jpg'];
+export const SAMPLE_COVERS = [
+  '/cover1.jpg', '/cover2.jpg', '/cover3.jpg',
+  '/assets/treblr-festival-crowd.jpg', '/assets/treblr-film-set.jpg', '/assets/treblr-award-trophy.jpg',
+  '/assets/lifestyle/ferrari-296.jpg', '/assets/lifestyle/aston-dbs.jpg', '/assets/lifestyle/penthouse-suite.jpg',
+  '/assets/lifestyle/jet-cabin.jpg', '/assets/lifestyle/watch.jpg', '/assets/lifestyle/city-loft.jpg',
+];
 
 const P = {
   home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',

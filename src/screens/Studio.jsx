@@ -234,7 +234,7 @@ function Release({ onDone }) {
           ))}
         </div>
         <Mono className="mt16">Photos</Mono>
-        <div className="row gap6 mt8">
+        <div className="row wrap gap6 mt8">
           {SAMPLE_COVERS.map((src) => (
             <button key={src} className="press" onClick={() => setCover({ gradient: cover.gradient, image: src })} style={{ outline: cover.image === src ? '2px solid #fff' : 'none', borderRadius: 12 }}><img src={src} alt="" style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover' }} /></button>
           ))}

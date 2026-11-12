@@ -32,3 +32,9 @@ Additional local lifestyle photography downloaded on 2026-11-02:
 - lifestyle/ev.jpg | https://unsplash.com/photos/an-electric-car-plugged-in-to-a-charging-station-3yXhiWexjEE | Unsplash License
 - lifestyle/sports.jpg | https://unsplash.com/photos/white-mclaren-p1-racing-on-a-wet-track-J6Mx8_A_dFo | Unsplash License
 - lifestyle/hyper.jpg | https://unsplash.com/photos/a-red-mclaren-p1-is-displayed-in-front-GwdPcWX3Alg | Unsplash License
+Lifestyle replacements (Wikimedia Commons):
+lifestyle/ferrari-296.jpg: Ferrari 296 GTB, Charles from Port Chester, CC BY 2.0
+lifestyle/aston-dbs.jpg: Aston Martin DBS Superleggera, Alexander Migl, CC BY-SA 4.0
+lifestyle/bentley-gt.jpg: Bentley Continental GT Mulliner, Ethan Llamas, CC BY-SA 4.0
+
+lifestyle/chain.jpg: gold chain necklaces, Wikimedia Commons, CC0 / public domain

@@ -250,6 +250,30 @@ describe('payola, acting, festivals, tours', () => {
     while (s.week <= f.festWeek) { s = E.advanceWeek(s); s.player.popularity = 60; }
     expect(s.festivals[f.key].played.fee).toBeGreaterThan(0);
   });
+  it('festival lineups: genre-coherent, fame-ordered headliners, hip-hop fest is rap-led', () => {
+    const s = fresh();
+    const byId = (id) => s.rivals.find((r) => r.id === id);
+    for (const f of E.FESTIVALS) {
+      for (const yr of [2027, 2028, 2029]) {
+        const lu = E.festivalLineup(s, f, `${f.id}-${yr}`);
+        const all = [...lu.headliner, ...lu.sub, ...lu.undercard];
+        expect(new Set(all).size).toBe(all.length);
+        const fam = lu.headliner.map((id) => byId(id).monthlyListeners);
+        expect([...fam].sort((a, b) => b - a)).toEqual(fam);
+        const primary = lu.headliner.filter((id) => f.genres.includes(byId(id).genres[0]));
+        expect(primary.length).toBeGreaterThanOrEqual(2);
+      }
+    }
+    const rl = E.FESTIVALS.find((x) => x.id === 'rollinland');
+    const lu = E.festivalLineup(s, rl, 'rollinland-2027');
+    const heads = lu.headliner.map(byId);
+    expect(heads.every((r) => r.genres.some((g) => ['hiphop', 'rnb'].includes(g)))).toBe(true);
+    expect(heads.some((r) => r.name === 'Ariana Grande')).toBe(false);
+    const top = [...lu.headliner, ...lu.sub].map(byId);
+    const drake = top.findIndex((r) => r.name === 'Drake');
+    expect(drake).toBeGreaterThanOrEqual(0);
+    expect(drake).toBeLessThan(3);
+  });
   it('setlists: big songs, opener/closer and crew raise show quality', () => {
     let s = fresh();
     const ids = [];
@@ -363,5 +387,15 @@ describe('save migration v3 -> v4', () => {
     const n = E.advanceWeek(m);
     expect(n.week).toBe(m.week + 1);
     expect(Number.isFinite(n.player.popularity)).toBe(true);
+  });
+});
+
+import { existsSync } from 'node:fs';
+import { SAMPLE_COVERS } from '../ui/kit.jsx';
+describe('cover editor photos', () => {
+  it('offers 12+ unique photos that all exist on disk', () => {
+    expect(SAMPLE_COVERS.length).toBeGreaterThanOrEqual(12);
+    expect(new Set(SAMPLE_COVERS).size).toBe(SAMPLE_COVERS.length);
+    for (const src of SAMPLE_COVERS) expect(existsSync('public' + src)).toBe(true);
   });
 });

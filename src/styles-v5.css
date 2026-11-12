@@ -202,3 +202,9 @@
 .fpx-televisionspotlight .m1{inset:0;background:conic-gradient(from 160deg at 70% -6%,transparent 0 6deg,#ffd24d66 6deg 34deg,transparent 34deg)}
 .fpx-televisionspotlight .m2{inset:0;inset:42% 14% 22% 44%;border:3px solid #b36bff;border-radius:10px;background:linear-gradient(#b36bff22,#ffd24d22);box-shadow:0 0 20px #b36bff66}
 .fpx-televisionspotlight .m3{inset:0;inset:auto 0 0;height:10%;background:radial-gradient(ellipse at 66% 0,#ffd24d88,transparent 60%)}
+
+.social-card .social-stats{display:grid;gap:10px}
+.social-stat-ic{width:20px;height:20px;border-radius:6px;display:inline-grid;place-items:center;overflow:hidden}
+.social-bar{height:6px;border-radius:99px;background:rgba(255,255,255,.1);margin-top:5px;overflow:hidden}
+.social-bar i{display:block;height:100%;border-radius:99px}
+.row.gap8{gap:8px;align-items:center}

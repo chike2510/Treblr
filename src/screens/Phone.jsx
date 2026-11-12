@@ -24,6 +24,54 @@ function Glyph({ a }) {
   }
 }
 
+const SOCIAL_STATS = [
+  { id: 'treblrx', key: 'chirp', label: 'TreblrX', unit: 'followers', color: '#1d9bf0' },
+  { id: 'treblrgram', key: 'snapshot', label: 'Treblrgram', unit: 'followers', color: '#ee2a7b' },
+  { id: 'treblrtok', key: 'clipz', label: 'TreblrTok', unit: 'followers', color: '#25F4EE' },
+  { id: 'treblrtube', key: 'viewtube', label: 'TreblrTube', unit: 'subscribers', color: '#FF0033' },
+];
+
+// Social energy gauge + per-platform audience stats (followers / subscribers, not energy).
+export function SocialCard({ p }) {
+  const max = Math.max(1, p.maxSocial);
+  const pct = Math.max(0, Math.min(100, Math.round((p.socialEnergy / max) * 100)));
+  const R = 34, C = 2 * Math.PI * R;
+  const top = Math.max(1, ...SOCIAL_STATS.map((s) => p.followers[s.key] || 0));
+  return (
+    <div className="card tight mt24 social-card" data-testid="social-card" style={{ background: 'rgba(255,255,255,.05)' }}>
+      <div className="social-energy row gap16">
+        <svg width="84" height="84" viewBox="0 0 84 84" role="img" aria-label={`Social energy ${p.socialEnergy} of ${p.maxSocial}`}>
+          <circle cx="42" cy="42" r={R} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="8" />
+          <circle cx="42" cy="42" r={R} fill="none" stroke="#6C7BFF" strokeWidth="8" strokeLinecap="round" strokeDasharray={`${(C * pct) / 100} ${C}`} transform="rotate(-90 42 42)" />
+          <text x="42" y="46" textAnchor="middle" fontSize="20" fontWeight="700" fill="#fff" className="num">{p.socialEnergy}</text>
+          <text x="42" y="60" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,.6)">of {p.maxSocial}</text>
+        </svg>
+        <div className="grow">
+          <Mono className="sm">Social energy</Mono>
+          <div className="num" style={{ fontSize: 22 }}>{p.socialEnergy}/{p.maxSocial}</div>
+          <div className="tiny muted mt8">Posting, pitching, going LIVE and dates use social energy, separate from studio energy. Refills weekly.</div>
+        </div>
+      </div>
+      <div className="social-stats-head tiny muted mt16">Your audience</div>
+      <div className="social-stats mt8">
+        {SOCIAL_STATS.map((s) => {
+          const v = p.followers[s.key] || 0;
+          const app = APPS.find((a) => a.id === s.id);
+          return (
+            <div key={s.id} className="social-stat" data-stat={s.id} style={{ '--c': s.color }}>
+              <div className="row between">
+                <span className="row gap8 tiny">{app && <span className="social-stat-ic" style={{ background: app.bg }}><span style={{ transform: 'scale(.5)', display: 'grid' }}><Glyph a={app} /></span></span>}{s.label}</span>
+                <span className="num small"><b>{fmtNum(v)}</b> <span className="tiny muted">{s.unit}</span></span>
+              </div>
+              <div className="social-bar"><i style={{ width: `${Math.max(3, Math.round((v / top) * 100))}%`, background: s.color }} /></div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Phone({ initialApp, contact, view }) {
   const { state, openOverlay } = useGame();
   const [app, setApp] = useState(APP_ALIASES[initialApp] || initialApp || null);
@@ -82,13 +130,7 @@ export default function Phone({ initialApp, contact, view }) {
             </button>
           ))}
         </div>
-        <div className="card tight mt24" style={{ background: 'rgba(255,255,255,.05)' }}>
-          <div className="row between"><Mono className="sm">Social energy</Mono><span className="num small">{p.socialEnergy}/{p.maxSocial}</span></div>
-          <div className="tiny muted mt8">Posting, pitching, going LIVE and dates use social energy, separate from studio energy. Refills weekly.</div>
-          <div className="row gap16 mt12 tiny wrap">
-            <span>TreblrX <b>{fmtNum(p.followers.chirp)}</b></span><span>Treblrgram <b>{fmtNum(p.followers.snapshot)}</b></span><span>TreblrTok <b>{fmtNum(p.followers.clipz)}</b></span><span>TreblrTube <b>{fmtNum(p.followers.viewtube)}</b></span>
-          </div>
-        </div>
+        <SocialCard p={p} />
       </div>
       {Current && (
         <div

@@ -6,7 +6,7 @@ import { GameCtx, ArtistArt, ArtistAvatar } from './kit.jsx';
 import ArtistSheet from './ArtistSheet.jsx';
 import Home from '../screens/Home.jsx';
 import Studio from '../screens/Studio.jsx';
-import Phone from '../screens/Phone.jsx';
+import Phone, { SocialCard } from '../screens/Phone.jsx';
 import Charts from '../screens/Charts.jsx';
 import World from '../screens/World.jsx';
 import Profile from '../screens/Profile.jsx';
@@ -156,5 +156,18 @@ describe('game-wide screens', () => {
   });
   it('Profile shows relationship status', () => {
     expect(html(<Profile onClose={() => {}} />)).toMatch(/Single|Dating/);
+  });
+
+  it('home-screen social card shows an energy gauge and per-platform audience stats', () => {
+    const p = { socialEnergy: 45, maxSocial: 50, followers: { chirp: 750, snapshot: 900, clipz: 600, viewtube: 300 } };
+    const h = html(<SocialCard p={p} />);
+    expect(h).toContain('Social energy 45 of 50');
+    expect(h).toContain('Refills weekly');
+    for (const [id, label] of [['treblrx', 'TreblrX'], ['treblrgram', 'Treblrgram'], ['treblrtok', 'TreblrTok'], ['treblrtube', 'TreblrTube']]) {
+      expect(h).toContain(`data-stat="${id}"`); expect(h).toContain(label);
+    }
+    expect(h).toContain('subscribers');
+    expect(h).toContain('width:100%');
+    expect(h).toContain('width:33%');
   });
 });

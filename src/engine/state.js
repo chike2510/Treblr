@@ -9,8 +9,9 @@ import { popularityFromListeners, scheduleRival, npcCover, uniqueRivalTitle } fr
 import { applyRosterPack } from './business.js';
 import { SONG_CERTS, certFor } from './data2.js';
 import { addV5Fields, rebuildFeatureCredits } from './v5.js';
+import { addV6Fields } from './industry.js';
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export function randomTitle(rng) {
   const r = rng || { pick: (a) => a[Math.floor(Math.random() * a.length)], chance: (p) => Math.random() < p };
@@ -105,6 +106,7 @@ export function createNewGame(setup, seed) {
   addV3Fields(state);
   addV4Fields(state);
   addV5Fields(state);
+  addV6Fields(state);
   state.player.popularity = popularityFromListeners(state.player.monthlyListeners);
   state.player.mlHistory = [state.player.monthlyListeners];
 
@@ -270,6 +272,7 @@ const MIGRATIONS = {
     s.version = 5;
     return s;
   },
+  5: (s) => { addV6Fields(s); s.version = 6; return s; },
 };
 
 export function migrate(save) {

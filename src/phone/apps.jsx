@@ -233,7 +233,7 @@ function Manager() {
   const weeklyTeamCost = hired.reduce((sum, s) => sum + (offers[s.id]?.salary || 0), 0);
   const openRoles = STAFF.length - hired.length;
   return (
-    <div>
+    <div className="management-redesign">
       <div className="card" style={{ background: 'linear-gradient(135deg,rgba(108,123,255,.22),#15151B 72%)' }}>
         <Mono>MANAGEMENT OFFICE · WEEK {state.week}</Mono><div className="head mt8">Your career is a team operation</div>
         <div className="grid2 mt12"><div className="stat"><Mono className="sm">Team members</Mono><div className="v">{hired.length}/{STAFF.length}</div></div><div className="stat"><Mono className="sm">Weekly payroll</Mono><div className="v">{fmtMoney(weeklyTeamCost)}</div></div></div>

@@ -3,7 +3,7 @@ import {
   createNewGame, advanceWeek, writeSong, recordSong, releaseMusic, playGig, doJob, respondOffer,
   migrate, saveGame, loadGame, listSaves, SAVE_VERSION, CHARTS, RIVALS, CITIES, GENRES, MARKETS,
   computeCharts, movement, playerPositions, upNext, goalProgress, calendarEvents, createRng, decay, gameYear,
-  industryAction, signPublishingDeal, signIndustryPartnership, endIndustryPartnership, industryOverview, validateIndustryState, partnershipBonus, marketMultiplier,
+  industryAction, signPublishingDeal, signIndustryPartnership, endIndustryPartnership, industryOverview, validateIndustryState, partnershipBonus, marketMultiplier, rivalBusinessSummary,
 } from './index.js';
 
 const setup = { firstName: 'Sam', lastName: 'Lee', stageName: 'SAMLEE', city: 'tor', age: 22, genre: 'pop', subgenres: ['Synth-Pop'], path: 'bedroom' };
@@ -262,6 +262,16 @@ describe('industry ecosystem', () => {
     expect(partnershipBonus(distribution.state, 'promoter')).toBeCloseTo(0.08);
     expect(partnershipBonus(distribution.state, 'publicist')).toBeCloseTo(0.06);
     expect(marketMultiplier(distribution.state, 'pop')).toBeGreaterThan(1);
+  });
+  it('simulates rival strategies, cashflow and campaign decisions over time', () => {
+    let s = fresh();
+    for (let i = 0; i < 26; i++) s = advanceWeek(s);
+    const businesses = rivalBusinessSummary(s);
+    expect(businesses.length).toBe(s.rivals.length);
+    expect(businesses.every(x => ['growth','prestige','touring','independent','commercial'].includes(x.strategy))).toBe(true);
+    expect(businesses.every(x => Number.isFinite(x.cash))).toBe(true);
+    expect(s.npcIndustry.history.length).toBeGreaterThan(0);
+    expect(s.npcIndustry.history.length).toBeLessThanOrEqual(80);
   });
   it('keeps market multipliers bounded after a long simulation', () => {
     let s = fresh(); for (let i = 0; i < 60; i++) s = advanceWeek(s);

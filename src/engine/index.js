@@ -54,3 +54,5 @@ export * from './data2.js';
 export * from './v5.js';
 
 export * from './industry.js';
+
+export * from './npcIndustry.js';

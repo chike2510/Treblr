@@ -121,7 +121,7 @@ export function advanceWeek(state) {
     const m = model[song.id];
     const noise = rng.float(0.9, 1.1);
     const extra = (song.boughtStreams?.length ? song.boughtStreams.shift() : 0) + (song.adStreams?.length ? song.adStreams.shift() : 0);
-    const streams = Math.round(m.total * marketMultiplier(s) * noise + extra);
+    const streams = Math.round(m.total * marketMultiplier(s, song.genre) * noise + extra);
     if (age === 0) song.firstWeekStreams = streams;
     fanStreams += (m.discovery * FAN_FROM_DISC * (song.quality / 60) + m.audience * FAN_FROM_AUD) * noise;
     song.weeklyStreams = streams;

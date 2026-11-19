@@ -13,7 +13,7 @@ export default function Profile({ onClose }) {
   const out = state.releases.filter((r) => r.status === 'out');
   const saves = listSaves();
   return (
-    <div className="app-screen" style={{ top: 0, bottom: 0, zIndex: 70 }}>
+    <div className="app-screen profile-redesign" style={{ top: 0, bottom: 0, zIndex: 70 }}>
       <div style={{ position: 'relative', height: 300, flexShrink: 0 }}>
         <img src={facePhoto(p)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,.4), transparent 30%, #0B0B0F)' }} />

@@ -46,7 +46,7 @@ export default function World({ initial }) {
     const item = SECTIONS.flatMap((section) => section.items).find((x) => x.id === (featureRoot || initial));
     const Page = FEATURE_PAGE_COMPONENTS[featureRoot || initial];
     const title = featurePageTitle(initial) || item?.name;
-    return <div className="screen world-feature"><div className="row between"><div><h1 style={{ fontSize: 30 }}>{title}</h1><div className="small muted">Week {state.week} · {p.stageName} · {fmtMoney(p.cash)} · {p.energy} energy</div></div><button className="icon-btn" onClick={() => go({ tab: 'world' })} aria-label="Back to World"><Icon name="close" size={20} /></button></div>{featureRoot && <FeatureSubnav system={featureRoot} page={initial} />}<div className="section mt12"><Page page={initial} /></div></div>;
+    return <div className="screen world-feature feature-redesign"><div className="row between"><div><h1 style={{ fontSize: 30 }}>{title}</h1><div className="small muted">Week {state.week} · {p.stageName} · {fmtMoney(p.cash)} · {p.energy} energy</div></div><button className="icon-btn" onClick={() => go({ tab: 'world' })} aria-label="Back to World"><Icon name="close" size={20} /></button></div>{featureRoot && <FeatureSubnav system={featureRoot} page={initial} />}<div className="section mt12 feature-stage"><Page page={initial} /></div></div>;
   }
   const heat = p.fanHeat;
   const max = Math.max(1, ...Object.values(heat));
@@ -164,7 +164,7 @@ function Jobs() {
   const { state, act } = useGame();
   const p = state.player;
   return (
-    <div className="col">
+    <div className="col jobs-redesign">
       <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,.16), rgba(14,17,22,.96) 62%)' }}>
         <Mono>WORK MARKETPLACE · WEEK {state.week}</Mono><div className="head mt8">Build your career between releases</div>
         <div className="grid2 mt12"><div className="stat"><Mono className="sm">Energy</Mono><div className="v">{p.energy}/{p.maxEnergy}</div></div><div className="stat"><Mono className="sm">Available shifts</Mono><div className="v">{JOBS.filter(j => !Object.entries(j.minSkill || {}).some(([k,v]) => p.skills[k] < v)).length}</div></div></div>
@@ -320,7 +320,7 @@ function Training() {
   const { state, act } = useGame();
   const p = state.player;
   return (
-    <div className="col">
+    <div className="col training-redesign">
       <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(198,255,61,.12), rgba(14,17,22,.96) 64%)' }}>
         <Mono>ARTIST DEVELOPMENT · WEEK {state.week}</Mono><div className="head mt8">Invest in your craft</div>
         <div className="grid2 mt12"><div className="stat"><Mono className="sm">Energy available</Mono><div className="v">{p.energy}</div></div><div className="stat"><Mono className="sm">Training disciplines</Mono><div className="v">{TRAINING.length}</div></div></div>
@@ -484,7 +484,7 @@ function Festivals({ page = 'festivals' }) {
   const f = poster && list.find((x) => x.key === poster);
   const selectedList = page === 'festival-pitches' ? list.filter(x => x.pitchOpen || x.state?.pitched) : page === 'festival-lineups' ? list.filter(x => state.week >= x.lineupWeek) : list;
   return (
-    <div className="col">
+    <div className="col festivals-redesign">
       <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,.18), rgba(14,17,22,.96) 62%)' }}>
         <Mono>GLOBAL FESTIVAL CIRCUIT · WEEK {state.week}</Mono><div className="head mt8">Your next stage could be anywhere</div>
         <div className="grid2 mt12"><div className="stat"><Mono className="sm">Festival dates</Mono><div className="v">{list.length}</div></div><div className="stat"><Mono className="sm">Your likely slot</Mono><div className="v" style={{ fontSize: 17 }}>{festSlotFor(state) || 'Locked'}</div></div></div>
@@ -607,7 +607,7 @@ function Media({ kind }) {
   }[kind];
   const e = p.staff.publicist ? Math.round(info.e * 0.7) : info.e;
   return (
-    <div className="col">
+    <div className={`col media-redesign media-${kind}`}>
       <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(108,123,255,.16), rgba(14,17,22,.96) 64%)' }}><Mono>{kind === 'radio' ? 'RADIO PROMOTION DESK' : kind === 'interview' ? 'MEDIA BOOKING DESK' : 'PRESS OFFICE'}</Mono><div className="head mt8">{kind === 'radio' ? 'Put the single into rotation' : kind === 'interview' ? 'Choose the room and the story' : 'Shape the conversation'}</div><div className="tiny muted mt8">{info.d}</div></div>
       {kind === 'radio' && <><label className="col gap6"><Mono>Track to promote</Mono><select value={songId} onChange={e => setSongId(e.target.value)}>{songs.map(x => <option key={x.id} value={x.id}>{x.title}</option>)}</select></label><label className="col gap6"><Mono>Radio format</Mono><select value={radioFormat} onChange={e => setRadioFormat(e.target.value)}><option value="mainstream">Mainstream / Top 40</option><option value="genre">Genre-focused stations</option><option value="regional">Regional radio</option><option value="specialist">Specialist / tastemaker radio</option></select></label><div className="tiny muted">Genre-focused campaigns can produce stronger returns when your sound fits the audience. Mainstream campaigns offer broader reach.</div></>}
       {kind === 'interview' && <><label className="col gap6"><Mono>Outlet</Mono><select value={interviewType} onChange={e => setInterviewType(e.target.value)}><option value="podcast">Music podcast</option><option value="television">Television / talk show</option><option value="magazine">Magazine profile</option><option value="digital">Digital creator interview</option></select></label><label className="col gap6"><Mono>Talking point</Mono><select value={topic} onChange={e => setTopic(e.target.value)}><option value="new music">New release</option><option value="creative process">Creative process</option><option value="career story">Career story</option><option value="industry debate">Industry debate</option></select></label><div className="tiny muted">Charisma, popularity and hype influence the response. Some outlets offer bigger reach but also greater pressure.</div></>}
@@ -629,7 +629,7 @@ function Awards({ page = 'awards' }) {
   const wins = history.filter(x => x.result === 'won').length;
   const nominations = history.filter(x => x.result === 'nominated' || x.result === 'nominee').length;
   const upcoming = calendar.filter(x => x.showWeek >= state.week).length;
-  if (page === 'award-submissions') return <div className="col"><div className="award-hero card tight"><FeatureArt kind="award" name="Awards" id="submissions" className="award-art" /><div className="award-copy"><Mono>AWARD ENTRY ROOM</Mono><div className="head mt8">Submissions</div><div className="tiny muted mt8">Choose eligible releases through the existing submission flow. Entries and ceremony results remain in your save.</div></div></div>{sub?<div className="card tight"><b>{sub.show}</b><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length||sub.suggested?.length||0} entries · {sub.status}</div><button className="btn sm accent mt12" onClick={()=>go({submissions:true})}>{sub.status==='confirmed'?'Review entries':'Choose entries'}</button></div>:<div className="card tight tiny muted">No submission window is open right now. Check the season calendar for upcoming eligibility.</div>}{calendar.map(x=><div className="list-item" key={`${x.name}-${x.showWeek}`}><div className="grow"><b className="small">{x.name}</b><div className="tiny muted">Week {x.showWeek} · {x.open?'submissions open':x.showWeek<state.week?'passed':`opens ${x.opens}`}</div></div></div>)}</div>;
+  if (page === 'award-submissions') return <div className="col season-redesign"><div className="award-hero card tight"><FeatureArt kind="award" name="Awards" id="submissions" className="award-art" /><div className="award-copy"><Mono>AWARD ENTRY ROOM</Mono><div className="head mt8">Submissions</div><div className="tiny muted mt8">Choose eligible releases through the existing submission flow. Entries and ceremony results remain in your save.</div></div></div>{sub?<div className="card tight"><b>{sub.show}</b><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length||sub.suggested?.length||0} entries · {sub.status}</div><button className="btn sm accent mt12" onClick={()=>go({submissions:true})}>{sub.status==='confirmed'?'Review entries':'Choose entries'}</button></div>:<div className="card tight tiny muted">No submission window is open right now. Check the season calendar for upcoming eligibility.</div>}{calendar.map(x=><div className="list-item" key={`${x.name}-${x.showWeek}`}><div className="grow"><b className="small">{x.name}</b><div className="tiny muted">Week {x.showWeek} · {x.open?'submissions open':x.showWeek<state.week?'passed':`opens ${x.opens}`}</div></div></div>)}</div>;
   if (page === 'award-results') return <div className="col"><div className="award-hero card tight"><FeatureArt kind="award" name="Season results" id="archive" className="award-art" /><div className="award-copy"><Mono>THE ARCHIVE</Mono><div className="head mt8">Season results</div><div className="tiny muted mt8">Wins and nominations persist across seasons.</div></div></div>{history.length?history.map((a,i)=><div className="card tight award-history" key={a.id||`${a.show}-${a.week}-${i}`}><FeatureArt kind="award" name={a.show} id={a.id||i} className="award-art" /><div><div className="row between"><b>{a.show} · {a.year}</b><span className={`chip sm ${a.result==='won'?'up':''}`}>{a.result}</span></div><div className="tiny muted mt8">{(a.entries||[]).join(', ')||'No submitted entries'} · week {a.week}</div></div></div>):<div className="card tight tiny muted">No results recorded yet. Results appear after the scheduled ceremony.</div>}</div>;
   return <div className="col">
     <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(255,176,32,.18), rgba(14,17,22,.97) 64%)', borderColor: 'rgba(255,176,32,.24)' }}>

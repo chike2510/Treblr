@@ -116,11 +116,17 @@ export function endIndustryPartnership(state, { id }) {
     return { msg: 'Partnership ended. Future fees and bonuses stop immediately.' };
   });
 }
+export function partnershipBonus(s, type) {
+  addV6Fields(s);
+  return clamp(s.industry.partnerships
+    .filter((x) => x.active && x.type === type)
+    .reduce((n, x) => n + x.bonus, 0), 0, 0.3);
+}
 export function marketMultiplier(s, genre = s.player.genre) {
   addV6Fields(s);
   const base = s.industry.market.genres[genre] || 1;
-  const extra = s.industry.partnerships.filter((x) => x.active && x.type === 'distribution').reduce((n, x) => n + x.bonus, 0);
-  return clamp(base * (1 + extra), 0.65, 1.5);
+  const distribution = partnershipBonus(s, 'distribution');
+  return clamp(base * s.industry.market.economy * (1 + distribution), 0.65, 1.65);
 }
 export function industryOverview(s) {
   addV6Fields(s);

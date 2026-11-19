@@ -129,13 +129,17 @@ function Jobs() {
   const p = state.player;
   return (
     <div className="col">
-      <div className="small muted">Energy left: <b style={{ color: '#C6FF3D' }}>{p.energy}</b></div>
+      <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,.16), rgba(14,17,22,.96) 62%)' }}>
+        <Mono>WORK MARKETPLACE · WEEK {state.week}</Mono><div className="head mt8">Build your career between releases</div>
+        <div className="grid2 mt12"><div className="stat"><Mono className="sm">Energy</Mono><div className="v">{p.energy}/{p.maxEnergy}</div></div><div className="stat"><Mono className="sm">Available shifts</Mono><div className="v">{JOBS.filter(j => !Object.entries(j.minSkill || {}).some(([k,v]) => p.skills[k] < v)).length}</div></div></div>
+        <div className="tiny muted mt8">Take paid shifts to fund your music career while building practical skills. Better skills unlock better work.</div>
+      </div>
       {JOBS.map((j) => {
         const locked = Object.entries(j.minSkill || {}).find(([k, v]) => p.skills[k] < v);
         return (
-          <div key={j.id} className="card tight">
+          <div key={j.id} className="card tight" style={{ borderColor: locked ? 'var(--line)' : 'rgba(45,212,191,.22)', opacity: locked ? .72 : 1 }}>
             <div className="row between"><b>{j.name}</b><span className="up num">~{fmtMoney(j.pay)}</span></div>
-            <div className="tiny muted mt8">{j.desc} · {j.energy} energy · trains {j.skill}</div>
+            <div className="tiny muted mt8">{j.desc}</div><div className="row wrap gap6 mt8"><span className="chip sm">{j.energy} energy</span><span className="chip sm">Skill: {j.skill}</span><span className="chip sm">Paid shift</span></div>
             <button className="btn sm accent mt12" disabled={!!locked || p.energy < j.energy} onClick={() => act(doJob, { jobId: j.id })}>{locked ? `Needs ${locked[0]} ${locked[1]}` : 'Work shift'}</button>
           </div>
         );
@@ -218,7 +222,7 @@ function Tours({ page = 'tours' }) {
   const move = (i, d) => { const n = [...sel]; const j = i + d; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; setSel(n); };
   return (
     <div className="col">
-      <div className="small muted">Plan a route. Stops resolve week by week ({perWeek} per week) with nightly results in your weekly report. Energy is reserved while you tour.</div>
+      <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,.17), rgba(14,17,22,.96) 64%)' }}><Mono>TOUR OPERATIONS</Mono><div className="head mt8">Build a run worth travelling for</div><div className="grid2 mt12"><div className="stat"><Mono className="sm">Available cities</Mono><div className="v">{CITIES.length}</div></div><div className="stat"><Mono className="sm">Released setlist tracks</Mono><div className="v">{released.length}</div></div></div><div className="tiny muted mt8">Plan route order, venue scale, show pacing and crew costs. Stops settle in the weekly simulation; city demand and show quality drive the result.</div></div>
       <div className="pills">{venues.map((x) => <button key={x.id} className={`pill ${venue === x.id ? 'on' : ''}`} onClick={() => setVenue(x.id)}>{x.name}s</button>)}</div>
       <div className="row between"><Mono>Shows per week</Mono><div className="seg fit">{[1, 2, 3].map((n) => <button key={n} className={perWeek === n ? 'on' : ''} onClick={() => setPerWeek(n)}>{n}</button>)}</div></div>
       <div className="row wrap gap6">
@@ -281,14 +285,19 @@ function Training() {
   const p = state.player;
   return (
     <div className="col">
-      <div className="small muted">Train as often as your energy and cash allow. Repeating the same skill in one week gives less each time, so mix it up. Gains also shrink as a skill climbs. Songwriting drives song quality; vocals and production shape the final recording.</div>
+      <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(198,255,61,.12), rgba(14,17,22,.96) 64%)' }}>
+        <Mono>ARTIST DEVELOPMENT · WEEK {state.week}</Mono><div className="head mt8">Invest in your craft</div>
+        <div className="grid2 mt12"><div className="stat"><Mono className="sm">Energy available</Mono><div className="v">{p.energy}</div></div><div className="stat"><Mono className="sm">Training disciplines</Mono><div className="v">{TRAINING.length}</div></div></div>
+        <div className="tiny muted mt8">Training raises the skills used in recording, live shows, interviews and acting. Rotate disciplines to avoid weekly focus fatigue.</div>
+      </div>
       {TRAINING.map((t) => {
         const cost = trainingCost(p, t.id);
         const focus = trainingFocus(state.weekStats?.['train_' + t.id] || 0);
         return (
           <div key={t.id} className="card tight">
             <div className="row between"><b>{t.name}</b><span className="small">{fmtMoney(cost)} · {t.energy} energy{focus < 1 ? ` · ${Math.round(focus * 100)}% focus` : ''}</span></div>
-            <div className="row gap6 mt8"><span className="tiny muted" style={{ width: 90, textTransform: 'capitalize' }}>{t.id} {Math.round(p.skills[t.id])}</span><div className="grow"><Bar pct={p.skills[t.id] / 100} color="#2DD4BF" /></div></div>
+            <div className="row gap6 mt8"><span className="tiny muted" style={{ width: 90, textTransform: 'capitalize' }}>{t.id} {Math.round(p.skills[t.id])}</span><div className="grow"><Bar pct={p.skills[t.id] / 100} color="#2DD4BF" /></div><span className="tiny num">{Math.round(p.skills[t.id])}%</span></div>
+            <div className="tiny muted mt8">{t.id === 'songwriting' ? 'Improves composition and writing quality.' : t.id === 'vocals' ? 'Improves recorded vocal performance.' : t.id === 'production' ? 'Improves recording and production quality.' : t.id === 'performance' ? 'Improves live show quality and crowd response.' : t.id === 'charisma' ? 'Improves interviews, press and audience connection.' : 'Improves screen performance and casting outcomes.'}</div>
             <button className="btn sm accent mt12" disabled={p.energy < t.energy || p.cash < cost} onClick={() => act(trainSkill, { skill: t.id })}>{p.energy < t.energy ? 'Not enough energy' : 'Train'}</button>
           </div>
         );
@@ -434,7 +443,11 @@ function Festivals({ page = 'festivals' }) {
   const selectedList = page === 'festival-pitches' ? list.filter(x => x.pitchOpen || x.state?.pitched) : page === 'festival-lineups' ? list.filter(x => state.week >= x.lineupWeek) : list;
   return (
     <div className="col">
-      <div className="small muted">Pitch yourself 7–16 weeks before a festival. Lineups drop 6 weeks out, that’s when you find out. Your likely slot today: <b>{festSlotFor(state) || 'not yet (popularity 28+)'}</b>.</div>
+      <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,.18), rgba(14,17,22,.96) 62%)' }}>
+        <Mono>GLOBAL FESTIVAL CIRCUIT · WEEK {state.week}</Mono><div className="head mt8">Your next stage could be anywhere</div>
+        <div className="grid2 mt12"><div className="stat"><Mono className="sm">Festival dates</Mono><div className="v">{list.length}</div></div><div className="stat"><Mono className="sm">Your likely slot</Mono><div className="v" style={{ fontSize: 17 }}>{festSlotFor(state) || 'Locked'}</div></div></div>
+        <div className="tiny muted mt8">Pitch 7–16 weeks before show week. Lineups are announced six weeks before the festival. Genre fit, popularity and career momentum shape your placement.</div>
+      </div>
       {selectedList.map((x) => {
         const st = x.state || {};
         const announced = state.week >= x.lineupWeek;
@@ -445,6 +458,7 @@ function Festivals({ page = 'festivals' }) {
             <div className="festival-card-copy">
             <div className="row between gap6"><b className="ellipsis">{x.name}</b><span className="chip sm" style={{ flexShrink: 0 }}>{x.size === 'mega' ? 'Mega' : 'Major'}</span></div>
             <div className="tiny muted mt8">{cityById(x.city).flag} {cityById(x.city).name} · week {x.festWeek} ({formatWeekDate(x.festWeek, { month: 'short', day: 'numeric' })}) · {x.genres.length ? x.genres.map(genreName).join(', ') : 'all genres'}</div>
+            <div className="row wrap gap6 mt8"><span className="chip sm">{x.size === 'mega' ? 'Global scale' : 'Major circuit'}</span><span className="chip sm">{Math.max(0, x.festWeek - state.week)} weeks to show</span><span className="chip sm">{x.genres.length ? x.genres.map(genreName).join(' / ') : 'Open format'}</span></div>
             <div className="tiny mt8">{st.played ? `Played: ${fmtNum(st.played.crowd)} crowd · ${fmtMoney(st.played.fee)}` : announced ? (st.accepted ? `✅ You’re on the lineup (${st.slot})` : st.pitched ? '❌ Not this year' : 'Lineup announced') : st.pitched ? `Pitched · lineup drops week ${x.lineupWeek}` : x.pitchOpen ? 'Taking pitches now' : `Pitches open week ${x.festWeek - 16}`}</div>
             <div className="row gap6 mt12">
               {!st.pitched && x.pitchOpen && <button className="btn sm accent" disabled={p.socialEnergy < 5} onClick={() => act(pitchFestival, { key: x.key })}>Pitch · 5 social</button>}
@@ -539,6 +553,11 @@ function Merch({ page = 'merch' }) {
 function Media({ kind }) {
   const { state, act } = useGame();
   const p = state.player;
+  const songs = state.songs.filter(x => x.status === 'released').sort((a,b) => b.releasedWeek - a.releasedWeek);
+  const [songId, setSongId] = useState(songs[0]?.id || '');
+  const [radioFormat, setRadioFormat] = useState('mainstream');
+  const [interviewType, setInterviewType] = useState('podcast');
+  const [topic, setTopic] = useState('new music');
   const info = {
     press: { e: ENERGY.press, d: 'Send your music to critics and blogs. Usually lifts hype; sometimes the reviews sting.' },
     radio: { e: ENERGY.radio, d: 'Visit stations to push your latest single. Boosts radio spins for a few weeks (and the Hot 100).' },
@@ -547,9 +566,13 @@ function Media({ kind }) {
   const e = p.staff.publicist ? Math.round(info.e * 0.7) : info.e;
   return (
     <div className="col">
-      <p className="muted" style={{ margin: 0 }}>{info.d}</p>
+      <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(108,123,255,.16), rgba(14,17,22,.96) 64%)' }}><Mono>{kind === 'radio' ? 'RADIO PROMOTION DESK' : kind === 'interview' ? 'MEDIA BOOKING DESK' : 'PRESS OFFICE'}</Mono><div className="head mt8">{kind === 'radio' ? 'Put the single into rotation' : kind === 'interview' ? 'Choose the room and the story' : 'Shape the conversation'}</div><div className="tiny muted mt8">{info.d}</div></div>
+      {kind === 'radio' && <><label className="col gap6"><Mono>Track to promote</Mono><select value={songId} onChange={e => setSongId(e.target.value)}>{songs.map(x => <option key={x.id} value={x.id}>{x.title}</option>)}</select></label><label className="col gap6"><Mono>Radio format</Mono><select value={radioFormat} onChange={e => setRadioFormat(e.target.value)}><option value="mainstream">Mainstream / Top 40</option><option value="genre">Genre-focused stations</option><option value="regional">Regional radio</option><option value="specialist">Specialist / tastemaker radio</option></select></label><div className="tiny muted">Genre-focused campaigns can produce stronger returns when your sound fits the audience. Mainstream campaigns offer broader reach.</div></>}
+      {kind === 'interview' && <><label className="col gap6"><Mono>Outlet</Mono><select value={interviewType} onChange={e => setInterviewType(e.target.value)}><option value="podcast">Music podcast</option><option value="television">Television / talk show</option><option value="magazine">Magazine profile</option><option value="digital">Digital creator interview</option></select></label><label className="col gap6"><Mono>Talking point</Mono><select value={topic} onChange={e => setTopic(e.target.value)}><option value="new music">New release</option><option value="creative process">Creative process</option><option value="career story">Career story</option><option value="industry debate">Industry debate</option></select></label><div className="tiny muted">Charisma, popularity and hype influence the response. Some outlets offer bigger reach but also greater pressure.</div></>}
       <div className="card tight row between"><span>Energy cost{p.staff.publicist ? ' (publicist −30%)' : ''}</span><b>{e}</b></div>
-      <button className="btn accent block" disabled={p.energy < e} onClick={() => act(doMedia, { kind })}>{kind === 'press' ? 'Run press campaign' : kind === 'radio' ? 'Do a radio tour' : 'Book interview'}</button>
+      <button className="btn accent block" disabled={p.energy < e || (kind === 'radio' && !songs.length) || (kind === 'interview' && p.popularity < 20)} onClick={() => act(doMedia, { kind, songId, radioFormat, interviewType, topic })}>{kind === 'press' ? 'Run press campaign' : kind === 'radio' ? 'Launch radio campaign' : 'Confirm interview booking'}</button>
+      {kind === 'radio' && !songs.length && <div className="tiny muted">Release a single to unlock radio promotion.</div>}{kind === 'interview' && p.popularity < 20 && <div className="tiny muted">Media booking unlocks at 20 popularity.</div>}
+      {kind === 'radio' && p.lastRadioCampaign && <div className="tiny muted">Last campaign: week {p.lastRadioCampaign.week} · {p.lastRadioCampaign.format} format.</div>}{kind === 'interview' && p.lastInterview && <div className="tiny muted">Last appearance: week {p.lastInterview.week} · {p.lastInterview.outlet} · {p.lastInterview.result} response.</div>}
     </div>
   );
 }
@@ -561,9 +584,18 @@ function Awards({ page = 'awards' }) {
   const history = [...(state.awardHistory || []), ...(state.acting?.awardHistory || [])].sort((a, b) => (b.week || 0) - (a.week || 0));
   const current = state.awardEvent;
   const sub = state.awardSubmission;
+  const wins = history.filter(x => x.result === 'won').length;
+  const nominations = history.filter(x => x.result === 'nominated' || x.result === 'nominee').length;
+  const upcoming = calendar.filter(x => x.showWeek >= state.week).length;
   if (page === 'award-submissions') return <div className="col"><div className="award-hero card tight"><FeatureArt kind="award" name="Awards" id="submissions" className="award-art" /><div className="award-copy"><Mono>AWARD ENTRY ROOM</Mono><div className="head mt8">Submissions</div><div className="tiny muted mt8">Choose eligible releases through the existing submission flow. Entries and ceremony results remain in your save.</div></div></div>{sub?<div className="card tight"><b>{sub.show}</b><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length||sub.suggested?.length||0} entries · {sub.status}</div><button className="btn sm accent mt12" onClick={()=>go({submissions:true})}>{sub.status==='confirmed'?'Review entries':'Choose entries'}</button></div>:<div className="card tight tiny muted">No submission window is open right now. Check the season calendar for upcoming eligibility.</div>}{calendar.map(x=><div className="list-item" key={`${x.name}-${x.showWeek}`}><div className="grow"><b className="small">{x.name}</b><div className="tiny muted">Week {x.showWeek} · {x.open?'submissions open':x.showWeek<state.week?'passed':`opens ${x.opens}`}</div></div></div>)}</div>;
   if (page === 'award-results') return <div className="col"><div className="award-hero card tight"><FeatureArt kind="award" name="Season results" id="archive" className="award-art" /><div className="award-copy"><Mono>THE ARCHIVE</Mono><div className="head mt8">Season results</div><div className="tiny muted mt8">Wins and nominations persist across seasons.</div></div></div>{history.length?history.map((a,i)=><div className="card tight award-history" key={a.id||`${a.show}-${a.week}-${i}`}><FeatureArt kind="award" name={a.show} id={a.id||i} className="award-art" /><div><div className="row between"><b>{a.show} · {a.year}</b><span className={`chip sm ${a.result==='won'?'up':''}`}>{a.result}</span></div><div className="tiny muted mt8">{(a.entries||[]).join(', ')||'No submitted entries'} · week {a.week}</div></div></div>):<div className="card tight tiny muted">No results recorded yet. Results appear after the scheduled ceremony.</div>}</div>;
   return <div className="col">
+    <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(255,176,32,.18), rgba(14,17,22,.97) 64%)', borderColor: 'rgba(255,176,32,.24)' }}>
+      <FeatureArt kind="award" name="Awards season" id="season" className="award-art" />
+      <div className="award-copy"><Mono>THE AWARDS SEASON</Mono><div className="head mt8">Recognition is earned</div><div className="tiny muted mt8">Track eligibility, campaign for nominations and build a legacy across music and screen.</div></div>
+      <div className="grid2 mt12"><div className="stat"><Mono className="sm">Career wins</Mono><div className="v">{wins}</div></div><div className="stat"><Mono className="sm">Upcoming shows</Mono><div className="v">{upcoming}</div></div></div>
+      <div className="row between tiny muted mt8"><span>{nominations} nomination records</span><span>{history.length} ceremony results</span></div>
+    </div>
     {current && <button className="card tight press award-live" style={{ textAlign: 'left', borderColor: 'rgba(255,176,32,.55)' }} onClick={() => go({ awards: true })}><FeatureArt kind="award" name={current.show} id={current.id} className="award-live-art" /><div><Mono>Live ceremony</Mono><div className="head mt8">{current.show}</div><div className="tiny muted mt8">{current.status === 'pending' ? 'Your result is ready to reveal.' : current.status === 'won' ? 'You have an award to claim.' : 'Ceremony complete.'}</div><span className="btn sm primary mt12">Open ceremony</span></div></button>}
     {sub && <button className="card tight press" style={{ textAlign: 'left' }} onClick={() => go({ submissions: true })}><Mono>Submissions {sub.status === 'confirmed' ? 'submitted' : 'need your review'}</Mono><div className="head mt8">{sub.show}</div><div className="tiny muted mt8">Ceremony week {sub.showWeek} · {sub.picks?.length || sub.suggested?.length || 0} selected</div><span className="btn sm accent mt12">{sub.status === 'confirmed' ? 'Review entries' : 'Choose entries'}</span></button>}
     <div className="card tight"><Mono>Season calendar</Mono>{calendar.map((x) => <div key={`${x.name}-${x.showWeek}`} className="list-item"><div className="grow"><b className="small">{x.name}</b><div className="tiny muted">Week {x.showWeek} · {x.open ? 'submissions open' : x.sub?.status === 'confirmed' ? 'entries submitted' : x.showWeek < state.week ? 'ceremony passed' : `submission window weeks ${x.opens} to ${x.closes}`}</div></div>{x.sub?.status === 'confirmed' && <span className="chip sm">Entered</span>}</div>)}</div>
@@ -579,11 +611,11 @@ function Payola() {
   const banned = p.chartBanUntil && state.week <= p.chartBanUntil;
   return (
     <div className="col">
-      <p className="muted" style={{ margin: 0 }}>Pay “consultants” for spins and streams. It works, millions of streams, but every deal raises suspicion. Above 30, any week can bring an exposé: an 8-week chart ban, 10% of your fans gone, hype wiped, and labels may drop you.</p>
+      <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(255,77,94,.14), rgba(14,17,22,.97) 68%)', borderColor: 'rgba(255,77,94,.25)' }}><Mono>OFF-BOOK PROMOTION</Mono><div className="head mt8">A shortcut with a paper trail</div><div className="tiny muted mt8">Underground promotion can inflate exposure, but it creates investigation risk. Legitimate radio and media campaigns are safer ways to build a record.</div></div>
       <div className="card tight">
         <div className="row between"><Mono>Suspicion</Mono><b style={{ color: p.suspicion > 30 ? '#FF4D5E' : '#FFB020' }}>{Math.round(p.suspicion)}/100</b></div>
         <div className="mt8"><Bar pct={p.suspicion / 100} color={p.suspicion > 30 ? '#FF4D5E' : '#FFB020'} /></div>
-        <div className="tiny muted mt8">Cools by 2 a week when you stay clean.{banned ? ` Chart-banned until week ${p.chartBanUntil}.` : ''}</div>
+        <div className="tiny muted mt8">Risk cools by 2 each clean week. {p.suspicion >= 60 ? 'Critical exposure risk: avoid further deals.' : p.suspicion >= 30 ? 'Elevated risk: another deal could attract scrutiny.' : 'Low current exposure, but every package adds suspicion.'}{banned ? ` Chart-banned until week ${p.chartBanUntil}.` : ''}</div>
       </div>
       {songs.length ? <select value={song || ''} onChange={(e) => setSong(e.target.value)} aria-label="Song to push">{songs.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}</select> : <div className="small muted">Release a song first.</div>}
       {PAYOLA.map((k) => (

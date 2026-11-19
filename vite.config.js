@@ -12,7 +12,8 @@ function treblrServiceWorker() {
     name: 'treblr-sw',
     apply: 'build',
     configResolved(c) { outDir = path.resolve(c.root, c.build.outDir); },
-    closeBundle() {
+    writeBundle() {
+      if (!fs.existsSync(outDir)) throw new Error(`Build output directory was not created: ${outDir}`);
       const files = [];
       const walk = (dir) => {
         for (const f of fs.readdirSync(dir)) {

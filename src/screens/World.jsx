@@ -28,7 +28,7 @@ const SECTIONS = [
   { title: 'Career', items: [{ id: 'jobs', name: 'Jobs', icon: 'briefcase', live: true }, { id: 'training', name: 'Training', icon: 'sparkle' }, { id: 'labels', name: 'Labels & Distribution', icon: 'disc' }, { id: 'merch', name: 'Merch', icon: 'shirt' }, { id: 'brands', name: 'Brand Deals', icon: 'star' }, { id: 'acting', name: 'Acting', icon: 'video' }, { id: 'awards', name: 'Awards', icon: 'trophy' }] },
   { title: 'Live', items: [{ id: 'gigs', name: 'Gigs', icon: 'ticket', live: true }, { id: 'tours', name: 'Tours', icon: 'globe' }, { id: 'festivals', name: 'Festivals', icon: 'users' }] },
   { title: 'Life', items: [{ id: 'lifestyle', name: 'Lifestyle', icon: 'home' }] },
-  { title: 'Industry', items: [{ id: 'industry', name: 'Industry Relations', icon: 'handshake' }] },
+  { title: 'Industry', items: [{ id: 'industry', name: 'Industry Relations', icon: 'users' }] },
   { title: 'Media', items: [{ id: 'press', name: 'Press', icon: 'news' }, { id: 'radio', name: 'Radio', icon: 'radio' }, { id: 'interview', name: 'Interviews', icon: 'mic' }] },
   { title: 'Shady', items: [{ id: 'payola', name: 'Payola', icon: 'skull' }] },
 ];
@@ -95,7 +95,7 @@ export default function World({ initial }) {
 
       <Sheet open={!!cur} onClose={() => setOpen(null)} title={cur?.name}>
         {open === 'industry' && <IndustryDesk />}
-        {open === 'jobs' && <Jobs />
+        {open === 'jobs' && <Jobs />}
         {open === 'gigs' && <Gigs />}
         {open === 'brands' && <div><p className="muted" style={{ marginTop: 0 }}>Brands reach out through your Inbox once you pass 1.5K fans. Bigger fan bases and a manager mean bigger cheques.</p><div className="card tight row between"><span>Pending brand offers</span><b>{pendingBrands}</b></div><button className="btn accent block mt16" onClick={() => { setOpen(null); go({ tab: 'phone', app: 'inbox' }); }}>Open Inbox</button></div>}
         {['press', 'radio', 'interview'].includes(open) && <Media kind={open} />}

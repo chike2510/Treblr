@@ -4,6 +4,7 @@ import App from './App.jsx';
 import './styles.css';
 import './styles-v4.css';
 import './styles-v5.css';
+import './redesign.css';
 import { initPWA } from './pwa.jsx';
 
 initPWA();

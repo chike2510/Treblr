@@ -9,6 +9,7 @@ import { popularityFromListeners, makeRivalSong } from './state.js';
 import { earn, spend, pushNews } from './actions.js';
 import { checkGoals, staffCost, LIVING_COST, housingCost } from './goals.js';
 import { TIERS, npcTitle } from './npc.js';
+import { npcIndustryTick } from './npcIndustry.js';
 import { staffEff, staffCut } from './hiring.js';
 import { pickHeadline, renderHeadline } from './headlines.js';
 import { generateWeeklyGoalsFor } from './weekly.js';
@@ -193,6 +194,7 @@ export function advanceWeek(state) {
     r.monthlyListeners = Math.round((r.monthlyListeners * 0.92 + r.baseML * 0.08) * rng.float(0.98, 1.025));
   }
   const moves = npcReleaseTick(s, rng, W, rivalById, (r, week) => { const so = makeRivalSong(s, rng, r, week); s.rivalSongs.push(so); return so; }, (r) => uniqueRivalTitle(s, rng, r, () => npcTitle(rng, r)));
+  npcIndustryTick(s, rng, W);
   for (const m of moves) {
     if (m.kind === 'album') { if (m.r.tier !== 'rising') pushNews(s, `${m.r.name} unveils new album “${m.title}”`, false, 'Albums'); }
     else if (m.r.tier === 'superstar' || rng.chance(0.2)) pushNews(s, `${m.r.name} releases “${m.title}”`, false, genreName(m.r.genre));
@@ -205,7 +207,7 @@ export function advanceWeek(state) {
   for (const song of s.rivalSongs) {
     const r = rivalById[song.rivalId];
     if (!r) continue;
-    rivalPull[r.id] = (rivalPull[r.id] || 0) + rivalSongPotential(r, song, W - song.releasedWeek) / (r.monthlyListeners * NPC_STREAM_K);
+    rivalPull[r.id] = (rivalPull[r.id] || 0) + rivalSongPotential(r, song, W - song.releasedWeek) * (r.business?.weeklyStreamsBonus || 1) * (song.collabBoost || 1) / (r.monthlyListeners * NPC_STREAM_K);
   }
   let featRevenue = 0;
   let featStreams = 0;
@@ -214,7 +216,7 @@ export function advanceWeek(state) {
     if (!r) continue;
     const age = W - song.releasedWeek;
     // A catalogue shares its audience: more songs out = less per song (sqrt sharing).
-    song.weeklyStreams = Math.round(rivalSongPotential(r, song, age) / Math.sqrt(Math.max(1, rivalPull[r.id])) * rng.float(0.9, 1.1));
+    song.weeklyStreams = Math.round(rivalSongPotential(r, song, age) * (r.business?.weeklyStreamsBonus || 1) * (song.collabBoost || 1) / Math.sqrt(Math.max(1, rivalPull[r.id])) * rng.float(0.9, 1.1));
     song.lifetimeStreams += song.weeklyStreams;
     if (song.featPlayer) {
       song.weeklyStreams = Math.round(song.weeklyStreams * (song.viral > 1 ? song.viral : 1));

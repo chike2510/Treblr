@@ -3,6 +3,7 @@ import {
   createNewGame, advanceWeek, writeSong, recordSong, releaseMusic, playGig, doJob, respondOffer,
   migrate, saveGame, loadGame, listSaves, SAVE_VERSION, CHARTS, RIVALS, CITIES, GENRES, MARKETS,
   computeCharts, movement, playerPositions, upNext, goalProgress, calendarEvents, createRng, decay, gameYear,
+  industryAction, signPublishingDeal, signIndustryPartnership, endIndustryPartnership, industryOverview, validateIndustryState,
 } from './index.js';
 
 const setup = { firstName: 'Sam', lastName: 'Lee', stageName: 'SAMLEE', city: 'tor', age: 22, genre: 'pop', subgenres: ['Synth-Pop'], path: 'bedroom' };
@@ -222,5 +223,36 @@ describe('long run stability', () => {
     const p = s.player;
     for (const v of [p.cash, p.fans, p.monthlyListeners, p.popularity, p.hype]) expect(Number.isFinite(v)).toBe(true);
     expect(JSON.stringify(s).length).toBeLessThan(1_500_000);
+  });
+});
+
+describe('industry ecosystem', () => {
+  it('migrates v5 saves and initializes a bounded market', () => {
+    const old = JSON.parse(JSON.stringify(fresh())); old.version = 5; delete old.industry;
+    const migrated = migrate(old);
+    expect(migrated.version).toBe(6);
+    expect(validateIndustryState(migrated).ok).toBe(true);
+    expect(industryOverview(migrated).market.genres.pop).toBe(1);
+  });
+  it('builds relationships through explicit actions without mutating the source', () => {
+    const s = fresh(); const rival = s.rivals[0];
+    const r = industryAction(s, { rivalId: rival.id, action: 'network' });
+    expect(r.ok).toBe(true); expect(r.state.industry.relationships[rival.id].score).toBeGreaterThan(0);
+    expect(s.industry).toBeUndefined();
+  });
+  it('validates publishing terms and prevents duplicate agreements', () => {
+    const s = fresh(); const r = signPublishingDeal(s, { advance: 10000, share: 0.2, term: 52 });
+    expect(r.ok).toBe(true); expect(signPublishingDeal(r.state, { advance: 0 }).ok).toBe(false);
+    expect(signPublishingDeal(s, { advance: 0, share: 0.9 }).ok).toBe(false);
+  });
+  it('creates bounded partnerships and can terminate them', () => {
+    const s = fresh(); const r = signIndustryPartnership(s, { type: 'distribution', partner: 'Northstar', weeklyFee: 0, term: 26, bonus: 0.1 });
+    expect(r.ok).toBe(true); expect(industryOverview(r.state).contracts).toBe(1);
+    const ended = endIndustryPartnership(r.state, { id: r.state.industry.partnerships[0].id });
+    expect(ended.ok).toBe(true); expect(industryOverview(ended.state).contracts).toBe(0);
+  });
+  it('keeps market multipliers bounded after a long simulation', () => {
+    let s = fresh(); for (let i = 0; i < 60; i++) s = advanceWeek(s);
+    expect(validateIndustryState(s).ok).toBe(true); expect(s.industry.history.length).toBeLessThanOrEqual(52);
   });
 });

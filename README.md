@@ -55,3 +55,12 @@ Vercel builds with `npm run build` and serves `dist/`; `vercel.json` rewrites al
 - Real-world NPC roster: 100 real artists seeded from Spotify monthly listeners (kworb.net snapshot, 2026-10-26; see `src/engine/realArtists.js`, regenerate with `scripts/gen-artists.py`) plus 9 fictional rising acts. Titles are generated; avatars are generative art (players can set their own photo per artist and share photo packs). Dating is fictional characters only.
 - New systems: career timeline, weekly goals, chart streak, spotlight, eras, Treblrchat contacts, fan comments, beef & diss tracks, live streams, notifications, collabs, video directors/concepts, album sequencing, award shows, PR crises, Wrapped, multi-week tours, training, burnout.
 - Balance: `node scripts/balance-sim.mjs` (results in `scripts/balance-results.md`).
+
+
+## v6 — Industry ecosystem
+- Persistent artist relationships with networking, collaboration, competition and reconciliation choices.
+- Publishing agreements with bounded terms, recoupable advances and weekly royalty settlement.
+- Time-limited industry partnerships for distribution, brand, promoter and publicist services, including missed-retainer termination.
+- Global genre-demand cycles that refresh every 13 weeks and influence song streaming potential.
+- Industry reputation, rivalry heat, relationship drift and a rolling industry history.
+- Save v5 → v6 migration preserves existing careers and initializes the new systems.

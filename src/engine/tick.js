@@ -19,6 +19,7 @@ import { updateFame, releaseReception, receptionLabel, certifySong, albumWeek, n
 import { labelRoyalty, labelReach, contractTick, deliverAlbum, distributionTick, lifestyleUpkeep, actingTick, festivalTick, payolaExposure, bankTick, cloudTick, labelTerms, dealText, rivalLabelId } from './business.js';
 import { placeOnPlaylist } from './actions.js';
 import { FAME_TIERS } from './data2.js';
+import { industryTick, marketMultiplier } from './industry.js';
 
 const MAIN_CHARTS = ['hot100', 'global', 'album'];
 
@@ -120,7 +121,7 @@ export function advanceWeek(state) {
     const m = model[song.id];
     const noise = rng.float(0.9, 1.1);
     const extra = (song.boughtStreams?.length ? song.boughtStreams.shift() : 0) + (song.adStreams?.length ? song.adStreams.shift() : 0);
-    const streams = Math.round(m.total * noise + extra);
+    const streams = Math.round(m.total * marketMultiplier(s, song.genre) * noise + extra);
     if (age === 0) song.firstWeekStreams = streams;
     fanStreams += (m.discovery * FAN_FROM_DISC * (song.quality / 60) + m.audience * FAN_FROM_AUD) * noise;
     song.weeklyStreams = streams;
@@ -271,6 +272,9 @@ export function advanceWeek(state) {
   distributionTick(s);
   contractTick(s);
   bankTick(s, grossIn);
+
+  // Industry ecosystem resolves contracts, market cycles and relationship drift.
+  industryTick(s, rng, events);
 
   // 7. Album units (first weeks, certifications), then charts.
   albumWeek(s, rng, (t) => pushNews(s, t, true, 'Certified'));

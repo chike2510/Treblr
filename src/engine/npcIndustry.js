@@ -118,6 +118,7 @@ function reactToPlayer(s, world, rng, week) {
 export function npcIndustryTick(s, rng, week = s.week) {
   const world = ensureWorld(s);
   world.week = week;
+  for (const song of s.rivalSongs || []) if (song.collabBoost > 1) song.collabBoost = Math.max(1, 1 + (song.collabBoost - 1) * 0.78);
   for (const r of s.rivals || []) {
     const b = r.business;
     if (week >= b.campaignUntil) { b.campaign = null; b.weeklyStreamsBonus = 1; }
@@ -139,10 +140,8 @@ export function npcIndustryTick(s, rng, week = s.week) {
 }
 
 export function rivalBusinessSummary(s) {
-  const world = ensureWorld(s);
-  return (s.rivals || []).map((r) => ({
-    id: r.id, name: r.name, strategy: r.business.strategy, label: r.business.label,
-    cash: r.business.cash, campaign: r.business.campaign, decision: r.business.lastDecision,
-    reputation: r.business.reputation,
-  }));
+  return (s.rivals || []).map((r) => {
+    const b = r.business || { strategy: 'independent', label: null, cash: 0, campaign: null, lastDecision: 'Awaiting first weekly simulation', reputation: 0 };
+    return { id: r.id, name: r.name, strategy: b.strategy, label: b.label, cash: b.cash, campaign: b.campaign, decision: b.lastDecision, reputation: b.reputation };
+  });
 }

@@ -11,7 +11,7 @@ import { useGame, Icon, Mono, Sheet, Bar, Empty, AREA, ArtistAvatar, facePhoto }
 import FeatureArt from '../ui/FeatureArt.jsx';
 import { LABEL_STARTUP, createOwnLabel, updateOwnLabelBrand, scoutTalent, signProspect, releaseLabelSingle, LABEL_STAFF, LABEL_BUDGETS, setLabelStaff, dropLabelArtist } from '../engine/index.js';
 import FeatureSubnav, { FEATURE_ROUTE_ROOT, FEATURE_SUBPAGES, featurePageTitle } from './FeatureSubnav.jsx';
-import { industryOverview, industryAction, signPublishingDeal, signIndustryPartnership, endIndustryPartnership } from '../engine/index.js';
+import { industryOverview, industryAction, signPublishingDeal, signIndustryPartnership, endIndustryPartnership, rivalBusinessSummary } from '../engine/index.js';
 
 const LAND = [
   [[-168, 65], [-140, 70], [-95, 72], [-75, 62], [-55, 50], [-80, 25], [-97, 18], [-83, 9], [-105, 22], [-118, 33], [-125, 48], [-150, 58]],
@@ -135,6 +135,8 @@ function IndustryDesk() {
   const view = industryOverview(state);
   const rival = view.relationships.find(x => x.rivalId === rivalId);
   const active = view.partnerships;
+  const rivalBusinesses = rivalBusinessSummary(state).sort((a,b)=>b.cash-a.cash);
+  const npcWorld = state.npcIndustry || { history: [], collaborations: [], deals: [], campaigns: [] };
   return <div className="col">
     <div className="card tight" style={{ background: 'linear-gradient(135deg,rgba(45,212,191,.16),rgba(14,17,22,.97) 65%)' }}>
       <Mono>INDUSTRY INTELLIGENCE · WEEK {state.week}</Mono><div className="head mt8">The business behind the music</div>
@@ -150,6 +152,13 @@ function IndustryDesk() {
       {rival && <div className="small muted mt8">Relationship: {rival.status} · score {rival.score}/100</div>}
       <div className="grid2 mt12">{['network','collaborate','compete','reconcile'].map(a=><button key={a} className="btn sm" onClick={()=>act(industryAction,{rivalId,action:a})} style={{textTransform:'capitalize'}}>{a}</button>)}</div>
       <div className="tiny muted mt8">Networking and collaboration build trust. Competition can start a feud; reconciliation cools it down.</div>
+    </div>
+    <div className="card tight"><Mono>RIVAL ARTIST BUSINESSES</Mono>
+      <div className="tiny muted mt8">Every rival runs an independent operation: they choose a strategy, manage cash, hire a team, negotiate label contracts and fund campaigns. Their decisions affect their releases and streaming performance.</div>
+      {rivalBusinesses.slice(0,8).map(r=><div key={r.id} className="list-item"><div className="grow"><b className="small">{r.name}</b><div className="tiny muted" style={{textTransform:'capitalize'}}>{r.strategy} · {r.label || 'Independent'} · {r.campaign || 'No active campaign'}</div><div className="tiny muted">{r.decision}</div></div><div className="num small">{fmtMoney(r.cash)}</div></div>)}
+      <div className="row between mt12"><Mono>RECENT INDUSTRY MOVES</Mono><span className="tiny muted">{npcWorld.collaborations.length} rival collaborations</span></div>
+      {(npcWorld.history || []).slice(0,6).map((h,i)=><div className="tiny muted mt8" key={i}>W{h.week} · {h.text}</div>)}
+      {!npcWorld.history?.length && <div className="tiny muted mt8">Rival management decisions begin after the next weekly simulation.</div>}
     </div>
     <div className="card tight"><Mono>PUBLISHING & PARTNERSHIPS</Mono>
       {view.publishing?.active ? <div className="small mt8">Publishing: {Math.round(view.publishing.share*100)}% share · advance recouped {fmtMoney(view.publishing.recouped)}/{fmtMoney(view.publishing.advance)} · ends week {view.publishing.endWeek}</div> :

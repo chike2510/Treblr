@@ -11,6 +11,7 @@ import { useGame, Icon, Mono, Sheet, Bar, Empty, AREA, ArtistAvatar, facePhoto }
 import FeatureArt from '../ui/FeatureArt.jsx';
 import { LABEL_STARTUP, createOwnLabel, updateOwnLabelBrand, scoutTalent, signProspect, releaseLabelSingle, LABEL_STAFF, LABEL_BUDGETS, setLabelStaff, dropLabelArtist } from '../engine/index.js';
 import FeatureSubnav, { FEATURE_ROUTE_ROOT, FEATURE_SUBPAGES, featurePageTitle } from './FeatureSubnav.jsx';
+import { industryOverview, industryAction, signPublishingDeal, signIndustryPartnership, endIndustryPartnership } from '../engine/index.js';
 
 const LAND = [
   [[-168, 65], [-140, 70], [-95, 72], [-75, 62], [-55, 50], [-80, 25], [-97, 18], [-83, 9], [-105, 22], [-118, 33], [-125, 48], [-150, 58]],
@@ -27,6 +28,7 @@ const SECTIONS = [
   { title: 'Career', items: [{ id: 'jobs', name: 'Jobs', icon: 'briefcase', live: true }, { id: 'training', name: 'Training', icon: 'sparkle' }, { id: 'labels', name: 'Labels & Distribution', icon: 'disc' }, { id: 'merch', name: 'Merch', icon: 'shirt' }, { id: 'brands', name: 'Brand Deals', icon: 'star' }, { id: 'acting', name: 'Acting', icon: 'video' }, { id: 'awards', name: 'Awards', icon: 'trophy' }] },
   { title: 'Live', items: [{ id: 'gigs', name: 'Gigs', icon: 'ticket', live: true }, { id: 'tours', name: 'Tours', icon: 'globe' }, { id: 'festivals', name: 'Festivals', icon: 'users' }] },
   { title: 'Life', items: [{ id: 'lifestyle', name: 'Lifestyle', icon: 'home' }] },
+  { title: 'Industry', items: [{ id: 'industry', name: 'Industry Relations', icon: 'handshake' }] },
   { title: 'Media', items: [{ id: 'press', name: 'Press', icon: 'news' }, { id: 'radio', name: 'Radio', icon: 'radio' }, { id: 'interview', name: 'Interviews', icon: 'mic' }] },
   { title: 'Shady', items: [{ id: 'payola', name: 'Payola', icon: 'skull' }] },
 ];
@@ -92,7 +94,8 @@ export default function World({ initial }) {
       ))}
 
       <Sheet open={!!cur} onClose={() => setOpen(null)} title={cur?.name}>
-        {open === 'jobs' && <Jobs />}
+        {open === 'industry' && <IndustryDesk />}
+        {open === 'jobs' && <Jobs />
         {open === 'gigs' && <Gigs />}
         {open === 'brands' && <div><p className="muted" style={{ marginTop: 0 }}>Brands reach out through your Inbox once you pass 1.5K fans. Bigger fan bases and a manager mean bigger cheques.</p><div className="card tight row between"><span>Pending brand offers</span><b>{pendingBrands}</b></div><button className="btn accent block mt16" onClick={() => { setOpen(null); go({ tab: 'phone', app: 'inbox' }); }}>Open Inbox</button></div>}
         {['press', 'radio', 'interview'].includes(open) && <Media kind={open} />}
@@ -105,6 +108,7 @@ export default function World({ initial }) {
 function subtitle(id, s, brands) {
   const p = s.player;
   switch (id) {
+    case 'industry': return `${s.industry?.partnerships?.filter(x => x.active).length || 0} partnerships · global market`;
     case 'jobs': return 'Quick cash, costs energy';
     case 'gigs': return `${cityById(p.city).name} + ${Object.keys(p.fanHeat).length - 1} cities`;
     case 'tours': return s.tour ? `On tour · ${s.tour.stops.filter((x) => !x.done).length} shows left` : 'Multi-week runs';
@@ -122,6 +126,38 @@ function subtitle(id, s, brands) {
     case 'payola': return 'Buy streams & spins. Very risky.';
     default: return '';
   }
+}
+
+
+function IndustryDesk() {
+  const { state, act } = useGame();
+  const [rivalId, setRivalId] = useState(state.rivals[0]?.id || '');
+  const view = industryOverview(state);
+  const rival = view.relationships.find(x => x.rivalId === rivalId);
+  const active = view.partnerships;
+  return <div className="col">
+    <div className="card tight" style={{ background: 'linear-gradient(135deg,rgba(45,212,191,.16),rgba(14,17,22,.97) 65%)' }}>
+      <Mono>INDUSTRY INTELLIGENCE · WEEK {state.week}</Mono><div className="head mt8">The business behind the music</div>
+      <div className="grid2 mt12"><div className="stat"><Mono className="sm">Active contracts</Mono><div className="v">{view.contracts}</div></div><div className="stat"><Mono className="sm">Active rivalries</Mono><div className="v">{view.activeRivalries}</div></div></div>
+      <div className="tiny muted mt8">Professionalism {Math.round(view.reputation.professionalism)} · Reliability {Math.round(view.reputation.reliability)} · Controversy {Math.round(view.reputation.controversy)}</div>
+    </div>
+    <div className="card tight"><Mono>GLOBAL MARKET · CYCLE {view.market.cycle}</Mono><div className="small muted mt8">{view.market.narrative}</div>
+      {view.topGenres.map(([g,v])=><div key={g} className="row between mt8"><span className="small" style={{textTransform:'capitalize'}}>{g}</span><b className="num">{v.toFixed(2)}×</b></div>)}
+      <div className="tiny muted mt8">Genre demand shifts every 13 weeks and influences your weekly streaming potential.</div>
+    </div>
+    <div className="card tight"><Mono>ARTIST RELATIONSHIPS</Mono>
+      <select className="mt8" value={rivalId} onChange={e=>setRivalId(e.target.value)} style={{width:'100%'}}>{view.relationships.map(x=><option key={x.rivalId} value={x.rivalId}>{x.name} · {x.status} ({x.score})</option>)}</select>
+      {rival && <div className="small muted mt8">Relationship: {rival.status} · score {rival.score}/100</div>}
+      <div className="grid2 mt12">{['network','collaborate','compete','reconcile'].map(a=><button key={a} className="btn sm" onClick={()=>act(industryAction,{rivalId,action:a})} style={{textTransform:'capitalize'}}>{a}</button>)}</div>
+      <div className="tiny muted mt8">Networking and collaboration build trust. Competition can start a feud; reconciliation cools it down.</div>
+    </div>
+    <div className="card tight"><Mono>PUBLISHING & PARTNERSHIPS</Mono>
+      {view.publishing?.active ? <div className="small mt8">Publishing: {Math.round(view.publishing.share*100)}% share · advance recouped {fmtMoney(view.publishing.recouped)}/{fmtMoney(view.publishing.advance)} · ends week {view.publishing.endWeek}</div> :
+        <><div className="small muted mt8">Sample one-year agreement: $5,000 recoupable advance for a 20% publishing share.</div><button className="btn sm accent mt12" onClick={()=>act(signPublishingDeal,{advance:5000,share:0.2,term:52})}>Sign sample publishing deal</button></>}
+      {active.map(d=><div key={d.id} className="list-item"><div className="grow"><b className="small">{d.partner}</b><div className="tiny muted">{d.type} · {Math.round(d.bonus*100)}% bonus · ends W{d.endWeek}</div></div><button className="btn sm" onClick={()=>act(endIndustryPartnership,{id:d.id})}>End</button></div>)}
+      {!active.some(d=>d.type==='distribution') && <button className="btn sm mt12" onClick={()=>act(signIndustryPartnership,{type:'distribution',partner:'Northstar Distribution',weeklyFee:0,term:26,bonus:0.05})}>Partner with Northstar Distribution · +5%</button>}
+    </div>
+  </div>;
 }
 
 function Jobs() {

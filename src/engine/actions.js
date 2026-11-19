@@ -490,7 +490,7 @@ export function dropMerch(state, { tier }) {
   });
 }
 
-export function doMedia(state, { kind }) {
+export function doMedia(state, { kind, songId = null, radioFormat = 'mainstream', interviewType = 'podcast', topic = 'new music' }) {
   return run(state, (s, rng) => {
     const p = s.player;
     const cost = { press: ENERGY.press, radio: ENERGY.radio, interview: ENERGY.interview }[kind];
@@ -506,17 +506,29 @@ export function doMedia(state, { kind }) {
       return { msg: good ? 'Glowing write-up. Hype up.' : 'Lukewarm reviews. Hype dipped.' };
     }
     if (kind === 'radio') {
-      const song = s.songs.find((x) => x.status === 'released');
-      if (!song) return fail('Release a song before a radio tour.');
-      song.radioBoost = (song.radioBoost || 0) + 0.6 * labelReach(s);
-      gainHype(p, 4);
-      return { msg: `Radio tour done, “${song.title}” gets more spins.` };
+      const song = s.songs.find(x => x.id === songId && x.status === 'released') || s.songs.find(x => x.status === 'released');
+      if (!song) return fail('Release a song before a radio campaign.');
+      const formats = { mainstream: 1.2, genre: 1.35, regional: 1.05, specialist: 0.9 };
+      const format = formats[radioFormat] ? radioFormat : 'mainstream';
+      const reach = labelReach(s) * formats[format];
+      song.radioBoost = (song.radioBoost || 0) + 0.6 * reach;
+      gainHype(p, 3 + Math.round(formats[format] * 2));
+      p.lastRadioCampaign = { week: s.week, songId: song.id, format, reach: Math.round(reach * 100) / 100 };
+      return { msg: `Radio campaign complete: “${song.title}” pitched to ${format} radio. Airplay support increased.` };
     }
-    const fans = Math.round((Math.min(20000, p.fans * 0.02) + 50) * (1 + p.skills.charisma / 100));
+    const outlets = { podcast: 1.15, television: 1.3, magazine: 0.9, digital: 1.05 };
+    const topics = { 'new music': 1.1, 'creative process': 1.05, 'career story': 1, 'industry debate': 0.85 };
+    const outlet = outlets[interviewType] ? interviewType : 'podcast';
+    const angle = topics[topic] ? topic : 'new music';
+    const quality = clamp((p.skills.charisma * 0.55 + p.popularity * 0.25 + p.hype * 0.2) / 100, 0, 1);
+    const good = rng.chance(clamp(0.52 + quality * 0.35 + (outlet === 'television' ? 0.04 : 0), 0.15, 0.92));
+    const fans = good ? Math.round((Math.min(20000, p.fans * 0.02) + 50) * (1 + p.skills.charisma / 100) * outlets[outlet] * topics[angle]) : Math.round(Math.min(500, p.fans * 0.003));
     p.fans += fans;
-    gainHype(p, 6);
-    bump(p, 'charisma', 1);
-    return { msg: `Great interview. +${fmtNum(fans)} fans.` };
+    gainHype(p, good ? 6 : -2);
+    bump(p, 'charisma', good ? 1 : 0.4);
+    p.lastInterview = { week: s.week, outlet, topic: angle, result: good ? 'positive' : 'mixed' };
+    pushNews(s, good ? `${p.stageName} wins over viewers in a ${outlet} interview` : `${p.stageName}'s latest interview draws a mixed response`, true, 'Media');
+    return { msg: good ? `Strong ${outlet} appearance on ${angle}. +${fmtNum(fans)} fans.` : `The ${outlet} appearance was mixed. +${fmtNum(fans)} fans, but little hype.` };
   });
 }
 

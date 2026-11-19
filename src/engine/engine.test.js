@@ -3,7 +3,7 @@ import {
   createNewGame, advanceWeek, writeSong, recordSong, releaseMusic, playGig, doJob, respondOffer,
   migrate, saveGame, loadGame, listSaves, SAVE_VERSION, CHARTS, RIVALS, CITIES, GENRES, MARKETS,
   computeCharts, movement, playerPositions, upNext, goalProgress, calendarEvents, createRng, decay, gameYear,
-  industryAction, signPublishingDeal, signIndustryPartnership, endIndustryPartnership, industryOverview, validateIndustryState,
+  industryAction, signPublishingDeal, signIndustryPartnership, endIndustryPartnership, industryOverview, validateIndustryState, partnershipBonus, marketMultiplier,
 } from './index.js';
 
 const setup = { firstName: 'Sam', lastName: 'Lee', stageName: 'SAMLEE', city: 'tor', age: 22, genre: 'pop', subgenres: ['Synth-Pop'], path: 'bedroom' };
@@ -250,6 +250,18 @@ describe('industry ecosystem', () => {
     expect(r.ok).toBe(true); expect(industryOverview(r.state).contracts).toBe(1);
     const ended = endIndustryPartnership(r.state, { id: r.state.industry.partnerships[0].id });
     expect(ended.ok).toBe(true); expect(industryOverview(ended.state).contracts).toBe(0);
+  });
+  it('makes each partnership type affect the system it represents', () => {
+    const s = fresh();
+    const brand = signIndustryPartnership(s, { type: 'brand', partner: 'Brand desk', weeklyFee: 0, term: 26, bonus: 0.1 });
+    const promoter = signIndustryPartnership(brand.state, { type: 'promoter', partner: 'Live Nation', weeklyFee: 0, term: 26, bonus: 0.08 });
+    const publicist = signIndustryPartnership(promoter.state, { type: 'publicist', partner: 'Press House', weeklyFee: 0, term: 26, bonus: 0.06 });
+    const distribution = signIndustryPartnership(publicist.state, { type: 'distribution', partner: 'Global Distribution', weeklyFee: 0, term: 26, bonus: 0.1 });
+    expect(distribution.ok).toBe(true);
+    expect(partnershipBonus(distribution.state, 'brand')).toBeCloseTo(0.1);
+    expect(partnershipBonus(distribution.state, 'promoter')).toBeCloseTo(0.08);
+    expect(partnershipBonus(distribution.state, 'publicist')).toBeCloseTo(0.06);
+    expect(marketMultiplier(distribution.state, 'pop')).toBeGreaterThan(1);
   });
   it('keeps market multipliers bounded after a long simulation', () => {
     let s = fresh(); for (let i = 0; i < 60; i++) s = advanceWeek(s);

@@ -19,7 +19,7 @@ import { updateFame, releaseReception, receptionLabel, certifySong, albumWeek, n
 import { labelRoyalty, labelReach, contractTick, deliverAlbum, distributionTick, lifestyleUpkeep, actingTick, festivalTick, payolaExposure, bankTick, cloudTick, labelTerms, dealText, rivalLabelId } from './business.js';
 import { placeOnPlaylist } from './actions.js';
 import { FAME_TIERS } from './data2.js';
-import { industryTick, marketMultiplier } from './industry.js';
+import { industryTick, marketMultiplier, partnershipBonus } from './industry.js';
 
 const MAIN_CHARTS = ['hot100', 'global', 'album'];
 
@@ -252,7 +252,8 @@ export function advanceWeek(state) {
     pushNotif(s, 'fame', `You’re now considered a ${t.name.toLowerCase()} 🌟`, { tab: 'home' });
     if (['star', 'superstar', 'icon'].includes(t.id)) { pushNews(s, `${name} is officially a ${t.name.toLowerCase()}`, true, 'Fame'); statPost(s, `${name} has reached ${t.name} status.`, true); }
   }
-  p.hype = clamp(hypeDecay(p.hype, p.staff.publicist ? staffEff(s, 'publicist') : false), 0, 100);
+  const publicistEff = Math.min(1, (p.staff.publicist ? staffEff(s, 'publicist') : 0) + partnershipBonus(s, 'publicist') * 5);
+  p.hype = clamp(hypeDecay(p.hype, publicistEff || false), 0, 100);
   p.followers.chirp += Math.round(newFans * 0.3);
   p.followers.snapshot += Math.round(newFans * 0.35);
   p.followers.clipz += Math.round(newFans * 0.25);
@@ -493,13 +494,14 @@ function generateOffers(s, rng) {
     pushNotif(s, 'offer', `${from}: ${subject}`, { tab: 'phone', app: 'inbox' }, 'offer');
     return true;
   };
-  if (p.fans >= 1500 && rng.chance((0.16 + p.popularity / 260) * mgrBoost)) {
+  if (p.fans >= 1500 && rng.chance(Math.min(0.95, (0.16 + p.popularity / 260) * mgrBoost * (1 + partnershipBonus(s, 'brand') * 2)))) {
     const recent = s.brandHistory || {};
     const brands = BRANDS.filter((b) => !activeFrom.has(b) && !(recent[b] != null && W - recent[b] < 10));
     if (brands.length) {
       const brand = rng.pick(brands);
       const fameMult = { star: 1.3, superstar: 1.7, icon: 2 }[p.fame?.tier] || 1;
-      const cash = Math.round((p.fans * 0.03 + p.popularity * 60 + 300) * mgrBoost * fameMult * rng.float(0.8, 1.3));
+      const brandBoost = 1 + partnershipBonus(s, 'brand');
+      const cash = Math.round((p.fans * 0.03 + p.popularity * 60 + 300) * mgrBoost * fameMult * brandBoost * rng.float(0.8, 1.3));
       add('brand', brand, `${brand} wants you for a campaign`, `${brand} would like one sponsored post and a short ad spot. Fee: ${fmtMoney(cash)}. Costs 10 energy.`, { brand, cash, energy: 10 });
     }
   }
@@ -522,7 +524,8 @@ function generateOffers(s, rng) {
     for (const [cid] of heat.length ? heat : [[p.city]]) for (const v of top) if (!(s.offerLog[`gig|${cid}|${v.id}`] != null && W - s.offerLog[`gig|${cid}|${v.id}`] < 10)) options.push([cid, v]);
     if (options.length) {
       const [cityId, venue] = rng.pick(options);
-      const cash = Math.round(venue.capacity * venue.ticket * 0.5 * (1 + 0.2 * staffEff(s, 'booking')) * rng.float(0.8, 1.2));
+      const promoterBoost = 1 + partnershipBonus(s, 'promoter');
+      const cash = Math.round(venue.capacity * venue.ticket * 0.5 * (1 + 0.2 * staffEff(s, 'booking')) * promoterBoost * rng.float(0.8, 1.2));
       const fans = Math.round(venue.capacity * rng.float(0.04, 0.1));
       const c = cityById(cityId);
       if (add('gig', `${c.name} promoter`, `Gig offer: ${venue.name} in ${c.name}`, `Guaranteed fee ${fmtMoney(cash)} to play a ${venue.name.toLowerCase()} in ${c.flag} ${c.name}. Costs ${venue.energy} energy.`, { venue: `${venue.name}, ${c.name}`, city: cityId, cash, fans, energy: venue.energy })) s.offerLog[`gig|${cityId}|${venue.id}`] = W;

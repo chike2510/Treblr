@@ -17,6 +17,14 @@ export default function Charts() {
       </div>
 
       <div className="mt16">
+        {entries.length > 0 && (() => {
+          const leader = chartItem(state, id, entries[0]);
+          const own = mine.filter(x => x.chartId === id).sort((a,b) => a.r-b.r);
+          return <div className="card tight" style={{ background: 'linear-gradient(135deg, rgba(255,176,32,.15), rgba(14,17,22,.97) 68%)', borderColor: 'rgba(255,176,32,.22)' }}>
+            <Mono>THIS WEEK'S NO. 1</Mono><div className="row gap12 mt8"><Cover cover={leader.cover} size={72} radius={10}/><div className="grow" style={{minWidth:0}}><div className="head ellipsis">#1 · {leader.title}</div><div className="small muted ellipsis">{leader.artist}</div><div className="tiny muted mt4">{chart.name} · Week {state.week - 1 || 1}</div></div></div>
+            {own.length > 0 && <div className="row between tiny mt12"><span>Your highest entry</span><b>#{own[0].r} · {own[0].title}</b></div>}
+          </div>;
+        })()}
         {mine.length ? (<>
           <Mono className="sm" style={{ display: 'block', marginBottom: 8 }}>Your songs on the charts</Mono>
           <div className="pills">
@@ -36,9 +44,8 @@ export default function Charts() {
         {CHARTS.map((c) => <button key={c.id} className={`pill ${id === c.id ? 'on' : ''}`} onClick={() => { setId(c.id); setLimit(30); }}>{c.short ? c.name : c.name}</button>)}
       </div>
 
-      <div className="row between mt16" style={{ padding: '0 10px' }}>
-        <Mono className="sm">Rank · Move</Mono><Mono className="sm">{chart.kind === 'albums' ? 'Units' : id === 'radio' ? 'Spins' : 'Score'} · Wks</Mono>
-      </div>
+      <div className="card tight mt16"><div className="row between"><Mono>CHART INTELLIGENCE</Mono><span className="chip sm">{entries.length} entries</span></div><div className="tiny muted mt8">Positions respond to weekly consumption, radio activity and market performance. Track movement across markets to see where the next campaign should go.</div></div>
+      <div className="row between mt16" style={{ padding: '0 10px' }}><Mono className="sm">Rank · Move</Mono><Mono className="sm">{chart.kind === 'albums' ? 'Units' : id === 'radio' ? 'Spins' : 'Score'} · Wks</Mono></div>
       <div className="col gap4 mt8">
         {entries.slice(0, limit).map((e) => {
           const it = chartItem(state, id, e);

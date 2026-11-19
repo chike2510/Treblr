@@ -14,7 +14,7 @@ const TABS = [{ value: 'write', label: 'Write' }, { value: 'record', label: 'Rec
 export default function Studio({ initial, rival }) {
   const [tab, setTab] = useState(initial || 'write');
   return (
-    <div className="screen">
+    <div className="screen studio-redesign">
       <div className="row between">
         <div><Mono style={{ color: 'var(--coral)' }}>Studio</Mono><h1 style={{ fontSize: 30 }}>{TABS.find((t) => t.value === tab).label}</h1></div>
         <Icon name="mic" size={30} color="#FF6B4A" />

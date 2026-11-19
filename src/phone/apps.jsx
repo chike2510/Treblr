@@ -230,13 +230,20 @@ function Manager() {
   if (p.hype < 15) tips.push('Hype is cold. Post on TreblrX or do press before your next release.');
   hired.forEach((s) => tips.push(s.tips[state.week % s.tips.length]));
   if (!tips.length) tips.push('Stay consistent: one release every 3–6 weeks keeps your listeners growing.');
+  const weeklyTeamCost = hired.reduce((sum, s) => sum + (offers[s.id]?.salary || 0), 0);
+  const openRoles = STAFF.length - hired.length;
   return (
     <div>
-      <div className="card" style={{ background: 'linear-gradient(135deg,#6C7BFF33,#15151B)' }}>
+      <div className="card" style={{ background: 'linear-gradient(135deg,rgba(108,123,255,.22),#15151B 72%)' }}>
+        <Mono>MANAGEMENT OFFICE · WEEK {state.week}</Mono><div className="head mt8">Your career is a team operation</div>
+        <div className="grid2 mt12"><div className="stat"><Mono className="sm">Team members</Mono><div className="v">{hired.length}/{STAFF.length}</div></div><div className="stat"><Mono className="sm">Weekly payroll</Mono><div className="v">{fmtMoney(weeklyTeamCost)}</div></div></div>
+        <div className="tiny muted mt8">{openRoles} roles available. Compare efficiency, salary and commission before hiring; a bigger team only helps if the added value justifies the cost.</div>
+      </div>
+      <div className="card" style={{ background: 'linear-gradient(135deg,#6C7BFF20,#15151B)' }}>
         <Mono>Advice</Mono>
         {tips.slice(0, 4).map((t, i) => <div key={i} className="small mt8">💬 {t}</div>)}
       </div>
-      <h3 className="mt24" style={{ fontSize: 18 }}>Your team</h3>
+      <h3 className="mt24" style={{ fontSize: 18 }}>Team departments</h3>
       <div className="tiny muted mt4">Tap a role to browse this week's candidates. The list refreshes every week.</div>
       <div className="col mt12">
         {STAFF.map((s) => {
